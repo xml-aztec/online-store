@@ -1,5 +1,14 @@
 # Changelog
 
+## Задача 1.1 — Модели БД и миграции
+
+- `TimestampedBase` (`app/database.py`): общие `id UUID PK`, `created_at`/`updated_at` для всех таблиц.
+- SQLAlchemy-модели (13 таблиц): `users`, `refresh_tokens`, `addresses` (auth); `categories`, `products`, `product_variants`, `product_images` (catalog); `orders`, `order_items`, `order_status_history`, `promo_codes` (orders); `payments`, `payment_events` (payments) — с CHECK/UNIQUE-ограничениями и индексами из раздела 4 ТЗ, полем `external_id` из 11.1.
+- Единая миграция: расширения `citext` и `pg_trgm`; `search_vector` (GENERATED tsvector + GIN) и GIN trgm-индекс на `products.name`; общий триггер `set_updated_at()` (на `clock_timestamp()`) на всех 13 таблицах. Upgrade/downgrade проверены с нуля.
+- `tests/factories.py`: фабрики factory_boy на все 13 моделей (build-стратегия; FK передаёт вызывающий тест после `flush()` родителя).
+- Seed-скрипт (`make seed`, `app/scripts/seed.py`): 3 категории, 10 товаров HobbyLife, 27 вариантов (объём 0.5/1/1.5 л, цвета); идемпотентен (пропускает, если каталог уже заполнен).
+- Тесты на каждое CHECK-ограничение (users.role, orders.status/delivery_method/payment_method, product_variants.price/stock_qty, order_items.quantity, payments.status, promo_codes.discount_type), на UNIQUE(product_id, options), на генерацию search_vector и на срабатывание триггера updated_at.
+
 ## Задача 0.3 — CI и тестовый контур
 
 - GitHub Actions (`.github/workflows/ci.yml`): `lint` (ruff, mypy, eslint, tsc), `test-backend` (postgres+redis сервисами, автоприменение миграций, pytest), `build` (сборка api и frontend образов).

@@ -1,4 +1,4 @@
-.PHONY: up down logs test lint migrate
+.PHONY: up down logs test lint migrate seed
 
 up:
 	docker compose up --build
@@ -20,3 +20,6 @@ lint:
 
 migrate:
 	docker compose run --rm api alembic upgrade head
+
+seed:
+	docker compose run --rm api python -m app.scripts.seed
