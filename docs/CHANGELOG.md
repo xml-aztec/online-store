@@ -1,5 +1,16 @@
 # Changelog
 
+## Задача 1.2 — Auth-модуль
+
+- Все эндпоинты раздела 6.2 (`/v1/auth/register|login|refresh|logout|verify-email|forgot-password|reset-password`), смонтированные под `/v1` (Caddy снимает `/api`).
+- `core/security.py`: argon2 для паролей, JWT-access-токены (15 мин, с `jti`), refresh-токены (случайные, в БД хранится только sha256-хеш), одноразовые JWT-токены для верификации email/сброса пароля (сброс пароля инвалидируется отпечатком текущего `password_hash` — работает без таблицы отзыва).
+- `app/dependencies.py`: `get_current_user`, `require_role` (Bearer JWT).
+- Ротация refresh-токена при каждом `/refresh` с отзывом старого; повторное использование отозванного токена — 401.
+- Rate limiting на Redis (`core/rate_limit.py`): логин 5/15 мин на email+IP, регистрация 3/час на IP.
+- `core/email.py` + Jinja2-шаблоны, `core/queue.py` (arq) и `app/workers/` (задачи отправки писем верификации/сброса пароля); отдельный сервис `worker` в docker-compose.
+- Исправлено: `uvicorn --proxy-headers` (иначе rate limiting по IP видел бы только адрес Caddy, а не клиента); удлинён дефолтный `JWT_SECRET_KEY` в `.env.example` (был короче 32 байт); `get_redis()` — возврат `Any` под mypy strict из-за новой версии `redis-py`.
+- Интеграционные тесты (54 всего): полный цикл регистрация → верификация → логин → refresh → logout; повторный refresh старым токеном → 401; rate limit на логине и регистрации; forgot-password не раскрывает существование email; one-time-use сброса пароля.
+
 ## Задача 1.1 — Модели БД и миграции
 
 - `TimestampedBase` (`app/database.py`): общие `id UUID PK`, `created_at`/`updated_at` для всех таблиц.

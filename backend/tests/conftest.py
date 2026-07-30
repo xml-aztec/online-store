@@ -1,5 +1,6 @@
 import subprocess
 import sys
+import uuid
 from collections.abc import AsyncGenerator
 
 import pytest
@@ -39,7 +40,9 @@ async def client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
         yield db_session
 
     app.dependency_overrides[get_db] = override_get_db
-    transport = ASGITransport(app=app)
+    # Unique fake client IP per test -- otherwise IP-keyed rate limits (Redis state,
+    # not rolled back like db_session) would accumulate across unrelated tests.
+    transport = ASGITransport(app=app, client=(f"test-{uuid.uuid4().hex[:12]}", 12345))
     try:
         async with AsyncClient(transport=transport, base_url="http://test") as ac:
             yield ac

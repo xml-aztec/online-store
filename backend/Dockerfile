@@ -14,7 +14,9 @@ FROM base AS dev
 COPY tests ./tests
 RUN pip install -e ".[dev]"
 EXPOSE 8000
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+# --proxy-headers: api has no published port, only Caddy talks to it, so trusting
+# X-Forwarded-For from any upstream is safe and needed for real client IPs (rate limiting).
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload", "--proxy-headers", "--forwarded-allow-ips=*"]
 
 # --- builder: install runtime deps only, for a lean prod image ---
 FROM base AS builder
@@ -30,4 +32,4 @@ COPY app ./app
 COPY alembic.ini ./
 COPY alembic ./alembic
 EXPOSE 8000
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers", "--forwarded-allow-ips=*"]
