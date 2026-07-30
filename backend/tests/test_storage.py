@@ -3,7 +3,7 @@ import pytest
 
 from app.config import settings
 from app.core.storage import ensure_bucket_exists, generate_presigned_url, get_s3_client
-from tests.helpers import s3_reachable
+from tests.helpers import s3_public_url_reachable, s3_reachable
 
 # CI's test-backend job only provisions postgres+redis (per Задача 0.3) -- these
 # tests skip rather than fail when no MinIO/S3 endpoint is reachable.
@@ -19,6 +19,11 @@ def test_ensure_bucket_exists_is_idempotent() -> None:
     get_s3_client().head_bucket(Bucket=settings.s3_bucket)
 
 
+@pytest.mark.skipif(
+    not s3_public_url_reachable(),
+    reason="S3 public URL host is not reachable from this environment (e.g. inside a "
+    "container, where 'localhost' isn't the host machine a browser would use)",
+)
 def test_presigned_url_roundtrip() -> None:
     ensure_bucket_exists()
     client = get_s3_client()
