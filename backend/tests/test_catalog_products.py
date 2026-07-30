@@ -14,7 +14,7 @@ from app.config import settings
 from app.core.storage import ensure_bucket_exists, get_s3_client
 from app.orders.models import Order, OrderItem
 from tests.factories import CategoryFactory, ProductFactory, ProductVariantFactory
-from tests.helpers import s3_reachable
+from tests.helpers import s3_public_url_reachable, s3_reachable
 
 
 def _slug(prefix: str) -> str:
@@ -388,7 +388,8 @@ async def test_product_detail_not_found(client: AsyncClient) -> None:
 
 @pytest.mark.asyncio
 @pytest.mark.skipif(
-    not s3_reachable(), reason="S3/MinIO endpoint is not reachable in this environment"
+    not (s3_reachable() and s3_public_url_reachable()),
+    reason="S3/MinIO endpoint or its public URL host is not reachable in this environment",
 )
 async def test_product_detail_includes_working_presigned_image_url(
     client: AsyncClient, db_session: AsyncSession

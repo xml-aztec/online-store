@@ -13,7 +13,7 @@ from app.core.queue import get_arq_pool
 from app.core.security import create_access_token
 from app.core.storage import generate_presigned_url
 from app.workers.tasks import process_product_image
-from tests.helpers import s3_reachable
+from tests.helpers import s3_public_url_reachable, s3_reachable
 
 pytestmark = pytest.mark.skipif(
     not s3_reachable(), reason="S3/MinIO endpoint is not reachable in this environment"
@@ -73,6 +73,11 @@ async def test_upload_rejects_non_image_file(
 
 
 @pytest.mark.asyncio
+@pytest.mark.skipif(
+    not s3_public_url_reachable(),
+    reason="S3 public URL host is not reachable from this environment (e.g. inside a "
+    "container, where 'localhost' isn't the host machine a browser would use)",
+)
 async def test_upload_enqueues_resize_job_and_resize_produces_two_webp_previews(
     client: httpx.AsyncClient, db_session: AsyncSession, monkeypatch: pytest.MonkeyPatch
 ) -> None:
