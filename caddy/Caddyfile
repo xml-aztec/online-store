@@ -1,0 +1,12 @@
+# Local dev reverse proxy. No domain yet -> plain :80, no automatic HTTPS.
+# /api/* is stripped of its prefix before reaching the api service, so
+# "GET /api/health" externally maps to "GET /health" inside the api container.
+:80 {
+	handle_path /api/* {
+		reverse_proxy api:8000
+	}
+
+	handle {
+		reverse_proxy frontend:3000
+	}
+}
