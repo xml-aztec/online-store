@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 
+from app.admin.router import router as admin_router
 from app.auth.router import router as auth_router
 from app.catalog.router import router as catalog_router
 from app.core.logging import configure_logging
@@ -16,6 +17,7 @@ register_exception_handlers(app)
 # external "/api/v1/..." reaches this app as "/v1/...".
 app.include_router(auth_router, prefix="/v1")
 app.include_router(catalog_router, prefix="/v1")
+app.include_router(admin_router, prefix="/v1")
 
 
 @app.get("/health")
