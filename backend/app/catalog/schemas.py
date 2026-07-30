@@ -28,6 +28,7 @@ class CategorySummary(BaseModel):
 
 class ProductImagePublic(BaseModel):
     url: str
+    thumbnail_url: str
     alt: str | None
     sort_order: int
 

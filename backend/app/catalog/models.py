@@ -108,6 +108,7 @@ class ProductImage(TimestampedBase):
         ForeignKey("products.id", ondelete="CASCADE"), nullable=False
     )
     s3_key: Mapped[str] = mapped_column(nullable=False)
+    thumbnail_s3_key: Mapped[str | None] = mapped_column(nullable=True)
     alt: Mapped[str | None] = mapped_column(nullable=True)
     sort_order: Mapped[int] = mapped_column(nullable=False, server_default=text("0"))
 
