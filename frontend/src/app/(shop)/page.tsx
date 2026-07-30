@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
-import { getCategoryTree } from "@/entities/category/api";
-import { listProducts } from "@/entities/product/api";
+import { getCategoryTree, type CategoryNode } from "@/entities/category/api";
+import { listProducts, type ListProductsParams, type ProductListResponse } from "@/entities/product/api";
 import { ProductCard } from "@/widgets/ProductCard";
 
 export const revalidate = 60;
@@ -11,11 +11,41 @@ export const metadata: Metadata = {
   title: "Главная",
 };
 
+const EMPTY_PRODUCT_LIST: ProductListResponse = {
+  items: [],
+  total: 0,
+  page: 1,
+  page_size: 0,
+  facets: { price_min: null, price_max: null, options: {} },
+};
+
+// The homepage is eligible for static prerendering at build time (no dynamic
+// APIs used), which means `next build` fetches this data with no live backend
+// guaranteed to be reachable yet (e.g. a standalone `docker build` in CI, or a
+// production image built before the backend service exists). Fall back to an
+// empty state so the build succeeds with just the banner; real ISR traffic
+// against a live backend fills in the actual sections within `revalidate`.
+async function safeCategoryTree(): Promise<CategoryNode[]> {
+  try {
+    return await getCategoryTree();
+  } catch {
+    return [];
+  }
+}
+
+async function safeProductList(params: ListProductsParams): Promise<ProductListResponse> {
+  try {
+    return await listProducts(params);
+  } catch {
+    return { ...EMPTY_PRODUCT_LIST, page_size: params.page_size ?? 0 };
+  }
+}
+
 export default async function HomePage() {
   const [categories, newest, popular] = await Promise.all([
-    getCategoryTree(),
-    listProducts({ sort: "newest", page_size: 8 }),
-    listProducts({ sort: "popular", page_size: 8 }),
+    safeCategoryTree(),
+    safeProductList({ sort: "newest", page_size: 8 }),
+    safeProductList({ sort: "popular", page_size: 8 }),
   ]);
 
   return (
