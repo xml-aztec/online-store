@@ -8,6 +8,7 @@ import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from app.catalog.service import invalidate_category_cache
 from app.database import engine, get_db
 from app.main import app
 
@@ -15,6 +16,15 @@ from app.main import app
 @pytest.fixture(scope="session", autouse=True)
 def apply_migrations() -> None:
     subprocess.run([sys.executable, "-m", "alembic", "upgrade", "head"], check=True)
+
+
+@pytest_asyncio.fixture(autouse=True)
+async def _clear_category_cache() -> AsyncGenerator[None, None]:
+    # Redis state (unlike db_session) isn't rolled back per test -- a cached tree from
+    # one test would otherwise leak into the next test's assertions.
+    await invalidate_category_cache()
+    yield
+    await invalidate_category_cache()
 
 
 @pytest_asyncio.fixture
