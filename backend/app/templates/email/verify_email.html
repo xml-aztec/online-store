@@ -1,0 +1,10 @@
+<!doctype html>
+<html lang="ru">
+  <body style="font-family: sans-serif; color: #1a1a1a;">
+    <h1 style="font-size: 20px;">Подтверждение email — HobbyLife</h1>
+    <p>Здравствуйте{{ ", " + full_name if full_name else "" }}!</p>
+    <p>Чтобы подтвердить адрес электронной почты, перейдите по ссылке:</p>
+    <p><a href="{{ verify_url }}">Подтвердить email</a></p>
+    <p style="color: #666;">Ссылка действительна 24 часа.</p>
+  </body>
+</html>
