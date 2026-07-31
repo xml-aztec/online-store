@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 
 from app.account.router import router as account_router
+from app.admin.imports_router import router as admin_imports_router
 from app.admin.orders_router import router as admin_orders_router
 from app.admin.router import router as admin_router
 from app.auth.router import router as auth_router
@@ -28,6 +29,7 @@ app.include_router(payments_router, prefix="/v1")
 app.include_router(catalog_router, prefix="/v1")
 app.include_router(admin_router, prefix="/v1")
 app.include_router(admin_orders_router, prefix="/v1")
+app.include_router(admin_imports_router, prefix="/v1")
 
 
 @app.get("/health")

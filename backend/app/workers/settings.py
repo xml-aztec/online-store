@@ -5,6 +5,7 @@ from arq.cron import cron
 
 from app.config import settings
 from app.workers.tasks import (
+    apply_import_job,
     cancel_expired_orders,
     process_payment_succeeded,
     process_product_image,
@@ -21,6 +22,7 @@ class WorkerSettings:
         process_product_image,
         send_order_status_email,
         process_payment_succeeded,
+        apply_import_job,
     ]
     # Every minute -- expires_at deadlines are minute-granularity anyway (30 min TTL).
     cron_jobs = [cron(cancel_expired_orders, second=0)]

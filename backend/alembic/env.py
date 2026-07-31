@@ -10,6 +10,7 @@ from app.auth.models import Address, RefreshToken, User  # noqa: F401
 from app.catalog.models import Category, Product, ProductImage, ProductVariant  # noqa: F401
 from app.config import settings
 from app.database import Base
+from app.imports.models import ImportJob  # noqa: F401
 from app.orders.models import Order, OrderItem, OrderStatusHistory, PromoCode  # noqa: F401
 from app.payments.models import Payment, PaymentEvent  # noqa: F401
 

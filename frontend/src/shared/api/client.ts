@@ -70,3 +70,32 @@ export async function apiFetch<T>(path: string, options: RequestInit = {}): Prom
 
   return (await response.json()) as T;
 }
+
+// Like apiFetch, but doesn't force a JSON Content-Type (needed for FormData
+// uploads, where the browser must set its own multipart boundary) and hands
+// back the raw Response so callers can read it as JSON or a Blob.
+export async function apiFetchRaw(path: string, options: RequestInit = {}): Promise<Response> {
+  const headers: Record<string, string> = {
+    ...(options.headers as Record<string, string> | undefined),
+  };
+  if (accessToken && typeof window !== "undefined") {
+    headers["Authorization"] = `Bearer ${accessToken}`;
+  }
+
+  const response = await fetch(`${getBaseUrl()}${path}`, {
+    ...options,
+    headers,
+  });
+
+  if (!response.ok) {
+    const body = (await response.json().catch(() => null)) as ErrorEnvelope | null;
+    throw new ApiError(
+      response.status,
+      body?.error.code ?? "UNKNOWN_ERROR",
+      body?.error.message ?? response.statusText,
+      body?.error.details ?? {}
+    );
+  }
+
+  return response;
+}
