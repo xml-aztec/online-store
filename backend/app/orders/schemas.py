@@ -29,6 +29,12 @@ class CheckoutResponse(BaseModel):
     payment_url: str | None
 
 
+class CheckoutConfigResponse(BaseModel):
+    payment_methods: list[Literal["cash_on_delivery", "online"]]
+    courier_delivery_cost: Decimal
+    free_delivery_threshold: Decimal
+
+
 class OrderItemPublic(BaseModel):
     product_name: str
     variant_options: dict[str, Any]

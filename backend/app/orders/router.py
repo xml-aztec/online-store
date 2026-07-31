@@ -1,15 +1,17 @@
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.models import User
 from app.cart.dependencies import CartContext, get_cart_context
+from app.config import settings
 from app.database import get_db
 from app.dependencies import get_current_user
 from app.orders import service as orders_service
 from app.orders.models import Order
 from app.orders.schemas import (
+    CheckoutConfigResponse,
     CheckoutRequest,
     CheckoutResponse,
     OrderItemPublic,
@@ -19,6 +21,19 @@ from app.orders.schemas import (
 )
 
 router = APIRouter(tags=["orders"])
+
+
+@router.get("/checkout/config", response_model=CheckoutConfigResponse)
+async def get_checkout_config() -> CheckoutConfigResponse:
+    payment_methods: list[Literal["cash_on_delivery", "online"]] = ["cash_on_delivery"]
+    if settings.payment_providers_list:
+        payment_methods.append("online")
+
+    return CheckoutConfigResponse(
+        payment_methods=payment_methods,
+        courier_delivery_cost=settings.courier_delivery_cost,
+        free_delivery_threshold=settings.free_delivery_threshold,
+    )
 
 
 def _order_to_public(order: Order) -> OrderPublic:

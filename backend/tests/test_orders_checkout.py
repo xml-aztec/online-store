@@ -47,6 +47,20 @@ async def _make_variant(
 
 
 @pytest.mark.asyncio
+async def test_checkout_config_reports_available_payment_methods_and_tariffs(
+    client: httpx.AsyncClient,
+) -> None:
+    response = await client.get("/v1/checkout/config")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert "cash_on_delivery" in body["payment_methods"]
+    assert "online" in body["payment_methods"]
+    assert Decimal(body["courier_delivery_cost"]) == Decimal("150")
+    assert Decimal(body["free_delivery_threshold"]) == Decimal("3000")
+
+
+@pytest.mark.asyncio
 async def test_checkout_with_empty_cart_returns_409(client: httpx.AsyncClient) -> None:
     response = await client.post("/v1/orders", json=CHECKOUT_BASE)
 
