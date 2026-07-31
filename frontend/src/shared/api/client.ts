@@ -29,13 +29,29 @@ export class ApiError extends Error {
   }
 }
 
+// Plain module state, not a React store: ТЗ 5.5 keeps the access token in
+// frontend memory only (no localStorage), and apiFetch is a bare function
+// used from both Server and Client Components, so it can't depend on a React
+// hook. entities/auth/store.ts (the reactive, UI-facing state) calls
+// setAccessToken() to keep this in sync whenever it changes.
+let accessToken: string | null = null;
+
+export function setAccessToken(token: string | null): void {
+  accessToken = token;
+}
+
 export async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    ...(options.headers as Record<string, string> | undefined),
+  };
+  if (accessToken && typeof window !== "undefined") {
+    headers["Authorization"] = `Bearer ${accessToken}`;
+  }
+
   const response = await fetch(`${getBaseUrl()}${path}`, {
     ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...options.headers,
-    },
+    headers,
   });
 
   if (!response.ok) {
