@@ -15,6 +15,7 @@ from app.core.storage import get_s3_client
 from app.database import async_session_factory
 from app.orders import service as orders_service
 from app.orders.models import Order
+from app.payments.models import Payment
 
 if TYPE_CHECKING:
     from mypy_boto3_s3 import S3Client
@@ -118,6 +119,19 @@ async def send_order_status_email(ctx: dict[str, Any], *, order_id: str, status:
                 "full_name": order.full_name,
                 "status_label": _ORDER_STATUS_LABELS.get(status, status),
             },
+        )
+
+
+async def process_payment_succeeded(ctx: dict[str, Any], *, payment_id: str) -> None:
+    async with async_session_factory() as session:
+        payment = await session.get(Payment, uuid.UUID(payment_id))
+        if payment is None:
+            return
+        order = await session.get(Order, payment.order_id)
+        if order is None or order.status != "awaiting_payment":
+            return
+        await orders_service.transition_status(
+            session, order, to_status="paid", changed_by=None, comment="Оплата подтверждена"
         )
 
 

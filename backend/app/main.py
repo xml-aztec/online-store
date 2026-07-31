@@ -9,6 +9,7 @@ from app.core.logging import configure_logging
 from app.exceptions import register_exception_handlers
 from app.middleware import RequestIDMiddleware
 from app.orders.router import router as orders_router
+from app.payments.router import router as payments_router
 
 configure_logging()
 
@@ -22,6 +23,7 @@ app.include_router(auth_router, prefix="/v1")
 app.include_router(account_router, prefix="/v1")
 app.include_router(cart_router, prefix="/v1")
 app.include_router(orders_router, prefix="/v1")
+app.include_router(payments_router, prefix="/v1")
 app.include_router(catalog_router, prefix="/v1")
 app.include_router(admin_router, prefix="/v1")
 
