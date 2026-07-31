@@ -13,6 +13,7 @@ from app.config import settings
 from app.core.email import send_email
 from app.core.storage import get_s3_client
 from app.database import async_session_factory
+from app.imports import service as imports_service
 from app.orders import service as orders_service
 from app.orders.models import Order
 from app.payments.models import Payment
@@ -151,3 +152,8 @@ async def cancel_expired_orders(ctx: dict[str, Any]) -> None:
                 changed_by=None,
                 comment="Истёк срок оплаты",
             )
+
+
+async def apply_import_job(ctx: dict[str, Any], *, import_job_id: str) -> None:
+    async with async_session_factory() as session:
+        await imports_service.apply_import(session, import_job_id=uuid.UUID(import_job_id))

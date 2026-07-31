@@ -46,6 +46,11 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                 Товары
               </Link>
             )}
+            {role === "admin" && (
+              <Link href="/admin/imports" className="hover:text-zinc-900 dark:hover:text-zinc-100">
+                Импорт
+              </Link>
+            )}
           </nav>
           <div className="flex items-center gap-3 text-sm text-zinc-500">
             <span>{email}</span>
