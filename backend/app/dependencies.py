@@ -13,12 +13,12 @@ from app.exceptions import DomainError
 _bearer_scheme = HTTPBearer(auto_error=False)
 
 
-async def get_current_user(
+async def get_optional_user(
     credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(_bearer_scheme)],
     db: Annotated[AsyncSession, Depends(get_db)],
-) -> User:
+) -> User | None:
     if credentials is None:
-        raise DomainError("Требуется авторизация", code="NOT_AUTHENTICATED", status_code=401)
+        return None
 
     try:
         payload = decode_access_token(credentials.credentials)
@@ -29,6 +29,12 @@ async def get_current_user(
     if user is None or not user.is_active:
         raise DomainError("Пользователь не найден", code="USER_NOT_FOUND", status_code=401)
 
+    return user
+
+
+async def get_current_user(user: Annotated[User | None, Depends(get_optional_user)]) -> User:
+    if user is None:
+        raise DomainError("Требуется авторизация", code="NOT_AUTHENTICATED", status_code=401)
     return user
 
 

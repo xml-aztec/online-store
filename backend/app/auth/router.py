@@ -14,6 +14,7 @@ from app.auth.schemas import (
     UserPublic,
     VerifyEmailRequest,
 )
+from app.cart import service as cart_service
 from app.config import settings
 from app.core.rate_limit import (
     LOGIN_RATE_LIMIT,
@@ -87,6 +88,11 @@ async def login(
     user = await auth_service.authenticate(db, email=payload.email, password=payload.password)
     access_token, raw_refresh_token = await auth_service.issue_tokens(db, user)
     _set_refresh_cookie(response, raw_refresh_token)
+
+    cart_id = request.cookies.get(cart_service.CART_COOKIE_NAME)
+    if cart_id:
+        await cart_service.merge_guest_cart_into_user(db, cart_id=cart_id, user_id=user.id)
+
     return TokenResponse(access_token=access_token)
 
 
