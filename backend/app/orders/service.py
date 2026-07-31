@@ -16,6 +16,7 @@ from app.core.redis import get_redis
 from app.exceptions import DomainError
 from app.orders.models import Order, OrderItem, OrderStatusHistory, PromoCode
 from app.payments.models import Payment
+from app.payments.providers.registry import get_default_provider
 
 # ТЗ 5.1: allowed transitions; everything else is a 409.
 ALLOWED_TRANSITIONS: dict[str, set[str]] = {
@@ -201,18 +202,18 @@ async def create_order(
 
     payment_url: str | None = None
     if payment_method == "online":
+        provider = get_default_provider()
+        payment_info = await provider.create_payment(order)
         payment = Payment(
             order_id=order.id,
-            provider=settings.payment_providers_list[0],
+            provider=provider.name,
+            external_id=payment_info.external_id,
             status="created",
             amount=total,
         )
         session.add(payment)
         await session.flush()
-        # Provisional: real provider dispatch (MockPaymentProvider et al., ТЗ 5.4)
-        # is built in Задача 4.1. For now this just identifies the created Payment
-        # row so the checkout response already has the right shape.
-        payment_url = f"/v1/payments/{payment.id}"
+        payment_url = payment_info.payment_url
 
     await session.commit()
     await cart_service.clear_cart(cart_key)
