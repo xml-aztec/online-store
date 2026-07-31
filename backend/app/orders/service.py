@@ -1,9 +1,10 @@
 import uuid
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import Any, cast
 
-from sqlalchemy import func, select, update
+from sqlalchemy import ColumnElement, func, or_, select, update
 from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -332,3 +333,127 @@ async def get_my_order(session: AsyncSession, *, user_id: uuid.UUID, number: str
     if order is None:
         raise DomainError("Заказ не найден", code="ORDER_NOT_FOUND", status_code=404)
     return order
+
+
+# --- Admin: orders ---
+
+
+async def list_orders_admin(
+    session: AsyncSession,
+    *,
+    status_filter: str | None,
+    date_from: datetime | None,
+    date_to: datetime | None,
+    search: str | None,
+    page: int,
+    page_size: int,
+) -> tuple[list[Order], int]:
+    conditions: list[ColumnElement[bool]] = []
+    if status_filter is not None:
+        conditions.append(Order.status == status_filter)
+    if date_from is not None:
+        conditions.append(Order.created_at >= date_from)
+    if date_to is not None:
+        conditions.append(Order.created_at <= date_to)
+    if search:
+        pattern = f"%{search}%"
+        conditions.append(or_(Order.number.ilike(pattern), Order.email.ilike(pattern)))
+
+    total = (
+        await session.scalar(select(func.count()).select_from(Order).where(*conditions))
+    ) or 0
+    rows = (
+        await session.scalars(
+            select(Order)
+            .where(*conditions)
+            .order_by(Order.created_at.desc())
+            .offset((page - 1) * page_size)
+            .limit(page_size)
+        )
+    ).all()
+    return list(rows), total
+
+
+async def get_order_admin(session: AsyncSession, *, order_id: uuid.UUID) -> Order:
+    order = await session.scalar(
+        select(Order)
+        .options(selectinload(Order.items), selectinload(Order.status_history))
+        .where(Order.id == order_id)
+    )
+    if order is None:
+        raise DomainError("Заказ не найден", code="ORDER_NOT_FOUND", status_code=404)
+    return order
+
+
+# --- Admin: stats ---
+
+
+@dataclass
+class PeriodStats:
+    orders_count: int
+    revenue: Decimal
+
+
+@dataclass
+class TopProductStats:
+    product_name: str
+    quantity_sold: int
+    revenue: Decimal
+
+
+@dataclass
+class StatsSummary:
+    last_7_days: PeriodStats
+    last_30_days: PeriodStats
+    top_products: list[TopProductStats]
+
+
+async def _period_stats(session: AsyncSession, *, since: datetime) -> PeriodStats:
+    orders_count = (
+        await session.scalar(
+            select(func.count()).select_from(Order).where(Order.created_at >= since)
+        )
+    ) or 0
+    revenue = (
+        await session.scalar(
+            select(func.coalesce(func.sum(Order.total), 0)).where(
+                Order.created_at >= since, Order.status != "cancelled"
+            )
+        )
+    ) or Decimal("0")
+    return PeriodStats(orders_count=orders_count, revenue=Decimal(revenue))
+
+
+async def get_stats_summary(session: AsyncSession) -> StatsSummary:
+    now = datetime.now(UTC)
+    top_products_since = now - timedelta(days=30)
+
+    # Scoped to the same 30-day window as the headline numbers -- an all-time
+    # top-5 would just ossify into the same list forever on a live dashboard.
+    top_rows = (
+        await session.execute(
+            select(
+                OrderItem.product_name,
+                func.sum(OrderItem.quantity).label("quantity_sold"),
+                func.sum(OrderItem.line_total).label("revenue"),
+            )
+            .join(Order, Order.id == OrderItem.order_id)
+            .where(Order.status != "cancelled", Order.created_at >= top_products_since)
+            .group_by(OrderItem.product_name)
+            .order_by(func.sum(OrderItem.quantity).desc())
+            .limit(5)
+        )
+    ).all()
+
+    return StatsSummary(
+        last_7_days=await _period_stats(session, since=now - timedelta(days=7)),
+        last_30_days=await _period_stats(session, since=now - timedelta(days=30)),
+        top_products=[
+            TopProductStats(
+                product_name=row.product_name,
+                quantity_sold=row.quantity_sold,
+                revenue=Decimal(row.revenue),
+            )
+            for row in top_rows
+        ],
+    )

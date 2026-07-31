@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime
 from decimal import Decimal
 from typing import Any
 
@@ -122,3 +123,81 @@ class BulkStatusRequest(BaseModel):
 
 class BulkStatusResponse(BaseModel):
     updated: int
+
+
+class AdminOrderItemPublic(BaseModel):
+    product_name: str
+    variant_options: dict[str, Any]
+    sku: str
+    unit_price: Decimal
+    quantity: int
+    line_total: Decimal
+
+
+class AdminOrderStatusHistoryPublic(BaseModel):
+    from_status: str | None
+    to_status: str
+    changed_by: uuid.UUID | None
+    comment: str | None
+    created_at: datetime
+
+
+class AdminOrderListItem(BaseModel):
+    id: uuid.UUID
+    number: str
+    status: str
+    email: str
+    full_name: str
+    total: Decimal
+    created_at: datetime
+
+
+class AdminOrderListResponse(BaseModel):
+    items: list[AdminOrderListItem]
+    total: int
+    page: int
+    page_size: int
+
+
+class AdminOrderDetail(BaseModel):
+    id: uuid.UUID
+    number: str
+    status: str
+    email: str
+    phone: str
+    full_name: str
+    payment_method: str
+    delivery_method: str
+    delivery_address: dict[str, Any] | None
+    delivery_cost: Decimal
+    subtotal: Decimal
+    discount_amount: Decimal
+    total: Decimal
+    comment: str | None
+    expires_at: datetime | None
+    created_at: datetime
+    allowed_transitions: list[str]
+    items: list[AdminOrderItemPublic]
+    status_history: list[AdminOrderStatusHistoryPublic]
+
+
+class AdminOrderStatusUpdateRequest(BaseModel):
+    to_status: str
+    comment: str | None = None
+
+
+class StatsPeriodResponse(BaseModel):
+    orders_count: int
+    revenue: Decimal
+
+
+class TopProductResponse(BaseModel):
+    product_name: str
+    quantity_sold: int
+    revenue: Decimal
+
+
+class StatsSummaryResponse(BaseModel):
+    last_7_days: StatsPeriodResponse
+    last_30_days: StatsPeriodResponse
+    top_products: list[TopProductResponse]
