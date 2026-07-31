@@ -1,9 +1,11 @@
 import asyncio
 import io
 import uuid
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
 from PIL import Image
+from sqlalchemy import select
 
 from app.auth.models import User
 from app.catalog.models import ProductImage
@@ -11,12 +13,20 @@ from app.config import settings
 from app.core.email import send_email
 from app.core.storage import get_s3_client
 from app.database import async_session_factory
+from app.orders import service as orders_service
+from app.orders.models import Order
 
 if TYPE_CHECKING:
     from mypy_boto3_s3 import S3Client
 
 _PREVIEW_THUMBNAIL_SIZE = 400
 _PREVIEW_LARGE_SIZE = 800
+
+_ORDER_STATUS_LABELS = {
+    "paid": "оплата получена",
+    "shipped": "заказ отправлен",
+    "cancelled": "заказ отменён",
+}
 
 
 async def send_verification_email(ctx: dict[str, Any], *, user_id: str, token: str) -> None:
@@ -91,3 +101,39 @@ def _save_resized(client: "S3Client", image: Image.Image, *, max_size: int, key:
     client.put_object(
         Bucket=settings.s3_bucket, Key=key, Body=buffer.getvalue(), ContentType="image/webp"
     )
+
+
+async def send_order_status_email(ctx: dict[str, Any], *, order_id: str, status: str) -> None:
+    async with async_session_factory() as session:
+        order = await session.get(Order, uuid.UUID(order_id))
+        if order is None:
+            return
+
+        await send_email(
+            to=order.email,
+            subject=f"Заказ {order.number} — HobbyLife",
+            template_name="order_status_update.html",
+            context={
+                "order_number": order.number,
+                "full_name": order.full_name,
+                "status_label": _ORDER_STATUS_LABELS.get(status, status),
+            },
+        )
+
+
+async def cancel_expired_orders(ctx: dict[str, Any]) -> None:
+    async with async_session_factory() as session:
+        now = datetime.now(UTC)
+        expired = (
+            await session.scalars(
+                select(Order).where(Order.status == "awaiting_payment", Order.expires_at < now)
+            )
+        ).all()
+        for order in expired:
+            await orders_service.transition_status(
+                session,
+                order,
+                to_status="cancelled",
+                changed_by=None,
+                comment="Истёк срок оплаты",
+            )

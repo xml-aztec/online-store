@@ -78,7 +78,7 @@ async def _load_primary_images(
     return primary_by_product
 
 
-def _promo_validation_error(promo: PromoCode, *, subtotal: Decimal) -> DomainError | None:
+def validate_promo(promo: PromoCode, *, subtotal: Decimal) -> DomainError | None:
     now = datetime.now(UTC)
     if not promo.is_active:
         return DomainError("Промокод недействителен", code="PROMO_INACTIVE", status_code=409)
@@ -100,7 +100,7 @@ def _promo_validation_error(promo: PromoCode, *, subtotal: Decimal) -> DomainErr
     return None
 
 
-def _compute_discount(promo: PromoCode, *, subtotal: Decimal) -> Decimal:
+def compute_discount(promo: PromoCode, *, subtotal: Decimal) -> Decimal:
     if promo.discount_type == "percent":
         return (subtotal * promo.discount_value / Decimal("100")).quantize(Decimal("0.01"))
     return min(promo.discount_value, subtotal)
@@ -160,8 +160,8 @@ async def _build_cart_response(session: AsyncSession, raw: dict[str, str]) -> Ca
     discount_amount = Decimal("0")
     if promo_code:
         promo = await session.scalar(select(PromoCode).where(PromoCode.code == promo_code))
-        if promo is not None and _promo_validation_error(promo, subtotal=subtotal) is None:
-            discount_amount = _compute_discount(promo, subtotal=subtotal)
+        if promo is not None and validate_promo(promo, subtotal=subtotal) is None:
+            discount_amount = compute_discount(promo, subtotal=subtotal)
 
     return CartResponse(
         items=items,
@@ -176,6 +176,15 @@ async def get_cart(session: AsyncSession, key: str) -> CartResponse:
     redis = get_redis()
     raw = await _hgetall(redis, key)
     return await _build_cart_response(session, raw)
+
+
+async def get_cart_snapshot(key: str) -> tuple[dict[uuid.UUID, int], str | None]:
+    """Raw {variant_id: qty} + applied promo code, with no DB enrichment -- for
+    checkout (app.orders.service), which needs to read quantities once and then
+    do its own price/stock reads inside the order-creation transaction."""
+    redis = get_redis()
+    raw = await _hgetall(redis, key)
+    return _parse_items(raw), raw.get(_PROMO_FIELD)
 
 
 async def _get_variant_or_404(session: AsyncSession, variant_id: uuid.UUID) -> ProductVariant:
@@ -244,7 +253,7 @@ async def apply_promo(session: AsyncSession, key: str, *, code: str) -> CartResp
         raise DomainError("Промокод не найден", code="PROMO_NOT_FOUND", status_code=404)
 
     current_cart = await get_cart(session, key)
-    error = _promo_validation_error(promo, subtotal=current_cart.subtotal)
+    error = validate_promo(promo, subtotal=current_cart.subtotal)
     if error is not None:
         raise error
 
