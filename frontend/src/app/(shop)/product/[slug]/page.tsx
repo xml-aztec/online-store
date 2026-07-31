@@ -92,7 +92,13 @@ export default async function ProductPage({ params }: ProductPageProps) {
           )}
 
           <div className="mt-6">
-            <ProductPurchasePanel variants={product.variants} />
+            <ProductPurchasePanel
+              variants={product.variants}
+              productId={product.id}
+              productName={product.name}
+              productSlug={product.slug}
+              imageUrl={product.images[0]?.url ?? null}
+            />
           </div>
 
           {attributeEntries.length > 0 && (

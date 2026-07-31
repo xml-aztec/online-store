@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 
-import { useCartStore } from "@/entities/cart/store";
+import { useAddCartItemMutation } from "@/entities/cart/queries";
 import type { ProductVariant } from "@/entities/product/api";
 import { formatPrice } from "@/shared/lib/formatPrice";
 
@@ -46,12 +46,26 @@ function stockLabel(variant: ProductVariant | undefined): string {
   return "В наличии";
 }
 
-export function ProductPurchasePanel({ variants }: { variants: ProductVariant[] }) {
+interface ProductPurchasePanelProps {
+  variants: ProductVariant[];
+  productId: string;
+  productName: string;
+  productSlug: string;
+  imageUrl: string | null;
+}
+
+export function ProductPurchasePanel({
+  variants,
+  productId,
+  productName,
+  productSlug,
+  imageUrl,
+}: ProductPurchasePanelProps) {
   const axes = useMemo(() => getAxes(variants), [variants]);
   const [selection, setSelection] = useState<Record<string, string>>(() =>
     defaultSelection(variants, axes)
   );
-  const increment = useCartStore((state) => state.increment);
+  const addItem = useAddCartItemMutation();
 
   const selectedVariant = variants.find((variant) => optionsMatch(variant, selection));
   const available = Boolean(
@@ -110,12 +124,34 @@ export function ProductPurchasePanel({ variants }: { variants: ProductVariant[] 
 
       <button
         type="button"
-        disabled={!available}
-        onClick={() => increment()}
+        disabled={!available || addItem.isPending}
+        onClick={() => {
+          if (!selectedVariant) return;
+          addItem.mutate({
+            variantId: selectedVariant.id,
+            qty: 1,
+            newItem: {
+              product_id: productId,
+              product_name: productName,
+              product_slug: productSlug,
+              sku: selectedVariant.sku,
+              options: selectedVariant.options,
+              image_url: imageUrl,
+              price: selectedVariant.price,
+            },
+          });
+        }}
         className="w-full rounded bg-zinc-900 px-4 py-3 font-medium text-white transition disabled:cursor-not-allowed disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900"
       >
-        Добавить в корзину
+        {addItem.isPending ? "Добавляем…" : "Добавить в корзину"}
       </button>
+
+      {addItem.isSuccess && (
+        <p className="text-sm text-emerald-600 dark:text-emerald-400">Добавлено в корзину</p>
+      )}
+      {addItem.isError && (
+        <p className="text-sm text-red-600 dark:text-red-400">{addItem.error.message}</p>
+      )}
     </div>
   );
 }

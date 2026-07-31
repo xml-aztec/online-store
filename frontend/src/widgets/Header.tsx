@@ -4,12 +4,13 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { type FormEvent, useState } from "react";
 
-import { useCartStore } from "@/entities/cart/store";
+import { cartItemCount, useCartQuery } from "@/entities/cart/queries";
 
 export function Header() {
   const router = useRouter();
   const [query, setQuery] = useState("");
-  const itemCount = useCartStore((state) => state.itemCount);
+  const { data: cart } = useCartQuery();
+  const itemCount = cartItemCount(cart);
 
   function handleSearchSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
