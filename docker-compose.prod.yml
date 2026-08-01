@@ -1,0 +1,139 @@
+# Production variant (Задача 5.3, ТЗ 2.3): no MinIO -- point S3_* at a real
+# S3-compatible bucket (e.g. Cloudflare R2) via .env. Built images only (no
+# source bind mounts), Caddy gets a real domain from ENV and handles TLS via
+# automatic HTTPS, and a backup service dumps Postgres daily. See docs/DEPLOY.md.
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    deploy:
+      resources:
+        limits:
+          cpus: "1"
+          memory: 512M
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M
+
+  api:
+    build:
+      context: ./backend
+      target: prod
+    restart: unless-stopped
+    env_file:
+      - .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          cpus: "1"
+          memory: 512M
+
+  worker:
+    build:
+      context: ./backend
+      target: prod
+    restart: unless-stopped
+    env_file:
+      - .env
+    command: ["arq", "app.workers.settings.WorkerSettings"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          cpus: "1"
+          memory: 512M
+
+  frontend:
+    build:
+      context: ./frontend
+      target: prod
+    restart: unless-stopped
+    env_file:
+      - .env
+    depends_on:
+      - api
+    deploy:
+      resources:
+        limits:
+          cpus: "1"
+          memory: 512M
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./caddy/Caddyfile.prod:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - api
+      - frontend
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M
+
+  backup:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - ./scripts/backup.sh:/scripts/backup.sh:ro
+      - ./scripts/backup-loop.sh:/scripts/backup-loop.sh:ro
+      - backup_data:/backups
+    entrypoint: ["/bin/sh", "/scripts/backup-loop.sh"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 128M
+
+volumes:
+  postgres_data:
+  redis_data:
+  caddy_data:
+  caddy_config:
+  backup_data:
