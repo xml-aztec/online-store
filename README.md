@@ -4,6 +4,7 @@
 
 Полная спецификация — [`docs/tz-internet-magazin.md`](docs/tz-internet-magazin.md).
 План разработки по задачам для ИИ-агентов — [`docs/plan-razrabotki.md`](docs/plan-razrabotki.md).
+Деплой в продакшен — [`docs/DEPLOY.md`](docs/DEPLOY.md).
 
 ## Стек
 

@@ -1,0 +1,27 @@
+# Production Caddyfile (Задача 5.3, ТЗ 2.3): real domain from ENV -> Caddy's
+# automatic HTTPS obtains and renews a Let's Encrypt certificate on its own.
+# Requires DNS for {$DOMAIN} to already point at this host and ports 80/443
+# reachable from the internet (80 is needed for the ACME HTTP-01 challenge).
+{
+	email {$ACME_EMAIL}
+}
+
+{$DOMAIN} {
+	# Same as the dev Caddyfile's ТЗ 8 headers -- Strict-Transport-Security
+	# actually takes effect here, unlike over dev's plain :80.
+	header {
+		X-Content-Type-Options nosniff
+		X-Frame-Options DENY
+		Referrer-Policy strict-origin-when-cross-origin
+		Permissions-Policy "geolocation=(), microphone=(), camera=()"
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+	}
+
+	handle_path /api/* {
+		reverse_proxy api:8000
+	}
+
+	handle {
+		reverse_proxy frontend:3000
+	}
+}

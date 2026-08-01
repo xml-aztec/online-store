@@ -1,4 +1,5 @@
-.PHONY: up down logs test lint migrate seed
+.PHONY: up down logs test lint migrate seed \
+	prod-up prod-down prod-logs prod-migrate prod-backup-now
 
 up:
 	docker compose up --build
@@ -23,3 +24,20 @@ migrate:
 
 seed:
 	docker compose run --rm api python -m app.scripts.seed
+
+# --- Задача 5.3: продакшен (docker-compose.prod.yml), см. docs/DEPLOY.md ---
+
+prod-up:
+	docker compose -f docker-compose.prod.yml up -d --build
+
+prod-down:
+	docker compose -f docker-compose.prod.yml down
+
+prod-logs:
+	docker compose -f docker-compose.prod.yml logs -f
+
+prod-migrate:
+	docker compose -f docker-compose.prod.yml run --rm api alembic upgrade head
+
+prod-backup-now:
+	docker compose -f docker-compose.prod.yml exec backup /scripts/backup.sh
