@@ -6,6 +6,7 @@ import httpx
 import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+from structlog.testing import capture_logs
 
 from app.auth.models import User
 from app.catalog.models import Category, Product, ProductVariant
@@ -116,6 +117,27 @@ async def test_allowed_transition_writes_history(db_session: AsyncSession) -> No
     assert len(history) == 1
     assert history[0].from_status == "awaiting_payment"
     assert history[0].to_status == "paid"
+
+
+@pytest.mark.asyncio
+async def test_allowed_transition_logs_audit_event(db_session: AsyncSession) -> None:
+    # ТЗ 8: every order status transition is audit-logged.
+    order, _ = await _make_order_with_items(db_session, status="awaiting_payment")
+    changer = User(email=f"manager-{uuid.uuid4().hex[:10]}@example.com", role="manager")
+    db_session.add(changer)
+    await db_session.flush()
+
+    with capture_logs() as captured:
+        await orders_service.transition_status(
+            db_session, order, to_status="paid", changed_by=changer.id
+        )
+
+    entries = [entry for entry in captured if entry["event"] == "order_status_transition"]
+    assert len(entries) == 1
+    assert entries[0]["order_id"] == str(order.id)
+    assert entries[0]["from_status"] == "awaiting_payment"
+    assert entries[0]["to_status"] == "paid"
+    assert entries[0]["changed_by"] == str(changer.id)
 
 
 @pytest.mark.asyncio

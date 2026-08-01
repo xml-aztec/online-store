@@ -1,11 +1,12 @@
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, Query, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.models import User
 from app.cart.dependencies import CartContext, get_cart_context
 from app.config import settings
+from app.core.rate_limit import ORDER_CREATE_RATE_LIMIT, check_rate_limit, client_ip
 from app.database import get_db
 from app.dependencies import get_current_user
 from app.orders import service as orders_service
@@ -67,9 +68,12 @@ def _order_to_public(order: Order) -> OrderPublic:
 @router.post("/orders", response_model=CheckoutResponse, status_code=status.HTTP_201_CREATED)
 async def checkout(
     payload: CheckoutRequest,
+    request: Request,
     db: Annotated[AsyncSession, Depends(get_db)],
     cart: Annotated[CartContext, Depends(get_cart_context)],
 ) -> CheckoutResponse:
+    # ТЗ 5.5: 10 order creations / hour / IP.
+    await check_rate_limit(f"ratelimit:order:{client_ip(request)}", *ORDER_CREATE_RATE_LIMIT)
     order, payment_url = await orders_service.create_order(
         db,
         cart_key=cart.key,

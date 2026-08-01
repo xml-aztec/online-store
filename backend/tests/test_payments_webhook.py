@@ -181,7 +181,7 @@ async def test_amount_mismatch_marks_payment_failed_and_logs_error(
     assert response.status_code == 200
     await db_session.refresh(payment)
     assert payment.status == "failed"
-    assert any("amount mismatch" in record.message for record in caplog.records)
+    assert any("payment_amount_mismatch" in record.message for record in caplog.records)
 
 
 @pytest.mark.asyncio

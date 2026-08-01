@@ -4,6 +4,7 @@ from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import Any, cast
 
+import structlog
 from sqlalchemy import ColumnElement, func, or_, select, update
 from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -35,6 +36,8 @@ _STOCK_RESTORING_STATUSES = {"cancelled", "refunded"}
 _NOTIFY_STATUSES = {"paid", "shipped", "cancelled"}
 _CUSTOMER_CANCELLABLE_STATUSES = {"pending", "awaiting_payment"}
 _ORDER_EXPIRY = timedelta(minutes=30)
+
+logger = structlog.get_logger()
 
 
 async def _generate_order_number() -> str:
@@ -265,6 +268,16 @@ async def transition_status(
     )
     await session.commit()
 
+    # ТЗ 8: every order status transition is audit-logged.
+    logger.info(
+        "order_status_transition",
+        order_id=str(order.id),
+        order_number=order.number,
+        from_status=from_status,
+        to_status=to_status,
+        changed_by=str(changed_by) if changed_by is not None else None,
+    )
+
     if to_status in _NOTIFY_STATUSES:
         pool = await get_arq_pool()
         await pool.enqueue_job(
@@ -333,6 +346,128 @@ async def get_my_order(session: AsyncSession, *, user_id: uuid.UUID, number: str
     if order is None:
         raise DomainError("Заказ не найден", code="ORDER_NOT_FOUND", status_code=404)
     return order
+
+
+# --- Admin: promo codes ---
+
+
+async def list_promo_codes_admin(
+    session: AsyncSession, *, page: int, page_size: int
+) -> tuple[list[PromoCode], int]:
+    total = await session.scalar(select(func.count()).select_from(PromoCode)) or 0
+    rows = (
+        await session.scalars(
+            select(PromoCode)
+            .order_by(PromoCode.created_at.desc())
+            .offset((page - 1) * page_size)
+            .limit(page_size)
+        )
+    ).all()
+    return list(rows), total
+
+
+async def get_promo_code_admin(session: AsyncSession, *, promo_code_id: uuid.UUID) -> PromoCode:
+    promo = await session.get(PromoCode, promo_code_id)
+    if promo is None:
+        raise DomainError("Промокод не найден", code="PROMO_CODE_NOT_FOUND", status_code=404)
+    return promo
+
+
+async def _ensure_code_available(
+    session: AsyncSession, *, code: str, exclude_id: uuid.UUID | None
+) -> None:
+    existing = await session.scalar(select(PromoCode).where(PromoCode.code == code))
+    if existing is not None and existing.id != exclude_id:
+        raise DomainError(
+            "Промокод с таким кодом уже существует", code="PROMO_CODE_EXISTS", status_code=409
+        )
+
+
+def _validate_discount(*, discount_type: str, discount_value: Decimal) -> None:
+    if discount_type not in ("percent", "fixed"):
+        raise DomainError(
+            "Тип скидки должен быть 'percent' или 'fixed'",
+            code="PROMO_CODE_INVALID_DISCOUNT_TYPE",
+            status_code=422,
+        )
+    if discount_value <= 0:
+        raise DomainError(
+            "Размер скидки должен быть положительным",
+            code="PROMO_CODE_INVALID_DISCOUNT_VALUE",
+            status_code=422,
+        )
+    if discount_type == "percent" and discount_value > 100:
+        raise DomainError(
+            "Процентная скидка не может превышать 100%",
+            code="PROMO_CODE_INVALID_DISCOUNT_VALUE",
+            status_code=422,
+        )
+
+
+async def create_promo_code_admin(
+    session: AsyncSession,
+    *,
+    code: str,
+    discount_type: str,
+    discount_value: Decimal,
+    min_order_total: Decimal | None,
+    starts_at: datetime | None,
+    ends_at: datetime | None,
+    max_uses: int | None,
+    is_active: bool,
+) -> PromoCode:
+    code = code.strip().upper()
+    await _ensure_code_available(session, code=code, exclude_id=None)
+    _validate_discount(discount_type=discount_type, discount_value=discount_value)
+
+    promo = PromoCode(
+        code=code,
+        discount_type=discount_type,
+        discount_value=discount_value,
+        min_order_total=min_order_total,
+        starts_at=starts_at,
+        ends_at=ends_at,
+        max_uses=max_uses,
+        is_active=is_active,
+    )
+    session.add(promo)
+    await session.commit()
+    return promo
+
+
+async def update_promo_code_admin(
+    session: AsyncSession, *, promo_code_id: uuid.UUID, updates: dict[str, Any]
+) -> PromoCode:
+    promo = await get_promo_code_admin(session, promo_code_id=promo_code_id)
+
+    new_code = updates.get("code")
+    if new_code is not None:
+        new_code = new_code.strip().upper()
+        await _ensure_code_available(session, code=new_code, exclude_id=promo.id)
+        updates = {**updates, "code": new_code}
+
+    _validate_discount(
+        discount_type=updates.get("discount_type", promo.discount_type),
+        discount_value=updates.get("discount_value", promo.discount_value),
+    )
+
+    for field, value in updates.items():
+        setattr(promo, field, value)
+
+    await session.commit()
+    return promo
+
+
+async def delete_promo_code_admin(session: AsyncSession, *, promo_code_id: uuid.UUID) -> None:
+    promo = await get_promo_code_admin(session, promo_code_id=promo_code_id)
+    if promo.used_count > 0:
+        raise DomainError(
+            "Нельзя удалить промокод, который уже использовался — деактивируйте его",
+            code="PROMO_CODE_IN_USE",
+            status_code=409,
+        )
+    await session.delete(promo)
+    await session.commit()
 
 
 # --- Admin: orders ---

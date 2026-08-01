@@ -16,6 +16,11 @@ class PromoCode(TimestampedBase):
         CheckConstraint(
             "discount_type IN ('percent', 'fixed')", name="ck_promo_codes_discount_type"
         ),
+        CheckConstraint("discount_value > 0", name="ck_promo_codes_discount_value_positive"),
+        CheckConstraint(
+            "discount_type = 'fixed' OR discount_value <= 100",
+            name="ck_promo_codes_percent_discount_max_100",
+        ),
     )
 
     code: Mapped[str] = mapped_column(unique=True, nullable=False)

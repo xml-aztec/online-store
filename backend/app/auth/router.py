@@ -16,34 +16,13 @@ from app.auth.schemas import (
 )
 from app.cart import service as cart_service
 from app.config import settings
-from app.core.rate_limit import (
-    LOGIN_RATE_LIMIT,
-    REGISTER_RATE_LIMIT,
-    RateLimitExceeded,
-    enforce_rate_limit,
-)
+from app.core.rate_limit import LOGIN_RATE_LIMIT, REGISTER_RATE_LIMIT, check_rate_limit, client_ip
 from app.database import get_db
 from app.exceptions import DomainError
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 _REFRESH_COOKIE_NAME = "refresh_token"
-
-
-def _client_ip(request: Request) -> str:
-    return request.client.host if request.client else "unknown"
-
-
-async def _check_rate_limit(key: str, limit: int, window_seconds: int) -> None:
-    try:
-        await enforce_rate_limit(key, limit=limit, window_seconds=window_seconds)
-    except RateLimitExceeded as exc:
-        raise DomainError(
-            "Слишком много попыток, попробуйте позже",
-            code="RATE_LIMITED",
-            status_code=429,
-            details={"retry_after_seconds": exc.retry_after_seconds},
-        ) from exc
 
 
 def _set_refresh_cookie(response: Response, raw_refresh_token: str) -> None:
@@ -68,7 +47,7 @@ async def register(
     request: Request,
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> UserPublic:
-    await _check_rate_limit(f"ratelimit:register:{_client_ip(request)}", *REGISTER_RATE_LIMIT)
+    await check_rate_limit(f"ratelimit:register:{client_ip(request)}", *REGISTER_RATE_LIMIT)
     user = await auth_service.register(
         db, email=payload.email, password=payload.password, full_name=payload.full_name
     )
@@ -82,8 +61,8 @@ async def login(
     response: Response,
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> TokenResponse:
-    await _check_rate_limit(
-        f"ratelimit:login:{payload.email}:{_client_ip(request)}", *LOGIN_RATE_LIMIT
+    await check_rate_limit(
+        f"ratelimit:login:{payload.email}:{client_ip(request)}", *LOGIN_RATE_LIMIT
     )
     user = await auth_service.authenticate(db, email=payload.email, password=payload.password)
     access_token, raw_refresh_token = await auth_service.issue_tokens(db, user)

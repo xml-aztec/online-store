@@ -69,6 +69,20 @@ async def test_checkout_with_empty_cart_returns_409(client: httpx.AsyncClient) -
 
 
 @pytest.mark.asyncio
+async def test_order_creation_rate_limited_after_10_per_hour(client: httpx.AsyncClient) -> None:
+    # ТЗ 5.5: 10 order creations / hour / IP. The rate-limit check runs before
+    # cart/stock logic, so an empty cart (409) still counts against the limit.
+    for _ in range(10):
+        response = await client.post("/v1/orders", json=CHECKOUT_BASE)
+        assert response.status_code == 409
+
+    response = await client.post("/v1/orders", json=CHECKOUT_BASE)
+
+    assert response.status_code == 429
+    assert response.json()["error"]["code"] == "RATE_LIMITED"
+
+
+@pytest.mark.asyncio
 async def test_cash_on_delivery_checkout_goes_straight_to_processing(
     client: httpx.AsyncClient, db_session: AsyncSession
 ) -> None:
