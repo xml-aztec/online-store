@@ -481,9 +481,22 @@ async def _get_admin_product_or_404(session: AsyncSession, product_id: uuid.UUID
 
 
 async def list_products_admin(
-    session: AsyncSession, *, page: int, page_size: int
+    session: AsyncSession,
+    *,
+    search: str | None,
+    category_id: uuid.UUID | None,
+    is_active: bool | None,
+    page: int,
+    page_size: int,
 ) -> tuple[list[Product], int]:
-    conditions = [Product.deleted_at.is_(None)]
+    conditions: list[ColumnElement[bool]] = [Product.deleted_at.is_(None)]
+    if search:
+        conditions.append(Product.name.ilike(f"%{search}%"))
+    if category_id is not None:
+        conditions.append(Product.category_id == category_id)
+    if is_active is not None:
+        conditions.append(Product.is_active.is_(is_active))
+
     total = (
         await session.scalar(select(func.count()).select_from(Product).where(*conditions))
     ) or 0
@@ -734,3 +747,63 @@ async def upload_product_image(
     )
 
     return image
+
+
+async def _get_admin_image_or_404(
+    session: AsyncSession, *, product_id: uuid.UUID, image_id: uuid.UUID
+) -> ProductImage:
+    image = await session.scalar(
+        select(ProductImage).where(
+            ProductImage.id == image_id, ProductImage.product_id == product_id
+        )
+    )
+    if image is None:
+        raise DomainError("Изображение не найдено", code="IMAGE_NOT_FOUND", status_code=404)
+    return image
+
+
+async def delete_product_image(
+    session: AsyncSession, *, product_id: uuid.UUID, image_id: uuid.UUID
+) -> None:
+    image = await _get_admin_image_or_404(session, product_id=product_id, image_id=image_id)
+
+    # original/thumbnail/large all live under the same "<upload_id>/" prefix
+    # (see upload_product_image / workers.tasks._generate_previews) -- delete
+    # everything under it in one go rather than tracking each key separately.
+    prefix = image.s3_key.rsplit("/", 1)[0] + "/"
+    client = get_s3_client()
+    listing = client.list_objects_v2(Bucket=settings.s3_bucket, Prefix=prefix)
+    keys = [obj["Key"] for obj in listing.get("Contents", [])]
+    if keys:
+        client.delete_objects(
+            Bucket=settings.s3_bucket, Delete={"Objects": [{"Key": key} for key in keys]}
+        )
+
+    await session.delete(image)
+    await session.commit()
+
+
+async def reorder_product_images(
+    session: AsyncSession, *, product_id: uuid.UUID, image_ids: list[uuid.UUID]
+) -> list[ProductImage]:
+    await _get_admin_product_or_404(session, product_id)
+
+    images = (
+        await session.scalars(
+            select(ProductImage).where(ProductImage.product_id == product_id)
+        )
+    ).all()
+    images_by_id = {image.id: image for image in images}
+
+    if set(image_ids) != set(images_by_id.keys()):
+        raise DomainError(
+            "Список изображений должен содержать ровно все изображения товара",
+            code="IMAGE_REORDER_MISMATCH",
+            status_code=422,
+        )
+
+    for index, image_id in enumerate(image_ids):
+        images_by_id[image_id].sort_order = index
+
+    await session.commit()
+    return sorted(images_by_id.values(), key=lambda image: image.sort_order)

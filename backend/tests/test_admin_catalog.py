@@ -206,6 +206,37 @@ async def test_product_crud_and_soft_delete(client: AsyncClient, db_session: Asy
 
 
 @pytest.mark.asyncio
+async def test_list_products_search_and_filters(
+    client: AsyncClient, db_session: AsyncSession
+) -> None:
+    headers = await _admin_headers(db_session)
+    category_a = await _make_category(db_session)
+    category_b = await _make_category(db_session)
+    findable = await _make_product(db_session, category_a)
+    findable.name = f"Уникальный {_slug('name')}"
+    findable.is_active = False
+    other = await _make_product(db_session, category_b)
+    await db_session.commit()
+
+    by_search = await client.get(
+        "/v1/admin/products", params={"search": "Уникальный"}, headers=headers
+    )
+    assert by_search.status_code == 200
+    assert {item["id"] for item in by_search.json()["items"]} == {str(findable.id)}
+
+    by_category = await client.get(
+        "/v1/admin/products", params={"category_id": str(category_b.id)}, headers=headers
+    )
+    assert {item["id"] for item in by_category.json()["items"]} == {str(other.id)}
+
+    by_active = await client.get(
+        "/v1/admin/products", params={"is_active": "false"}, headers=headers
+    )
+    assert str(findable.id) in {item["id"] for item in by_active.json()["items"]}
+    assert str(other.id) not in {item["id"] for item in by_active.json()["items"]}
+
+
+@pytest.mark.asyncio
 async def test_duplicate_product_copies_variants_as_draft(
     client: AsyncClient, db_session: AsyncSession
 ) -> None:

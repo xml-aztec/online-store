@@ -593,6 +593,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/products/{product_id}/images/reorder": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Reorder Product Images */
+        patch: operations["reorder_product_images_v1_admin_products__product_id__images_reorder_patch"];
+        trace?: never;
+    };
+    "/v1/admin/products/{product_id}/images/{image_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Product Image */
+        delete: operations["delete_product_image_v1_admin_products__product_id__images__image_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/orders": {
         parameters: {
             query?: never;
@@ -977,6 +1011,11 @@ export interface components {
             sort_order?: number | null;
             /** Is Active */
             is_active?: boolean | null;
+        };
+        /** AdminImageReorderRequest */
+        AdminImageReorderRequest: {
+            /** Image Ids */
+            image_ids: string[];
         };
         /** AdminOrderDetail */
         AdminOrderDetail: {
@@ -2979,6 +3018,9 @@ export interface operations {
     list_products_v1_admin_products_get: {
         parameters: {
             query?: {
+                search?: string | null;
+                category_id?: string | null;
+                is_active?: boolean | null;
                 page?: number;
                 page_size?: number;
             };
@@ -3291,6 +3333,71 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["AdminProductImagePublic"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reorder_product_images_v1_admin_products__product_id__images_reorder_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                product_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminImageReorderRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminProductImagePublic"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_product_image_v1_admin_products__product_id__images__image_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                product_id: string;
+                image_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {
