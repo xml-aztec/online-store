@@ -308,7 +308,7 @@ async def cancel_order(
 async def get_order_for_guest(session: AsyncSession, *, number: str, email: str) -> Order:
     order = await session.scalar(
         select(Order)
-        .options(selectinload(Order.items))
+        .options(selectinload(Order.items), selectinload(Order.status_history))
         .where(Order.number == number, Order.email == email)
     )
     if order is None:
@@ -340,7 +340,7 @@ async def list_my_orders(
 async def get_my_order(session: AsyncSession, *, user_id: uuid.UUID, number: str) -> Order:
     order = await session.scalar(
         select(Order)
-        .options(selectinload(Order.items))
+        .options(selectinload(Order.items), selectinload(Order.status_history))
         .where(Order.number == number, Order.user_id == user_id)
     )
     if order is None:

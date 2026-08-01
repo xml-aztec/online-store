@@ -125,6 +125,28 @@ class BulkStatusResponse(BaseModel):
     updated: int
 
 
+class AdminUserPublic(BaseModel):
+    id: uuid.UUID
+    email: str
+    full_name: str | None
+    role: str
+    is_active: bool
+    email_verified: bool
+    created_at: datetime
+
+
+class AdminUserListResponse(BaseModel):
+    items: list[AdminUserPublic]
+    total: int
+    page: int
+    page_size: int
+
+
+class AdminUserUpdate(BaseModel):
+    role: str | None = None
+    is_active: bool | None = None
+
+
 class AdminPromoCodeCreate(BaseModel):
     code: str
     discount_type: str

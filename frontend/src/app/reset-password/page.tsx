@@ -4,62 +4,56 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 
-import { login } from "@/entities/auth/api";
-import { establishSession, useAuthStore } from "@/entities/auth/store";
+import { resetPassword } from "@/entities/auth/api";
 import { ApiError } from "@/shared/api/client";
 
-function LoginForm() {
+function ResetPasswordForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [email, setEmail] = useState("");
+  const token = searchParams.get("token");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
+    if (!token) return;
     setError(null);
     setIsSubmitting(true);
     try {
-      const tokenResponse = await login(email, password);
-      await establishSession(tokenResponse);
-      const role = useAuthStore.getState().role;
-      const defaultDestination = role === "manager" || role === "admin" ? "/admin" : "/account";
-      router.push(searchParams.get("redirect") ?? defaultDestination);
+      await resetPassword(token, password);
+      router.push("/login");
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Не удалось войти");
+      setError(err instanceof ApiError ? err.message : "Не удалось сбросить пароль");
     } finally {
       setIsSubmitting(false);
     }
   }
 
+  if (!token) {
+    return (
+      <p className="max-w-sm text-center text-sm text-red-600 dark:text-red-400">
+        Ссылка неполная — не хватает токена. Запросите восстановление пароля заново.
+      </p>
+    );
+  }
+
   return (
     <form onSubmit={handleSubmit} className="w-full max-w-sm space-y-4">
       <div>
-        <label htmlFor="email" className="mb-1 block text-sm text-zinc-600 dark:text-zinc-400">
-          Email
-        </label>
-        <input
-          id="email"
-          type="email"
-          required
-          value={email}
-          onChange={(event) => setEmail(event.target.value)}
-          className="w-full rounded border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
-        />
-      </div>
-      <div>
         <label htmlFor="password" className="mb-1 block text-sm text-zinc-600 dark:text-zinc-400">
-          Пароль
+          Новый пароль
         </label>
         <input
           id="password"
           type="password"
           required
+          minLength={8}
           value={password}
           onChange={(event) => setPassword(event.target.value)}
           className="w-full rounded border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
         />
+        <p className="mt-1 text-xs text-zinc-500">Минимум 8 символов</p>
       </div>
       {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
       <button
@@ -67,37 +61,26 @@ function LoginForm() {
         disabled={isSubmitting}
         className="w-full rounded bg-zinc-900 px-4 py-3 text-sm font-medium text-white transition disabled:cursor-not-allowed disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900"
       >
-        {isSubmitting ? "Входим…" : "Войти"}
+        {isSubmitting ? "Сохраняем…" : "Сохранить новый пароль"}
       </button>
-      <p className="text-center text-sm text-zinc-500">
-        <Link href="/forgot-password" className="underline hover:text-zinc-900 dark:hover:text-zinc-100">
-          Забыли пароль?
-        </Link>
-      </p>
     </form>
   );
 }
 
-export default function LoginPage() {
+export default function ResetPasswordPage() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center px-4">
       <h1 className="mb-6 text-xl font-semibold text-zinc-900 dark:text-zinc-100">
-        Вход — HobbyLife
+        Новый пароль
       </h1>
       <Suspense fallback={null}>
-        <LoginForm />
+        <ResetPasswordForm />
       </Suspense>
-      <p className="mt-6 text-sm text-zinc-500">
-        Нет аккаунта?{" "}
-        <Link href="/register" className="text-zinc-900 underline dark:text-zinc-100">
-          Зарегистрироваться
-        </Link>
-      </p>
       <Link
-        href="/"
-        className="mt-4 text-sm text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100"
+        href="/login"
+        className="mt-6 text-sm text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100"
       >
-        На главную
+        Назад ко входу
       </Link>
     </div>
   );

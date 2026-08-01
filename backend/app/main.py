@@ -6,6 +6,7 @@ from app.admin.imports_router import router as admin_imports_router
 from app.admin.orders_router import router as admin_orders_router
 from app.admin.promo_codes_router import router as admin_promo_codes_router
 from app.admin.router import router as admin_router
+from app.admin.users_router import router as admin_users_router
 from app.auth.router import router as auth_router
 from app.cart.router import router as cart_router
 from app.catalog.router import router as catalog_router
@@ -43,6 +44,7 @@ app.include_router(admin_router, prefix="/v1")
 app.include_router(admin_orders_router, prefix="/v1")
 app.include_router(admin_imports_router, prefix="/v1")
 app.include_router(admin_promo_codes_router, prefix="/v1")
+app.include_router(admin_users_router, prefix="/v1")
 
 
 @app.get("/health")

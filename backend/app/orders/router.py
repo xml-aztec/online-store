@@ -19,6 +19,7 @@ from app.orders.schemas import (
     OrderListItem,
     OrderListResponse,
     OrderPublic,
+    OrderStatusHistoryPublic,
 )
 
 router = APIRouter(tags=["orders"])
@@ -61,6 +62,15 @@ def _order_to_public(order: Order) -> OrderPublic:
                 line_total=item.line_total,
             )
             for item in order.items
+        ],
+        status_history=[
+            OrderStatusHistoryPublic(
+                from_status=entry.from_status,
+                to_status=entry.to_status,
+                comment=entry.comment,
+                created_at=entry.created_at,
+            )
+            for entry in order.status_history
         ],
     )
 
@@ -143,4 +153,8 @@ async def cancel_my_order(
 ) -> OrderPublic:
     order = await orders_service.get_my_order(db, user_id=user.id, number=number)
     order = await orders_service.cancel_order(db, order, changed_by=user.id)
+    # Same class of bug as admin_orders_router.py's status endpoint: cancel_order
+    # commits a new status_history row, but with expire_on_commit=False the
+    # already-loaded (pre-cancel) collection on this same object isn't refreshed.
+    await db.refresh(order, attribute_names=["status_history"])
     return _order_to_public(order)
