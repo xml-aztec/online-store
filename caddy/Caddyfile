@@ -2,6 +2,18 @@
 # /api/* is stripped of its prefix before reaching the api service, so
 # "GET /api/health" externally maps to "GET /health" inside the api container.
 :80 {
+	# ТЗ 8 security headers, applied to every response regardless of route.
+	# Strict-Transport-Security is inert over plain HTTP (browsers ignore it
+	# without TLS) -- it starts taking effect for free once Задача 5.3 gives
+	# this Caddy instance a real domain and automatic HTTPS.
+	header {
+		X-Content-Type-Options nosniff
+		X-Frame-Options DENY
+		Referrer-Policy strict-origin-when-cross-origin
+		Permissions-Policy "geolocation=(), microphone=(), camera=()"
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+	}
+
 	handle_path /api/* {
 		reverse_proxy api:8000
 	}

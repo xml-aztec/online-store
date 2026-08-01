@@ -7,6 +7,7 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.models import User
+from app.cart.service import compute_discount
 from app.catalog.models import Category, Product, ProductVariant
 from app.core.security import create_access_token, hash_password
 from app.orders.models import PromoCode
@@ -266,6 +267,22 @@ async def test_apply_fixed_promo_does_not_exceed_subtotal(
     body = response.json()
     assert body["discount_amount"] == "50.00"
     assert body["total"] == "0.00"
+
+
+def test_compute_percent_discount_never_exceeds_subtotal() -> None:
+    # Money-integrity regression test (ТЗ 8): a percent promo bigger than 100%
+    # must not produce a discount larger than the subtotal (negative order
+    # total). The DB CHECK constraint (ck_promo_codes_percent_discount_max_100)
+    # already blocks creating such a row, but this is a plain in-memory object
+    # (never persisted), exercising compute_discount's own defensive cap.
+    promo = PromoCode(
+        code="OVERSIZED", discount_type="percent", discount_value=Decimal("150.00")
+    )
+    subtotal = Decimal("200.00")
+
+    discount = compute_discount(promo, subtotal=subtotal)
+
+    assert discount == subtotal
 
 
 @pytest.mark.asyncio

@@ -1,6 +1,7 @@
 from collections.abc import Callable
 from typing import Annotated
 
+import structlog
 from fastapi import Depends
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -28,6 +29,10 @@ async def get_optional_user(
     user = await db.get(User, payload.user_id)
     if user is None or not user.is_active:
         raise DomainError("Пользователь не найден", code="USER_NOT_FOUND", status_code=401)
+
+    # ТЗ 8: user_id in every log line for the request -- bound once here rather
+    # than threaded through every endpoint/service call.
+    structlog.contextvars.bind_contextvars(user_id=str(user.id))
 
     return user
 

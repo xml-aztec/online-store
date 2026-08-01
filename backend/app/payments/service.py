@@ -1,6 +1,6 @@
-import logging
 import uuid
 
+import structlog
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -11,12 +11,21 @@ from app.payments.models import Payment, PaymentEvent
 from app.payments.providers.base import ParsedWebhookEvent
 from app.payments.providers.registry import get_provider
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger()
 
 
 async def apply_payment_event(
     session: AsyncSession, *, provider_name: str, event: ParsedWebhookEvent
 ) -> None:
+    # ТЗ 8: every webhook is audit-logged at INFO, regardless of outcome below.
+    logger.info(
+        "payment_webhook_received",
+        provider=provider_name,
+        event_id=event.event_id,
+        external_id=event.external_id,
+        status=event.status,
+    )
+
     # ТЗ 5.4: idempotency via payment_events -- if we've already recorded this
     # exact event_id, the webhook was delivered more than once; do nothing.
     existing = await session.scalar(
@@ -25,6 +34,11 @@ async def apply_payment_event(
         )
     )
     if existing is not None:
+        logger.info(
+            "payment_webhook_duplicate_ignored",
+            provider=provider_name,
+            event_id=event.event_id,
+        )
         return
 
     session.add(
@@ -47,17 +61,23 @@ async def apply_payment_event(
         payment.raw_payload = event.raw_payload
         await session.commit()
         logger.error(
-            "payment amount mismatch: webhook_amount=%s order_total=%s payment_id=%s order_id=%s",
-            event.amount,
-            order.total,
-            payment.id,
-            order.id,
+            "payment_amount_mismatch",
+            webhook_amount=str(event.amount),
+            order_total=str(order.total),
+            payment_id=str(payment.id),
+            order_id=str(order.id),
         )
         return
 
     payment.status = event.status
     payment.raw_payload = event.raw_payload
     await session.commit()
+    logger.info(
+        "payment_status_updated",
+        payment_id=str(payment.id),
+        provider=provider_name,
+        status=event.status,
+    )
 
     if event.status == "succeeded":
         # ТЗ 5.4: respond to the webhook fast, do the heavier order transition

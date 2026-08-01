@@ -125,6 +125,49 @@ class BulkStatusResponse(BaseModel):
     updated: int
 
 
+class AdminPromoCodeCreate(BaseModel):
+    code: str
+    discount_type: str
+    discount_value: Decimal = Field(gt=0)
+    min_order_total: Decimal | None = None
+    starts_at: datetime | None = None
+    ends_at: datetime | None = None
+    max_uses: int | None = None
+    is_active: bool = True
+
+
+class AdminPromoCodeUpdate(BaseModel):
+    code: str | None = None
+    discount_type: str | None = None
+    discount_value: Decimal | None = Field(default=None, gt=0)
+    min_order_total: Decimal | None = None
+    starts_at: datetime | None = None
+    ends_at: datetime | None = None
+    max_uses: int | None = None
+    is_active: bool | None = None
+
+
+class AdminPromoCodePublic(BaseModel):
+    id: uuid.UUID
+    code: str
+    discount_type: str
+    discount_value: Decimal
+    min_order_total: Decimal | None
+    starts_at: datetime | None
+    ends_at: datetime | None
+    max_uses: int | None
+    used_count: int
+    is_active: bool
+    created_at: datetime
+
+
+class AdminPromoCodeListResponse(BaseModel):
+    items: list[AdminPromoCodePublic]
+    total: int
+    page: int
+    page_size: int
+
+
 class AdminOrderItemPublic(BaseModel):
     product_name: str
     variant_options: dict[str, Any]

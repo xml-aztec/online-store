@@ -746,6 +746,43 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/promo-codes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Promo Codes */
+        get: operations["list_promo_codes_v1_admin_promo_codes_get"];
+        put?: never;
+        /** Create Promo Code */
+        post: operations["create_promo_code_v1_admin_promo_codes_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/promo-codes/{promo_code_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Promo Code */
+        get: operations["get_promo_code_v1_admin_promo_codes__promo_code_id__get"];
+        put?: never;
+        post?: never;
+        /** Delete Promo Code */
+        delete: operations["delete_promo_code_v1_admin_promo_codes__promo_code_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update Promo Code */
+        patch: operations["update_promo_code_v1_admin_promo_codes__promo_code_id__patch"];
+        trace?: never;
+    };
     "/health": {
         parameters: {
             query?: never;
@@ -1194,6 +1231,89 @@ export interface components {
             compare_at_price?: number | string | null;
             /** Stock Qty */
             stock_qty?: number | null;
+            /** Is Active */
+            is_active?: boolean | null;
+        };
+        /** AdminPromoCodeCreate */
+        AdminPromoCodeCreate: {
+            /** Code */
+            code: string;
+            /** Discount Type */
+            discount_type: string;
+            /** Discount Value */
+            discount_value: number | string;
+            /** Min Order Total */
+            min_order_total?: number | string | null;
+            /** Starts At */
+            starts_at?: string | null;
+            /** Ends At */
+            ends_at?: string | null;
+            /** Max Uses */
+            max_uses?: number | null;
+            /**
+             * Is Active
+             * @default true
+             */
+            is_active: boolean;
+        };
+        /** AdminPromoCodeListResponse */
+        AdminPromoCodeListResponse: {
+            /** Items */
+            items: components["schemas"]["AdminPromoCodePublic"][];
+            /** Total */
+            total: number;
+            /** Page */
+            page: number;
+            /** Page Size */
+            page_size: number;
+        };
+        /** AdminPromoCodePublic */
+        AdminPromoCodePublic: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Code */
+            code: string;
+            /** Discount Type */
+            discount_type: string;
+            /** Discount Value */
+            discount_value: string;
+            /** Min Order Total */
+            min_order_total: string | null;
+            /** Starts At */
+            starts_at: string | null;
+            /** Ends At */
+            ends_at: string | null;
+            /** Max Uses */
+            max_uses: number | null;
+            /** Used Count */
+            used_count: number;
+            /** Is Active */
+            is_active: boolean;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** AdminPromoCodeUpdate */
+        AdminPromoCodeUpdate: {
+            /** Code */
+            code?: string | null;
+            /** Discount Type */
+            discount_type?: string | null;
+            /** Discount Value */
+            discount_value?: number | string | null;
+            /** Min Order Total */
+            min_order_total?: number | string | null;
+            /** Starts At */
+            starts_at?: string | null;
+            /** Ends At */
+            ends_at?: string | null;
+            /** Max Uses */
+            max_uses?: number | null;
             /** Is Active */
             is_active?: boolean | null;
         };
@@ -3345,6 +3465,166 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ImportStatusResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_promo_codes_v1_admin_promo_codes_get: {
+        parameters: {
+            query?: {
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminPromoCodeListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_promo_code_v1_admin_promo_codes_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminPromoCodeCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminPromoCodePublic"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_promo_code_v1_admin_promo_codes__promo_code_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                promo_code_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminPromoCodePublic"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_promo_code_v1_admin_promo_codes__promo_code_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                promo_code_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_promo_code_v1_admin_promo_codes__promo_code_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                promo_code_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminPromoCodeUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminPromoCodePublic"];
                 };
             };
             /** @description Validation Error */

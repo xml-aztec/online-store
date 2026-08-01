@@ -1,6 +1,7 @@
 from typing import Any
 
 from fastapi import FastAPI, Request, status
+from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
@@ -45,11 +46,14 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException) 
 
 
 async def validation_error_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
+    # exc.errors() can contain non-JSON-serializable values in "ctx" (e.g. a
+    # Decimal from a Field(gt=...) constraint) -- jsonable_encoder sanitizes
+    # them the same way FastAPI's own response serialization would.
     return _error_response(
         status.HTTP_422_UNPROCESSABLE_CONTENT,
         "VALIDATION_ERROR",
         "Ошибка валидации входных данных",
-        {"errors": exc.errors()},
+        {"errors": jsonable_encoder(exc.errors())},
     )
 
 

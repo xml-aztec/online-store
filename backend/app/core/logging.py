@@ -16,6 +16,9 @@ def configure_logging() -> None:
         ],
         wrapper_class=structlog.make_filtering_bound_logger(logging.INFO),
         context_class=dict,
-        logger_factory=structlog.PrintLoggerFactory(),
+        # stdlib-backed (not PrintLoggerFactory) so every structlog call also goes
+        # through the standard logging pipeline -- lets pytest's caplog (and any
+        # future log handler/aggregator) see them, not just stdout.
+        logger_factory=structlog.stdlib.LoggerFactory(),
         cache_logger_on_first_use=True,
     )

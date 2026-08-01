@@ -102,7 +102,13 @@ def validate_promo(promo: PromoCode, *, subtotal: Decimal) -> DomainError | None
 
 def compute_discount(promo: PromoCode, *, subtotal: Decimal) -> Decimal:
     if promo.discount_type == "percent":
-        return (subtotal * promo.discount_value / Decimal("100")).quantize(Decimal("0.01"))
+        # Capped at subtotal like the fixed branch below: the DB CHECK constraint
+        # already keeps percent discount_value <= 100, but this is the one place
+        # all money math happens (ТЗ 8) and it shouldn't be able to produce a
+        # negative order total even if that constraint were ever bypassed.
+        return min(
+            (subtotal * promo.discount_value / Decimal("100")).quantize(Decimal("0.01")), subtotal
+        )
     return min(promo.discount_value, subtotal)
 
 

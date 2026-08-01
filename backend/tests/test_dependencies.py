@@ -3,6 +3,7 @@ from collections.abc import AsyncGenerator
 from typing import Annotated
 
 import pytest
+import structlog
 from fastapi import Depends, FastAPI
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -72,6 +73,23 @@ async def test_get_current_user_accepts_valid_token(db_session: AsyncSession) ->
 
     assert response.status_code == 200
     assert response.json() == {"id": str(user.id)}
+
+
+@pytest.mark.asyncio
+async def test_get_current_user_binds_user_id_to_log_context(db_session: AsyncSession) -> None:
+    # ТЗ 8: user_id should appear in every log line for an authenticated request.
+    user = await _make_user(db_session)
+    token = create_access_token(user.id, user.role)
+
+    structlog.contextvars.clear_contextvars()
+    try:
+        transport = ASGITransport(app=_build_app(db_session))
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            await client.get("/me", headers={"Authorization": f"Bearer {token}"})
+
+        assert structlog.contextvars.get_contextvars().get("user_id") == str(user.id)
+    finally:
+        structlog.contextvars.clear_contextvars()
 
 
 @pytest.mark.asyncio
