@@ -44,6 +44,7 @@ class UserPublic(BaseModel):
     id: uuid.UUID
     email: str
     full_name: str | None
+    phone: str | None
     role: str
     is_active: bool
     email_verified: bool
@@ -54,6 +55,7 @@ class UserPublic(BaseModel):
             id=user.id,
             email=user.email,
             full_name=user.full_name,
+            phone=user.phone,
             role=user.role,
             is_active=user.is_active,
             email_verified=user.email_verified_at is not None,

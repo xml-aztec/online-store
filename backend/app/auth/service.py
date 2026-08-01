@@ -1,6 +1,8 @@
+import uuid
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
-from sqlalchemy import select, update
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.models import RefreshToken, User
@@ -178,3 +180,76 @@ async def reset_password(session: AsyncSession, *, token: str, new_password: str
         .values(revoked_at=datetime.now(UTC))
     )
     await session.commit()
+
+
+# --- Admin: users (ТЗ 6.4) ---
+
+
+async def list_users_admin(
+    session: AsyncSession, *, search: str | None, page: int, page_size: int
+) -> tuple[list[User], int]:
+    conditions = []
+    if search:
+        pattern = f"%{search}%"
+        conditions.append(User.email.ilike(pattern))
+
+    total = (
+        await session.scalar(select(func.count()).select_from(User).where(*conditions))
+    ) or 0
+    rows = (
+        await session.scalars(
+            select(User)
+            .where(*conditions)
+            .order_by(User.created_at.desc())
+            .offset((page - 1) * page_size)
+            .limit(page_size)
+        )
+    ).all()
+    return list(rows), total
+
+
+async def get_user_admin(session: AsyncSession, *, user_id: uuid.UUID) -> User:
+    user = await session.get(User, user_id)
+    if user is None:
+        raise DomainError("Пользователь не найден", code="USER_NOT_FOUND", status_code=404)
+    return user
+
+
+_VALID_ROLES = ("customer", "manager", "admin")
+
+
+async def update_user_admin(
+    session: AsyncSession,
+    *,
+    user_id: uuid.UUID,
+    acting_admin_id: uuid.UUID,
+    updates: dict[str, Any],
+) -> User:
+    user = await get_user_admin(session, user_id=user_id)
+
+    new_role = updates.get("role")
+    if new_role is not None and new_role not in _VALID_ROLES:
+        raise DomainError(
+            "Роль должна быть 'customer', 'manager' или 'admin'",
+            code="INVALID_ROLE",
+            status_code=422,
+        )
+
+    # An admin locking themselves out (demoting or deactivating their own only
+    # admin account) has no recovery path short of the DEPLOY.md raw-SQL
+    # workaround this endpoint exists to make unnecessary -- block it outright.
+    if user.id == acting_admin_id:
+        would_lose_admin = updates.get("role", user.role) != "admin"
+        would_deactivate = updates.get("is_active", user.is_active) is False
+        if would_lose_admin or would_deactivate:
+            raise DomainError(
+                "Нельзя снять с себя роль admin или деактивировать свою учётную запись",
+                code="CANNOT_MODIFY_SELF",
+                status_code=409,
+            )
+
+    for field, value in updates.items():
+        setattr(user, field, value)
+
+    await session.commit()
+    return user

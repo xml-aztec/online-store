@@ -44,6 +44,13 @@ class OrderItemPublic(BaseModel):
     line_total: Decimal
 
 
+class OrderStatusHistoryPublic(BaseModel):
+    from_status: str | None
+    to_status: str
+    comment: str | None
+    created_at: datetime
+
+
 class OrderPublic(BaseModel):
     number: str
     status: str
@@ -58,6 +65,7 @@ class OrderPublic(BaseModel):
     expires_at: datetime | None
     created_at: datetime
     items: list[OrderItemPublic]
+    status_history: list[OrderStatusHistoryPublic]
 
 
 class OrderListItem(BaseModel):

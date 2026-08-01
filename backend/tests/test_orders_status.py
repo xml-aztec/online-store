@@ -70,6 +70,9 @@ async def _make_order_with_items(
             line_total=Decimal("500.00") * quantity,
         )
     )
+    # Mirrors what create_order() itself writes for a brand-new order (ТЗ 5.1),
+    # so status_history isn't unrealistically empty for these hand-built fixtures.
+    db_session.add(OrderStatusHistory(order_id=order.id, from_status=None, to_status=status))
     await db_session.commit()
     return order, variant
 
@@ -111,12 +114,16 @@ async def test_allowed_transition_writes_history(db_session: AsyncSession) -> No
     assert order.status == "paid"
     history = (
         await db_session.scalars(
-            select(OrderStatusHistory).where(OrderStatusHistory.order_id == order.id)
+            select(OrderStatusHistory)
+            .where(OrderStatusHistory.order_id == order.id)
+            .order_by(OrderStatusHistory.created_at)
         )
     ).all()
-    assert len(history) == 1
-    assert history[0].from_status == "awaiting_payment"
-    assert history[0].to_status == "paid"
+    # _make_order_with_items itself seeds the initial pending->awaiting_payment
+    # row (mirrors create_order()); this transition adds a second one.
+    assert len(history) == 2
+    assert history[-1].from_status == "awaiting_payment"
+    assert history[-1].to_status == "paid"
 
 
 @pytest.mark.asyncio
@@ -264,6 +271,7 @@ async def test_guest_order_lookup_requires_matching_email(
     ok = await client.get(f"/v1/orders/{order.number}", params={"email": order.email})
     assert ok.status_code == 200
     assert ok.json()["number"] == order.number
+    assert ok.json()["status_history"][0]["to_status"] == "processing"
 
     wrong_email = await client.get(
         f"/v1/orders/{order.number}", params={"email": "someone-else@example.com"}
@@ -295,10 +303,19 @@ async def test_me_orders_list_and_detail_and_cancel(
     detail_response = await client.get(f"/v1/me/orders/{order.number}", headers=headers)
     assert detail_response.status_code == 200
     assert len(detail_response.json()["items"]) == 1
+    # ТЗ 7.1: order detail carries a status timeline for the customer view.
+    initial_history = detail_response.json()["status_history"]
+    assert len(initial_history) == 1
+    assert initial_history[0]["to_status"] == "awaiting_payment"
 
     cancel_response = await client.post(f"/v1/me/orders/{order.number}/cancel", headers=headers)
     assert cancel_response.status_code == 200
     assert cancel_response.json()["status"] == "cancelled"
+    # Regression check: the cancel response must reflect the NEW history row,
+    # not the collection as it was loaded before transition_status() committed.
+    cancelled_history = cancel_response.json()["status_history"]
+    assert len(cancelled_history) == 2
+    assert cancelled_history[-1]["to_status"] == "cancelled"
 
     await db_session.refresh(variant)
     assert variant.stock_qty == 7
