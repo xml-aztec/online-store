@@ -1,9 +1,6 @@
 import type { MetadataRoute } from "next";
 
-function siteUrl(): string {
-  const domain = process.env.DOMAIN ?? "localhost";
-  return domain === "localhost" ? `http://${domain}` : `https://${domain}`;
-}
+import { getSiteUrl } from "@/shared/lib/siteUrl";
 
 export default function robots(): MetadataRoute.Robots {
   return {
@@ -12,6 +9,6 @@ export default function robots(): MetadataRoute.Robots {
       allow: "/",
       disallow: ["/admin", "/cart", "/checkout", "/login"],
     },
-    sitemap: `${siteUrl()}/sitemap.xml`,
+    sitemap: `${getSiteUrl()}/sitemap.xml`,
   };
 }

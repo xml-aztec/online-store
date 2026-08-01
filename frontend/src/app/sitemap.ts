@@ -2,13 +2,7 @@ import type { MetadataRoute } from "next";
 
 import { getCategoryTree, type CategoryNode } from "@/entities/category/api";
 import { listProducts } from "@/entities/product/api";
-
-// Caddy serves plain :80 for "localhost" (no domain yet, see caddy/Caddyfile);
-// once Задача 5.3 gives it a real domain, Caddy's automatic HTTPS applies.
-function siteUrl(): string {
-  const domain = process.env.DOMAIN ?? "localhost";
-  return domain === "localhost" ? `http://${domain}` : `https://${domain}`;
-}
+import { getSiteUrl } from "@/shared/lib/siteUrl";
 
 function flattenCategoryPaths(nodes: CategoryNode[], prefix: string[] = []): string[][] {
   return nodes.flatMap((node) => {
@@ -32,12 +26,34 @@ async function listAllProductSlugs(): Promise<string[]> {
   return slugs;
 }
 
+// sitemap.ts is prerendered at build time by default (no dynamic APIs used
+// below), so `next build` fetches this with no live backend guaranteed --
+// same class of issue as the homepage (see (shop)/page.tsx): a standalone
+// `docker build` in CI has no "api" host to resolve. Fall back to just the
+// static pages so the build succeeds; a live deployment re-generates the full
+// sitemap on each request since this route isn't cached beyond that.
+async function safeCategoryTree(): Promise<CategoryNode[]> {
+  try {
+    return await getCategoryTree();
+  } catch {
+    return [];
+  }
+}
+
+async function safeProductSlugs(): Promise<string[]> {
+  try {
+    return await listAllProductSlugs();
+  } catch {
+    return [];
+  }
+}
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const base = siteUrl();
+  const base = getSiteUrl();
 
   const [categoryTree, productSlugs] = await Promise.all([
-    getCategoryTree(),
-    listAllProductSlugs(),
+    safeCategoryTree(),
+    safeProductSlugs(),
   ]);
   const categoryPaths = flattenCategoryPaths(categoryTree);
 
