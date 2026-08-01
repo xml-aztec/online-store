@@ -9,9 +9,10 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.auth.models import User
 from app.catalog.models import Category, Product, ProductImage
+from app.config import settings
 from app.core.queue import get_arq_pool
 from app.core.security import create_access_token
-from app.core.storage import generate_presigned_url
+from app.core.storage import generate_presigned_url, get_s3_client
 from app.workers.tasks import process_product_image
 from tests.helpers import s3_public_url_reachable, s3_reachable
 
@@ -208,3 +209,117 @@ async def test_full_scenario_category_product_variants_photo_visible_in_public_c
     assert len(body["variants"]) == 2
     assert len(body["images"]) == 1
     assert Decimal(body["variants"][0]["price"]) in {Decimal("300.00"), Decimal("350.00")}
+
+
+async def _make_product(session: AsyncSession) -> Product:
+    category = Category(name="Категория", slug=_slug("cat"))
+    session.add(category)
+    await session.flush()
+    product = Product(category_id=category.id, name="Товар", slug=_slug("product"))
+    session.add(product)
+    await session.commit()
+    return product
+
+
+@pytest.mark.asyncio
+async def test_delete_product_image_removes_s3_objects_and_db_row(
+    client: httpx.AsyncClient, db_session: AsyncSession
+) -> None:
+    headers = await _admin_headers(db_session)
+    product = await _make_product(db_session)
+
+    upload_response = await client.post(
+        f"/v1/admin/products/{product.id}/images",
+        files={"file": ("photo.jpg", _fake_jpeg_bytes(), "image/jpeg")},
+        headers=headers,
+    )
+    assert upload_response.status_code == 201
+    image_id = upload_response.json()["id"]
+
+    image = await db_session.get(ProductImage, uuid.UUID(image_id))
+    assert image is not None
+    prefix = image.s3_key.rsplit("/", 1)[0] + "/"
+    client_s3 = get_s3_client()
+    before = client_s3.list_objects_v2(Bucket=settings.s3_bucket, Prefix=prefix)
+    assert before.get("Contents")
+
+    delete_response = await client.delete(
+        f"/v1/admin/products/{product.id}/images/{image_id}", headers=headers
+    )
+    assert delete_response.status_code == 204
+
+    assert await db_session.get(ProductImage, uuid.UUID(image_id)) is None
+    after = client_s3.list_objects_v2(Bucket=settings.s3_bucket, Prefix=prefix)
+    assert not after.get("Contents")
+
+
+@pytest.mark.asyncio
+async def test_delete_product_image_not_found(
+    client: httpx.AsyncClient, db_session: AsyncSession
+) -> None:
+    headers = await _admin_headers(db_session)
+    product = await _make_product(db_session)
+
+    response = await client.delete(
+        f"/v1/admin/products/{product.id}/images/{uuid.uuid4()}", headers=headers
+    )
+
+    assert response.status_code == 404
+    assert response.json()["error"]["code"] == "IMAGE_NOT_FOUND"
+
+
+@pytest.mark.asyncio
+async def test_reorder_product_images_sets_sort_order(
+    client: httpx.AsyncClient, db_session: AsyncSession
+) -> None:
+    headers = await _admin_headers(db_session)
+    product = await _make_product(db_session)
+
+    image_ids = []
+    for _ in range(3):
+        response = await client.post(
+            f"/v1/admin/products/{product.id}/images",
+            files={"file": ("photo.jpg", _fake_jpeg_bytes(), "image/jpeg")},
+            headers=headers,
+        )
+        image_ids.append(response.json()["id"])
+
+    reversed_order = list(reversed(image_ids))
+    reorder_response = await client.patch(
+        f"/v1/admin/products/{product.id}/images/reorder",
+        json={"image_ids": reversed_order},
+        headers=headers,
+    )
+
+    assert reorder_response.status_code == 200
+    body = reorder_response.json()
+    assert [image["id"] for image in body] == reversed_order
+    assert [image["sort_order"] for image in body] == [0, 1, 2]
+
+
+@pytest.mark.asyncio
+async def test_reorder_rejects_mismatched_image_ids(
+    client: httpx.AsyncClient, db_session: AsyncSession
+) -> None:
+    headers = await _admin_headers(db_session)
+    product = await _make_product(db_session)
+
+    await client.post(
+        f"/v1/admin/products/{product.id}/images",
+        files={"file": ("photo.jpg", _fake_jpeg_bytes(), "image/jpeg")},
+        headers=headers,
+    )
+    await client.post(
+        f"/v1/admin/products/{product.id}/images",
+        files={"file": ("photo.jpg", _fake_jpeg_bytes(), "image/jpeg")},
+        headers=headers,
+    )
+
+    response = await client.patch(
+        f"/v1/admin/products/{product.id}/images/reorder",
+        json={"image_ids": [str(uuid.uuid4())]},
+        headers=headers,
+    )
+
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "IMAGE_REORDER_MISMATCH"

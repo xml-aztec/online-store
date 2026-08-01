@@ -42,6 +42,11 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
               Заказы
             </Link>
             {role === "admin" && (
+              <Link href="/admin/categories" className="hover:text-zinc-900 dark:hover:text-zinc-100">
+                Категории
+              </Link>
+            )}
+            {role === "admin" && (
               <Link href="/admin/products" className="hover:text-zinc-900 dark:hover:text-zinc-100">
                 Товары
               </Link>

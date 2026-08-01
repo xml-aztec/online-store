@@ -9,6 +9,7 @@ from app.admin.schemas import (
     AdminCategoryListResponse,
     AdminCategoryPublic,
     AdminCategoryUpdate,
+    AdminImageReorderRequest,
     AdminProductCreate,
     AdminProductDetail,
     AdminProductImagePublic,
@@ -175,10 +176,20 @@ async def create_product(
 @router.get("/products", response_model=AdminProductListResponse)
 async def list_products(
     db: Annotated[AsyncSession, Depends(get_db)],
+    search: str | None = None,
+    category_id: uuid.UUID | None = None,
+    is_active: bool | None = None,
     page: Annotated[int, Query(ge=1)] = 1,
     page_size: Annotated[int, Query(ge=1, le=100)] = 24,
 ) -> AdminProductListResponse:
-    products, total = await catalog_service.list_products_admin(db, page=page, page_size=page_size)
+    products, total = await catalog_service.list_products_admin(
+        db,
+        search=search,
+        category_id=category_id,
+        is_active=is_active,
+        page=page,
+        page_size=page_size,
+    )
     return AdminProductListResponse(
         items=[
             AdminProductListItem(
@@ -307,3 +318,24 @@ async def upload_product_image(
         db, product_id=product_id, content_type=file.content_type, contents=contents
     )
     return _image_to_public(image)
+
+
+@router.patch("/products/{product_id}/images/reorder", response_model=list[AdminProductImagePublic])
+async def reorder_product_images(
+    product_id: uuid.UUID,
+    payload: AdminImageReorderRequest,
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> list[AdminProductImagePublic]:
+    images = await catalog_service.reorder_product_images(
+        db, product_id=product_id, image_ids=payload.image_ids
+    )
+    return [_image_to_public(image) for image in images]
+
+
+@router.delete(
+    "/products/{product_id}/images/{image_id}", status_code=status.HTTP_204_NO_CONTENT
+)
+async def delete_product_image(
+    product_id: uuid.UUID, image_id: uuid.UUID, db: Annotated[AsyncSession, Depends(get_db)]
+) -> None:
+    await catalog_service.delete_product_image(db, product_id=product_id, image_id=image_id)

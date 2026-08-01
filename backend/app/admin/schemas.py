@@ -89,6 +89,10 @@ class AdminProductImagePublic(BaseModel):
     sort_order: int
 
 
+class AdminImageReorderRequest(BaseModel):
+    image_ids: list[uuid.UUID]
+
+
 class AdminProductListItem(BaseModel):
     id: uuid.UUID
     category_id: uuid.UUID
