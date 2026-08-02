@@ -312,6 +312,54 @@ async def test_malformed_rows_land_in_error_report_without_breaking_import(
 
 
 @pytest.mark.asyncio
+async def test_import_row_with_too_deep_category_path_lands_in_error_report(
+    client: httpx.AsyncClient, db_session: AsyncSession, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # ТЗ 4: max 3 levels of category nesting -- applies to the importer's
+    # "A/B/C" category-path column too, not just the /admin/categories API.
+    admin = await _make_admin(db_session)
+    good_sku = _slug("sku-good")
+    good_name = f"Хороший товар {good_sku}"
+    deep_category = "Уровень1/Уровень2/Уровень3/Уровень4"
+
+    file_bytes = _build_xlsx(
+        [
+            [
+                None, good_name, _slug("Категория"), "Описание", good_sku,
+                "", "150.00", "", "10", "", "",
+            ],
+            [
+                None, "Слишком глубокая категория", deep_category, "Описание", _slug("sku"),
+                "", "200.00", "", "10", "", "",
+            ],
+        ]
+    )
+
+    upload_response = await client.post(
+        "/v1/admin/imports/xlsx",
+        headers=_admin_headers(admin),
+        files={"file": ("deep-category.xlsx", file_bytes, "application/octet-stream")},
+    )
+    import_id = upload_response.json()["import_id"]
+
+    await client.post(f"/v1/admin/imports/{import_id}/apply", headers=_admin_headers(admin))
+    await _apply_bound_to_test_session(db_session, monkeypatch, import_job_id=import_id)
+
+    status_response = await client.get(
+        f"/v1/admin/imports/{import_id}", headers=_admin_headers(admin)
+    )
+    body = status_response.json()
+    assert body["status"] == "completed"
+    assert body["created_count"] == 1
+    assert body["error_count"] == 1
+
+    good_variant = await db_session.scalar(
+        select(ProductVariant).where(ProductVariant.sku == good_sku)
+    )
+    assert good_variant is not None
+
+
+@pytest.mark.asyncio
 @pytest.mark.skipif(
     not s3_public_url_reachable(),
     reason="S3 public URL host is not reachable from this environment (e.g. inside a "

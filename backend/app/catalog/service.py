@@ -365,6 +365,61 @@ async def get_product_detail(session: AsyncSession, *, slug: str) -> ProductDeta
 
 # --- Admin: categories ---
 
+# ТЗ 4 (categories): "Максимальная вложенность — 3 уровня (валидировать в сервисе)".
+MAX_CATEGORY_DEPTH = 3
+
+
+async def _category_parent_map(session: AsyncSession) -> dict[uuid.UUID, uuid.UUID | None]:
+    rows = (await session.execute(select(Category.id, Category.parent_id))).all()
+    return {row.id: row.parent_id for row in rows}
+
+
+def _ancestor_depth(
+    parent_map: dict[uuid.UUID, uuid.UUID | None], category_id: uuid.UUID | None
+) -> int:
+    """Depth of category_id counted from 1 at a root category; 0 if category_id is None."""
+    depth = 0
+    current = category_id
+    while current is not None:
+        depth += 1
+        current = parent_map.get(current)
+    return depth
+
+
+def _subtree_height(
+    parent_map: dict[uuid.UUID, uuid.UUID | None], category_id: uuid.UUID
+) -> int:
+    """How many additional levels hang below category_id (0 for a leaf)."""
+    children_map: dict[uuid.UUID, list[uuid.UUID]] = {}
+    for child_id, parent_id in parent_map.items():
+        if parent_id is not None:
+            children_map.setdefault(parent_id, []).append(child_id)
+
+    def _height(node_id: uuid.UUID) -> int:
+        children = children_map.get(node_id, [])
+        if not children:
+            return 0
+        return 1 + max(_height(child) for child in children)
+
+    return _height(category_id)
+
+
+def _ensure_depth_allowed(
+    parent_map: dict[uuid.UUID, uuid.UUID | None],
+    *,
+    parent_id: uuid.UUID | None,
+    subtree_height: int = 0,
+) -> None:
+    if parent_id is None:
+        return
+    resulting_depth = _ancestor_depth(parent_map, parent_id) + 1 + subtree_height
+    if resulting_depth > MAX_CATEGORY_DEPTH:
+        raise DomainError(
+            f"Максимальная вложенность категорий — {MAX_CATEGORY_DEPTH} уровня",
+            code="CATEGORY_TOO_DEEP",
+            status_code=409,
+        )
+
 
 async def list_categories_admin(
     session: AsyncSession, *, page: int, page_size: int
@@ -400,6 +455,8 @@ async def create_category(
         raise DomainError(
             "Родительская категория не найдена", code="CATEGORY_NOT_FOUND", status_code=404
         )
+    if parent_id is not None:
+        _ensure_depth_allowed(await _category_parent_map(session), parent_id=parent_id)
 
     category = Category(name=name, slug=slug, parent_id=parent_id, sort_order=sort_order)
     session.add(category)
@@ -434,6 +491,13 @@ async def update_category(
     if new_parent_id is not None and await session.get(Category, new_parent_id) is None:
         raise DomainError(
             "Родительская категория не найдена", code="CATEGORY_NOT_FOUND", status_code=404
+        )
+    if "parent_id" in updates and new_parent_id is not None:
+        parent_map = await _category_parent_map(session)
+        _ensure_depth_allowed(
+            parent_map,
+            parent_id=new_parent_id,
+            subtree_height=_subtree_height(parent_map, category_id),
         )
 
     for key, value in updates.items():

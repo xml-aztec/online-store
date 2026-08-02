@@ -9,6 +9,7 @@ from slugify import slugify
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.catalog import service as catalog_service
 from app.catalog.models import Category, Product, ProductImage, ProductVariant
 from app.config import settings
 from app.core.queue import get_arq_pool
@@ -141,6 +142,17 @@ async def _resolve_category_path(session: AsyncSession, path: str) -> Category:
     segments = [segment.strip() for segment in path.split("/") if segment.strip()]
     parent_id: uuid.UUID | None = None
     category: Category | None = None
+
+    # ТЗ 4: max 3 levels of category nesting. The path is resolved top-down from
+    # a root (parent_id starts at None), so segment count *is* the resulting
+    # depth -- no need to separately walk any already-existing chain.
+    if len(segments) > catalog_service.MAX_CATEGORY_DEPTH:
+        raise DomainError(
+            f"Слишком глубокий путь категории (максимум "
+            f"{catalog_service.MAX_CATEGORY_DEPTH} уровня): «{path}»",
+            code="CATEGORY_TOO_DEEP",
+            status_code=422,
+        )
 
     for segment in segments:
         category = await session.scalar(
