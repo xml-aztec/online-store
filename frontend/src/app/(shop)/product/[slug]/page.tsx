@@ -67,29 +67,28 @@ export default async function ProductPage({ params }: ProductPageProps) {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
 
-      <nav className="mb-6 text-sm text-zinc-500">
-        <Link href="/catalog" className="hover:text-zinc-900 dark:hover:text-zinc-100">
+      <nav aria-label="Хлебные крошки" className="mb-6 text-sm text-ink-muted">
+        <Link
+          href="/catalog"
+          className="hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+        >
           Каталог
         </Link>
-        {" / "}
+        <span aria-hidden="true"> / </span>
         <Link
           href={`/catalog/${product.category.slug}`}
-          className="hover:text-zinc-900 dark:hover:text-zinc-100"
+          className="hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
         >
           {product.category.name}
         </Link>
       </nav>
 
-      <div className="grid grid-cols-1 gap-10 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-10 lg:grid-cols-2 lg:items-start">
         <ProductGallery images={product.images} alt={product.name} />
 
         <div>
-          <h1 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-50">
-            {product.name}
-          </h1>
-          {product.description && (
-            <p className="mt-3 text-zinc-600 dark:text-zinc-400">{product.description}</p>
-          )}
+          <h1 className="font-display text-2xl font-bold text-ink">{product.name}</h1>
+          {product.description && <p className="mt-3 text-ink-muted">{product.description}</p>}
 
           <div className="mt-6">
             <ProductPurchasePanel
@@ -103,18 +102,13 @@ export default async function ProductPage({ params }: ProductPageProps) {
 
           {attributeEntries.length > 0 && (
             <div className="mt-8">
-              <h2 className="mb-3 text-lg font-semibold text-zinc-900 dark:text-zinc-100">
-                Характеристики
-              </h2>
-              <table className="w-full text-sm">
+              <h2 className="mb-3 font-display text-lg font-semibold text-ink">Характеристики</h2>
+              <table className="w-full overflow-hidden rounded-xl text-sm">
                 <tbody>
-                  {attributeEntries.map(([key, value]) => (
-                    <tr
-                      key={key}
-                      className="border-b border-zinc-200 last:border-0 dark:border-zinc-800"
-                    >
-                      <td className="py-2 pr-4 text-zinc-500">{key}</td>
-                      <td className="py-2 text-zinc-900 dark:text-zinc-100">{String(value)}</td>
+                  {attributeEntries.map(([key, value], index) => (
+                    <tr key={key} className={index % 2 === 1 ? "bg-surface" : undefined}>
+                      <td className="py-2 pl-3 pr-4 text-ink-muted">{key}</td>
+                      <td className="py-2 pr-3 text-ink">{String(value)}</td>
                     </tr>
                   ))}
                 </tbody>

@@ -30,15 +30,15 @@ export default function ForgotPasswordPage() {
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center px-4">
-      <h1 className="mb-6 text-xl font-semibold text-zinc-900 dark:text-zinc-100">
+      <h1 className="mb-6 font-display text-xl font-bold text-ink">
         Восстановление пароля
       </h1>
       {message ? (
-        <p className="max-w-sm text-center text-sm text-zinc-600 dark:text-zinc-400">{message}</p>
+        <p className="max-w-sm text-center text-sm text-ink-muted">{message}</p>
       ) : (
         <form onSubmit={handleSubmit} className="w-full max-w-sm space-y-4">
           <div>
-            <label htmlFor="email" className="mb-1 block text-sm text-zinc-600 dark:text-zinc-400">
+            <label htmlFor="email" className="mb-1 block text-sm text-ink-muted">
               Email
             </label>
             <input
@@ -47,14 +47,14 @@ export default function ForgotPasswordPage() {
               required
               value={email}
               onChange={(event) => setEmail(event.target.value)}
-              className="w-full rounded border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+              className="w-full rounded-lg border border-ink/15 px-3 py-2 text-sm bg-bg focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/30"
             />
           </div>
-          {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
+          {error && <p className="text-sm text-accent-sale-700">{error}</p>}
           <button
             type="submit"
             disabled={isSubmitting}
-            className="w-full rounded bg-zinc-900 px-4 py-3 text-sm font-medium text-white transition disabled:cursor-not-allowed disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900"
+            className="w-full rounded-lg bg-brand hover:bg-brand/90 px-4 py-3 text-sm font-medium text-white transition disabled:cursor-not-allowed disabled:opacity-50"
           >
             {isSubmitting ? "Отправляем…" : "Отправить письмо"}
           </button>
@@ -62,7 +62,7 @@ export default function ForgotPasswordPage() {
       )}
       <Link
         href="/login"
-        className="mt-6 text-sm text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100"
+        className="mt-6 text-sm text-ink-muted hover:text-ink"
       >
         Назад ко входу
       </Link>

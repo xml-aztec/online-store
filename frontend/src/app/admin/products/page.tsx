@@ -80,8 +80,8 @@ export default function AdminProductsPage() {
   if (role !== "admin") {
     return (
       <div>
-        <h1 className="mb-6 text-xl font-semibold text-zinc-900 dark:text-zinc-100">Товары</h1>
-        <p className="text-zinc-500">
+        <h1 className="mb-6 text-xl font-semibold text-ink">Товары</h1>
+        <p className="text-ink-muted">
           Управление товарами доступно только роли «admin» (ТЗ 6.4).
         </p>
       </div>
@@ -93,10 +93,10 @@ export default function AdminProductsPage() {
   return (
     <div>
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-xl font-semibold text-zinc-900 dark:text-zinc-100">Товары</h1>
+        <h1 className="text-xl font-semibold text-ink">Товары</h1>
         <Link
           href="/admin/products/new"
-          className="rounded bg-zinc-900 px-4 py-2 text-sm font-medium text-white dark:bg-zinc-100 dark:text-zinc-900"
+          className="rounded-lg bg-brand px-4 py-2 text-sm font-medium text-white"
         >
           Создать товар
         </Link>
@@ -107,12 +107,12 @@ export default function AdminProductsPage() {
           value={search}
           onChange={(event) => setSearch(event.target.value)}
           placeholder="Поиск по названию…"
-          className="w-64 rounded border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+          className="w-64 rounded-lg border border-ink/15 px-3 py-2 text-sm bg-bg"
         />
         <select
           value={categoryId}
           onChange={(event) => setCategoryId(event.target.value)}
-          className="rounded border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+          className="rounded-lg border border-ink/15 px-3 py-2 text-sm bg-bg"
         >
           <option value="">Все категории</option>
           {categories.map((category) => (
@@ -124,7 +124,7 @@ export default function AdminProductsPage() {
         <select
           value={statusFilter}
           onChange={(event) => setStatusFilter(event.target.value as "" | "true" | "false")}
-          className="rounded border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+          className="rounded-lg border border-ink/15 px-3 py-2 text-sm bg-bg"
         >
           <option value="">Любой статус</option>
           <option value="true">Активные</option>
@@ -133,13 +133,13 @@ export default function AdminProductsPage() {
       </div>
 
       {selected.size > 0 && (
-        <div className="mb-4 flex items-center gap-3 rounded-lg border border-zinc-200 p-3 text-sm dark:border-zinc-800">
+        <div className="mb-4 flex items-center gap-3 rounded-lg border border-ink/10 p-3 text-sm">
           <span>Выбрано: {selected.size}</span>
           <button
             type="button"
             onClick={() => bulkMutation.mutate(true)}
             disabled={bulkMutation.isPending}
-            className="rounded border border-zinc-300 px-2 py-1 hover:border-zinc-400 disabled:opacity-50 dark:border-zinc-700"
+            className="rounded-lg border border-ink/15 px-2 py-1 hover:border-brand/40 disabled:opacity-50"
           >
             Включить
           </button>
@@ -147,20 +147,20 @@ export default function AdminProductsPage() {
             type="button"
             onClick={() => bulkMutation.mutate(false)}
             disabled={bulkMutation.isPending}
-            className="rounded border border-zinc-300 px-2 py-1 hover:border-zinc-400 disabled:opacity-50 dark:border-zinc-700"
+            className="rounded-lg border border-ink/15 px-2 py-1 hover:border-brand/40 disabled:opacity-50"
           >
             Скрыть
           </button>
         </div>
       )}
-      {error && <p className="mb-4 text-sm text-red-600 dark:text-red-400">{error}</p>}
+      {error && <p className="mb-4 text-sm text-accent-sale-700">{error}</p>}
 
-      {isLoading && <p className="text-zinc-500">Загрузка…</p>}
+      {isLoading && <p className="text-ink-muted">Загрузка…</p>}
       {data && (
-        <div className="overflow-x-auto rounded-lg border border-zinc-200 dark:border-zinc-800">
+        <div className="overflow-x-auto rounded-lg border border-ink/10">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-zinc-200 bg-zinc-50 text-left text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900">
+              <tr className="border-b border-ink/10 bg-surface text-left text-ink-muted">
                 <th className="px-3 py-2" />
                 <th className="px-3 py-2">Название</th>
                 <th className="px-3 py-2">Статус</th>
@@ -171,7 +171,7 @@ export default function AdminProductsPage() {
               {data.items.map((product) => (
                 <tr
                   key={product.id}
-                  className="border-b border-zinc-100 last:border-0 dark:border-zinc-900"
+                  className="border-b border-ink/10 last:border-0"
                 >
                   <td className="px-3 py-2">
                     <input
@@ -183,18 +183,28 @@ export default function AdminProductsPage() {
                   <td className="px-3 py-2">
                     <Link
                       href={`/admin/products/${product.id}`}
-                      className="font-medium text-zinc-900 hover:underline dark:text-zinc-100"
+                      className="font-medium text-ink hover:underline"
                     >
                       {product.name}
                     </Link>
                   </td>
-                  <td className="px-3 py-2">{product.is_active ? "активен" : "скрыт"}</td>
+                  <td className="px-3 py-2">
+                    <span
+                      className={`rounded-full border px-2 py-0.5 text-xs font-medium ${
+                        product.is_active
+                          ? "border-success/30 bg-success/10 text-success-700"
+                          : "border-ink/15 text-ink-muted"
+                      }`}
+                    >
+                      {product.is_active ? "активен" : "скрыт"}
+                    </span>
+                  </td>
                   <td className="px-3 py-2 text-right">
                     <button
                       type="button"
                       onClick={() => duplicateMutation.mutate(product.id)}
                       disabled={duplicateMutation.isPending}
-                      className="text-sm text-zinc-500 underline hover:text-zinc-900 disabled:opacity-50 dark:hover:text-zinc-100"
+                      className="text-sm text-ink-muted underline hover:text-ink disabled:opacity-50"
                     >
                       Дублировать
                     </button>
@@ -204,7 +214,7 @@ export default function AdminProductsPage() {
             </tbody>
           </table>
           {data.items.length === 0 && (
-            <p className="p-4 text-center text-zinc-500">Товары не найдены</p>
+            <p className="p-4 text-center text-ink-muted">Товары не найдены</p>
           )}
         </div>
       )}

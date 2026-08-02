@@ -7,6 +7,26 @@ import { useApplyPromoMutation, useCartQuery, useClearCartMutation } from "@/ent
 import { formatPrice } from "@/shared/lib/formatPrice";
 import { CartItemRow } from "@/widgets/CartItemRow";
 
+function CartSkeleton() {
+  return (
+    <div className="grid grid-cols-1 gap-8 lg:grid-cols-[1fr_320px]" aria-busy="true" aria-label="Загрузка корзины">
+      <div className="space-y-4">
+        {Array.from({ length: 3 }, (_, i) => (
+          <div key={i} className="flex gap-4 border-b border-ink/10 py-4 last:border-0">
+            <div className="h-20 w-20 shrink-0 animate-pulse rounded-lg bg-surface" />
+            <div className="flex flex-1 flex-col gap-2">
+              <div className="h-4 w-2/3 animate-pulse rounded bg-surface" />
+              <div className="h-4 w-1/4 animate-pulse rounded bg-surface" />
+              <div className="h-8 w-24 animate-pulse rounded-lg bg-surface" />
+            </div>
+          </div>
+        ))}
+      </div>
+      <div className="h-48 animate-pulse rounded-xl bg-surface" />
+    </div>
+  );
+}
+
 export function CartView() {
   const { data: cart, isLoading } = useCartQuery();
   const clearCart = useClearCartMutation();
@@ -14,16 +34,16 @@ export function CartView() {
   const [promoCode, setPromoCode] = useState("");
 
   if (isLoading) {
-    return <p className="py-12 text-center text-zinc-500">Загрузка корзины…</p>;
+    return <CartSkeleton />;
   }
 
   if (!cart || cart.items.length === 0) {
     return (
       <div className="py-16 text-center">
-        <p className="text-zinc-500">Ваша корзина пуста</p>
+        <p className="text-ink-muted">Ваша корзина пуста</p>
         <Link
           href="/catalog"
-          className="mt-4 inline-block rounded-full bg-zinc-900 px-6 py-3 text-sm font-medium text-white dark:bg-zinc-100 dark:text-zinc-900"
+          className="mt-4 inline-block rounded-lg bg-brand px-6 py-3 text-sm font-medium text-white hover:bg-brand/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
         >
           Перейти в каталог
         </Link>
@@ -42,7 +62,7 @@ export function CartView() {
           <button
             type="button"
             onClick={() => clearCart.mutate()}
-            className="text-sm text-zinc-500 underline hover:text-zinc-900 dark:hover:text-zinc-100"
+            className="text-sm text-ink-muted underline hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
           >
             Очистить корзину
           </button>
@@ -53,9 +73,9 @@ export function CartView() {
         ))}
       </div>
 
-      <aside className="h-fit rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
+      <aside className="h-fit rounded-xl border border-ink/10 p-4 lg:sticky lg:top-24">
         {hasUnavailableItems && (
-          <p className="mb-3 rounded bg-amber-50 p-3 text-sm text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+          <p className="mb-3 rounded-lg bg-accent-sale/10 p-3 text-sm text-accent-sale-700">
             Некоторые товары изменились в наличии — проверьте количество перед оформлением.
           </p>
         )}
@@ -76,47 +96,43 @@ export function CartView() {
             value={promoCode}
             onChange={(event) => setPromoCode(event.target.value)}
             placeholder="Промокод"
-            className="w-full rounded border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+            className="w-full rounded-lg border border-ink/15 bg-bg px-3 py-2 text-sm text-ink focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/30"
           />
           <button
             type="submit"
             disabled={applyPromo.isPending}
-            className="shrink-0 rounded border border-zinc-300 px-3 py-2 text-sm font-medium dark:border-zinc-700"
+            className="shrink-0 rounded-lg border border-ink/15 px-3 py-2 text-sm font-medium text-ink hover:border-brand/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
           >
             Применить
           </button>
         </form>
         {applyPromo.isError && (
-          <p className="mb-3 text-sm text-red-600 dark:text-red-400">{applyPromo.error.message}</p>
+          <p className="mb-3 text-sm text-accent-sale-700">{applyPromo.error.message}</p>
         )}
         {cart.promo_code && (
-          <p className="mb-3 text-sm text-emerald-600 dark:text-emerald-400">
-            Промокод «{cart.promo_code}» применён
-          </p>
+          <p className="mb-3 text-sm text-success-700">Промокод «{cart.promo_code}» применён</p>
         )}
 
         <dl className="space-y-2 text-sm">
           <div className="flex justify-between">
-            <dt className="text-zinc-500">Товары</dt>
-            <dd className="text-zinc-900 dark:text-zinc-100">{formatPrice(cart.subtotal)}</dd>
+            <dt className="text-ink-muted">Товары</dt>
+            <dd className="font-mono text-ink">{formatPrice(cart.subtotal)}</dd>
           </div>
           {Number(cart.discount_amount) > 0 && (
             <div className="flex justify-between">
-              <dt className="text-zinc-500">Скидка</dt>
-              <dd className="text-emerald-600 dark:text-emerald-400">
-                −{formatPrice(cart.discount_amount)}
-              </dd>
+              <dt className="text-ink-muted">Скидка</dt>
+              <dd className="font-mono text-success-700">−{formatPrice(cart.discount_amount)}</dd>
             </div>
           )}
-          <div className="flex justify-between border-t border-zinc-200 pt-2 text-base font-semibold text-zinc-900 dark:border-zinc-800 dark:text-zinc-50">
+          <div className="flex justify-between border-t border-ink/10 pt-2 text-base font-semibold text-ink">
             <dt>Итого</dt>
-            <dd>{formatPrice(cart.total)}</dd>
+            <dd className="font-mono text-lg">{formatPrice(cart.total)}</dd>
           </div>
         </dl>
 
         <Link
           href="/checkout"
-          className="mt-4 block w-full rounded bg-zinc-900 px-4 py-3 text-center text-sm font-medium text-white dark:bg-zinc-100 dark:text-zinc-900"
+          className="mt-4 block w-full rounded-lg bg-brand px-4 py-3 text-center text-sm font-medium text-white hover:bg-brand/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
         >
           Оформить заказ
         </Link>

@@ -27,10 +27,10 @@ interface PreviewRow {
 function PreviewTable({ preview }: { preview: ImportPreview }) {
   const rows = preview.rows as unknown as PreviewRow[];
   return (
-    <div className="overflow-x-auto rounded-lg border border-zinc-200 dark:border-zinc-800">
+    <div className="overflow-x-auto rounded-lg border border-ink/10">
       <table className="w-full text-sm">
         <thead>
-          <tr className="border-b border-zinc-200 bg-zinc-50 text-left text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900">
+          <tr className="border-b border-ink/10 bg-surface text-left text-ink-muted">
             <th className="px-3 py-2">Строка</th>
             <th className="px-3 py-2">Название</th>
             <th className="px-3 py-2">SKU</th>
@@ -43,14 +43,14 @@ function PreviewTable({ preview }: { preview: ImportPreview }) {
           {rows.map((row) => (
             <tr
               key={row.row_number}
-              className="border-b border-zinc-100 last:border-0 dark:border-zinc-900"
+              className="border-b border-ink/10 last:border-0"
             >
-              <td className="px-3 py-2">{row.row_number}</td>
+              <td className="px-3 py-2 font-mono">{row.row_number}</td>
               <td className="px-3 py-2">{row.name ?? "—"}</td>
-              <td className="px-3 py-2">{row.sku ?? "—"}</td>
-              <td className="px-3 py-2">{row.price ?? "—"}</td>
-              <td className="px-3 py-2">{row.stock_qty ?? "—"}</td>
-              <td className="px-3 py-2 text-red-600 dark:text-red-400">
+              <td className="px-3 py-2 font-mono">{row.sku ?? "—"}</td>
+              <td className="px-3 py-2 font-mono">{row.price ?? "—"}</td>
+              <td className="px-3 py-2 font-mono">{row.stock_qty ?? "—"}</td>
+              <td className="px-3 py-2 text-accent-sale-700">
                 {row.errors.length > 0 ? row.errors.join("; ") : ""}
               </td>
             </tr>
@@ -109,10 +109,10 @@ export default function AdminImportsPage() {
   if (role !== "admin") {
     return (
       <div>
-        <h1 className="mb-6 text-xl font-semibold text-zinc-900 dark:text-zinc-100">
+        <h1 className="mb-6 text-xl font-semibold text-ink">
           Импорт из Excel
         </h1>
-        <p className="text-zinc-500">Импорт товаров доступен только роли «admin» (ТЗ 6.4).</p>
+        <p className="text-ink-muted">Импорт товаров доступен только роли «admin» (ТЗ 6.4).</p>
       </div>
     );
   }
@@ -133,34 +133,34 @@ export default function AdminImportsPage() {
   return (
     <div>
       <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-zinc-900 dark:text-zinc-100">Импорт из Excel</h1>
+        <h1 className="text-xl font-semibold text-ink">Импорт из Excel</h1>
         <button
           type="button"
           onClick={() => void downloadImportTemplate()}
-          className="rounded border border-zinc-300 px-3 py-1.5 text-sm hover:border-zinc-400 dark:border-zinc-700"
+          className="rounded-lg border border-ink/15 px-3 py-1.5 text-sm hover:border-brand/40"
         >
           Скачать шаблон
         </button>
       </div>
 
       {!job && (
-        <div className="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
+        <div className="rounded-lg border border-ink/10 p-4">
           <input
             ref={fileInputRef}
             type="file"
             accept=".xlsx"
-            className="block text-sm text-zinc-700 dark:text-zinc-300"
+            className="block text-sm text-ink-muted"
           />
           <button
             type="button"
             onClick={handleUpload}
             disabled={uploadMutation.isPending}
-            className="mt-3 rounded bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900"
+            className="mt-3 rounded-lg bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand/90 disabled:opacity-50"
           >
             {uploadMutation.isPending ? "Загрузка…" : "Загрузить и посмотреть предпросмотр"}
           </button>
           {uploadMutation.isError && (
-            <p className="mt-2 text-sm text-red-600 dark:text-red-400">
+            <p className="mt-2 text-sm text-accent-sale-700">
               Не удалось загрузить файл: {uploadMutation.error.message}
             </p>
           )}
@@ -169,18 +169,18 @@ export default function AdminImportsPage() {
 
       {job && (
         <div className="space-y-4">
-          <div className="flex flex-wrap items-center gap-4 rounded-lg border border-zinc-200 p-4 text-sm dark:border-zinc-800">
+          <div className="flex flex-wrap items-center gap-4 rounded-lg border border-ink/10 p-4 text-sm">
             <span>
-              Всего строк: <strong>{job.preview.total_rows}</strong>
+              Всего строк: <strong className="font-mono">{job.preview.total_rows}</strong>
             </span>
             <span>
-              Будет создано: <strong>{job.preview.created_estimate}</strong>
+              Будет создано: <strong className="font-mono">{job.preview.created_estimate}</strong>
             </span>
             <span>
-              Будет обновлено: <strong>{job.preview.updated_estimate}</strong>
+              Будет обновлено: <strong className="font-mono">{job.preview.updated_estimate}</strong>
             </span>
             <span>
-              Ошибок в предпросмотре: <strong>{job.preview.error_count}</strong>
+              Ошибок в предпросмотре: <strong className="font-mono">{job.preview.error_count}</strong>
             </span>
           </div>
 
@@ -191,16 +191,16 @@ export default function AdminImportsPage() {
               type="button"
               onClick={() => applyMutation.mutate()}
               disabled={applyMutation.isPending}
-              className="rounded bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900"
+              className="rounded-lg bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand/90 disabled:opacity-50"
             >
               {applyMutation.isPending ? "Запуск…" : "Применить импорт"}
             </button>
           )}
 
           {applied && (
-            <div className="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
+            <div className="rounded-lg border border-ink/10 p-4">
               {ACTIVE_STATUSES.has(job.status) ? (
-                <p className="text-zinc-500">Импорт обрабатывается…</p>
+                <p className="text-ink-muted">Импорт обрабатывается…</p>
               ) : (
                 <div className="space-y-2 text-sm">
                   <p>
@@ -208,18 +208,18 @@ export default function AdminImportsPage() {
                     <strong>{job.status === "completed" ? "завершён" : job.status}</strong>
                   </p>
                   <p>
-                    Создано товаров/вариантов: <strong>{job.created_count}</strong>
+                    Создано товаров/вариантов: <strong className="font-mono">{job.created_count}</strong>
                   </p>
                   <p>
-                    Обновлено товаров/вариантов: <strong>{job.updated_count}</strong>
+                    Обновлено товаров/вариантов: <strong className="font-mono">{job.updated_count}</strong>
                   </p>
                   <p>
-                    Ошибок: <strong>{job.error_count}</strong>
+                    Ошибок: <strong className="font-mono">{job.error_count}</strong>
                   </p>
                   {job.errors_report_url && (
                     <a
                       href={job.errors_report_url}
-                      className="inline-block text-zinc-900 underline dark:text-zinc-100"
+                      className="inline-block text-ink underline"
                     >
                       Скачать отчёт об ошибках
                     </a>
@@ -232,7 +232,7 @@ export default function AdminImportsPage() {
           <button
             type="button"
             onClick={handleReset}
-            className="text-sm text-zinc-500 underline hover:text-zinc-900 dark:hover:text-zinc-100"
+            className="text-sm text-ink-muted underline hover:text-ink"
           >
             Загрузить другой файл
           </button>

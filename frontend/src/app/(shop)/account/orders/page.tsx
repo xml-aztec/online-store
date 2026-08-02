@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 
 import { listMyOrders, ORDER_STATUS_LABELS } from "@/entities/orders/api";
 import { formatPrice } from "@/shared/lib/formatPrice";
+import { orderStatusPillClass } from "@/shared/lib/orderStatusStyles";
 
 export default function AccountOrdersPage() {
   const { data, isLoading } = useQuery({
@@ -14,14 +15,14 @@ export default function AccountOrdersPage() {
 
   return (
     <div>
-      <h1 className="mb-6 text-xl font-semibold text-zinc-900 dark:text-zinc-100">Мои заказы</h1>
-      {isLoading && <p className="text-zinc-500">Загрузка…</p>}
-      {data && data.items.length === 0 && <p className="text-zinc-500">Заказов пока нет</p>}
+      <h1 className="mb-6 font-display text-xl font-bold text-ink">Мои заказы</h1>
+      {isLoading && <p className="text-ink-muted">Загрузка…</p>}
+      {data && data.items.length === 0 && <p className="text-ink-muted">Заказов пока нет</p>}
       {data && data.items.length > 0 && (
-        <div className="overflow-x-auto rounded-lg border border-zinc-200 dark:border-zinc-800">
+        <div className="overflow-x-auto rounded-lg border border-ink/10">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-zinc-200 bg-zinc-50 text-left text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900">
+              <tr className="border-b border-ink/10 bg-surface text-left text-ink-muted">
                 <th className="px-3 py-2">Номер</th>
                 <th className="px-3 py-2">Статус</th>
                 <th className="px-3 py-2">Сумма</th>
@@ -33,22 +34,26 @@ export default function AccountOrdersPage() {
               {data.items.map((order) => (
                 <tr
                   key={order.number}
-                  className="border-b border-zinc-100 last:border-0 dark:border-zinc-900"
+                  className="border-b border-ink/10 last:border-0"
                 >
-                  <td className="px-3 py-2 font-medium text-zinc-900 dark:text-zinc-100">
+                  <td className="px-3 py-2 font-mono font-medium text-ink">
                     {order.number}
                   </td>
                   <td className="px-3 py-2">
-                    {ORDER_STATUS_LABELS[order.status] ?? order.status}
+                    <span
+                      className={`rounded-full border px-2 py-0.5 text-xs font-medium ${orderStatusPillClass(order.status)}`}
+                    >
+                      {ORDER_STATUS_LABELS[order.status] ?? order.status}
+                    </span>
                   </td>
-                  <td className="px-3 py-2">{formatPrice(order.total)}</td>
-                  <td className="px-3 py-2 text-zinc-500">
+                  <td className="px-3 py-2 font-mono">{formatPrice(order.total)}</td>
+                  <td className="px-3 py-2 text-ink-muted">
                     {new Date(order.created_at).toLocaleDateString("ru-RU")}
                   </td>
                   <td className="px-3 py-2 text-right">
                     <Link
                       href={`/account/orders/${order.number}`}
-                      className="text-zinc-500 underline hover:text-zinc-900 dark:hover:text-zinc-100"
+                      className="text-ink-muted underline hover:text-ink"
                     >
                       Подробнее
                     </Link>

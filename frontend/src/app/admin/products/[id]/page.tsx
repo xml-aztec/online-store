@@ -84,27 +84,27 @@ function BasicTab({ product }: { product: AdminProductDetail }) {
     <div>
       <form onSubmit={handleSubmit} className="max-w-lg space-y-4">
         <div>
-          <label className="mb-1 block text-sm text-zinc-600 dark:text-zinc-400">Название</label>
+          <label className="mb-1 block text-sm text-ink-muted">Название</label>
           <input
             value={name}
             onChange={(event) => setName(event.target.value)}
-            className="w-full rounded border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+            className="w-full rounded-lg border border-ink/15 px-3 py-2 text-sm bg-bg"
           />
         </div>
         <div>
-          <label className="mb-1 block text-sm text-zinc-600 dark:text-zinc-400">Слаг</label>
+          <label className="mb-1 block text-sm text-ink-muted">Слаг</label>
           <input
             value={slug}
             onChange={(event) => setSlug(event.target.value)}
-            className="w-full rounded border border-zinc-300 px-3 py-2 text-sm font-mono dark:border-zinc-700 dark:bg-zinc-900"
+            className="w-full rounded-lg border border-ink/15 px-3 py-2 text-sm font-mono bg-bg"
           />
         </div>
         <div>
-          <label className="mb-1 block text-sm text-zinc-600 dark:text-zinc-400">Категория</label>
+          <label className="mb-1 block text-sm text-ink-muted">Категория</label>
           <select
             value={categoryId}
             onChange={(event) => setCategoryId(event.target.value)}
-            className="w-full rounded border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+            className="w-full rounded-lg border border-ink/15 px-3 py-2 text-sm bg-bg"
           >
             {categories.map((category) => (
               <option key={category.id} value={category.id}>
@@ -114,12 +114,12 @@ function BasicTab({ product }: { product: AdminProductDetail }) {
           </select>
         </div>
         <div>
-          <label className="mb-1 block text-sm text-zinc-600 dark:text-zinc-400">Описание</label>
+          <label className="mb-1 block text-sm text-ink-muted">Описание</label>
           <textarea
             value={description}
             onChange={(event) => setDescription(event.target.value)}
             rows={4}
-            className="w-full rounded border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+            className="w-full rounded-lg border border-ink/15 px-3 py-2 text-sm bg-bg"
           />
         </div>
         <label className="flex items-center gap-2 text-sm">
@@ -131,7 +131,7 @@ function BasicTab({ product }: { product: AdminProductDetail }) {
           Товар активен
         </label>
         {saveMutation.isError && (
-          <p className="text-sm text-red-600 dark:text-red-400">
+          <p className="text-sm text-accent-sale-700">
             {saveMutation.error instanceof ApiError
               ? saveMutation.error.message
               : "Не удалось сохранить"}
@@ -140,13 +140,13 @@ function BasicTab({ product }: { product: AdminProductDetail }) {
         <button
           type="submit"
           disabled={saveMutation.isPending}
-          className="rounded bg-zinc-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900"
+          className="rounded-lg bg-brand px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
         >
           {saveMutation.isPending ? "Сохраняем…" : saved ? "Сохранено ✓" : "Сохранить"}
         </button>
       </form>
 
-      <div className="mt-8 border-t border-zinc-200 pt-4 dark:border-zinc-800">
+      <div className="mt-8 border-t border-ink/10 pt-4">
         <button
           type="button"
           onClick={() => {
@@ -155,7 +155,7 @@ function BasicTab({ product }: { product: AdminProductDetail }) {
             }
           }}
           disabled={deleteMutation.isPending}
-          className="rounded border border-red-300 px-4 py-2 text-sm text-red-600 hover:border-red-400 disabled:opacity-50 dark:border-red-900 dark:text-red-400"
+          className="rounded-lg border border-accent-sale/40 px-4 py-2 text-sm text-accent-sale-700 hover:border-accent-sale/60 disabled:opacity-50"
         >
           Удалить товар
         </button>
@@ -192,21 +192,21 @@ function VariantRow({ productId, variant }: { productId: string; variant: AdminP
   });
 
   return (
-    <tr className="border-b border-zinc-100 last:border-0 dark:border-zinc-900">
-      <td className="px-3 py-2">{variant.sku}</td>
+    <tr className="border-b border-ink/10 last:border-0">
+      <td className="px-3 py-2 font-mono">{variant.sku}</td>
       <td className="px-3 py-2">{optionsToString(variant.options)}</td>
       <td className="px-3 py-2">
         <input
           value={price}
           onChange={(event) => setPrice(event.target.value)}
-          className="w-24 rounded border border-zinc-300 px-2 py-1 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+          className="w-24 rounded-lg border border-ink/15 px-2 py-1 font-mono text-sm bg-bg"
         />
       </td>
       <td className="px-3 py-2">
         <input
           value={stockQty}
           onChange={(event) => setStockQty(event.target.value)}
-          className="w-20 rounded border border-zinc-300 px-2 py-1 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+          className="w-20 rounded-lg border border-ink/15 px-2 py-1 font-mono text-sm bg-bg"
         />
       </td>
       <td className="px-3 py-2">
@@ -214,7 +214,7 @@ function VariantRow({ productId, variant }: { productId: string; variant: AdminP
           type="button"
           onClick={() => saveMutation.mutate()}
           disabled={saveMutation.isPending}
-          className="rounded border border-zinc-300 px-2 py-1 text-xs hover:border-zinc-400 disabled:opacity-50 dark:border-zinc-700"
+          className="rounded-lg border border-ink/15 px-2 py-1 text-xs hover:border-brand/40 disabled:opacity-50"
         >
           {saveMutation.isPending ? "…" : saved ? "Сохранено ✓" : "Сохранить"}
         </button>
@@ -224,11 +224,11 @@ function VariantRow({ productId, variant }: { productId: string; variant: AdminP
           type="button"
           onClick={() => deleteMutation.mutate()}
           disabled={deleteMutation.isPending}
-          className="rounded border border-red-300 px-2 py-1 text-xs text-red-600 hover:border-red-400 disabled:opacity-50 dark:border-red-900 dark:text-red-400"
+          className="rounded-lg border border-accent-sale/40 px-2 py-1 text-xs text-accent-sale-700 hover:border-accent-sale/60 disabled:opacity-50"
         >
           Удалить
         </button>
-        {error && <p className="mt-1 text-xs text-red-600 dark:text-red-400">{error}</p>}
+        {error && <p className="mt-1 text-xs text-accent-sale-700">{error}</p>}
       </td>
     </tr>
   );
@@ -267,7 +267,7 @@ function VariantsTab({ product }: { product: AdminProductDetail }) {
     <div>
       <table className="mb-6 w-full text-sm">
         <thead>
-          <tr className="border-b border-zinc-200 text-left text-zinc-500 dark:border-zinc-800">
+          <tr className="border-b border-ink/10 text-left text-ink-muted">
             <th className="px-3 py-1">SKU</th>
             <th className="px-3 py-1">Опции</th>
             <th className="px-3 py-1">Цена</th>
@@ -285,51 +285,51 @@ function VariantsTab({ product }: { product: AdminProductDetail }) {
 
       <form
         onSubmit={handleSubmit}
-        className="flex flex-wrap items-end gap-3 rounded-lg border border-zinc-200 p-4 dark:border-zinc-800"
+        className="flex flex-wrap items-end gap-3 rounded-lg border border-ink/10 p-4"
       >
         <div>
-          <label className="mb-1 block text-xs text-zinc-500">SKU</label>
+          <label className="mb-1 block text-xs text-ink-muted">SKU</label>
           <input
             value={sku}
             onChange={(event) => setSku(event.target.value)}
             required
-            className="w-32 rounded border border-zinc-300 px-2 py-1 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+            className="w-32 rounded-lg border border-ink/15 px-2 py-1 font-mono text-sm bg-bg"
           />
         </div>
         <div>
-          <label className="mb-1 block text-xs text-zinc-500">Опции (цвет=красный; объём=1л)</label>
+          <label className="mb-1 block text-xs text-ink-muted">Опции (цвет=красный; объём=1л)</label>
           <input
             value={options}
             onChange={(event) => setOptions(event.target.value)}
-            className="w-56 rounded border border-zinc-300 px-2 py-1 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+            className="w-56 rounded-lg border border-ink/15 px-2 py-1 text-sm bg-bg"
           />
         </div>
         <div>
-          <label className="mb-1 block text-xs text-zinc-500">Цена</label>
+          <label className="mb-1 block text-xs text-ink-muted">Цена</label>
           <input
             value={price}
             onChange={(event) => setPrice(event.target.value)}
             required
-            className="w-24 rounded border border-zinc-300 px-2 py-1 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+            className="w-24 rounded-lg border border-ink/15 px-2 py-1 font-mono text-sm bg-bg"
           />
         </div>
         <div>
-          <label className="mb-1 block text-xs text-zinc-500">Остаток</label>
+          <label className="mb-1 block text-xs text-ink-muted">Остаток</label>
           <input
             value={stockQty}
             onChange={(event) => setStockQty(event.target.value)}
-            className="w-20 rounded border border-zinc-300 px-2 py-1 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+            className="w-20 rounded-lg border border-ink/15 px-2 py-1 font-mono text-sm bg-bg"
           />
         </div>
         <button
           type="submit"
           disabled={createMutation.isPending}
-          className="rounded bg-zinc-900 px-4 py-1.5 text-sm font-medium text-white disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900"
+          className="rounded-lg bg-brand px-4 py-1.5 text-sm font-medium text-white disabled:opacity-50"
         >
           {createMutation.isPending ? "Создание…" : "Добавить вариант"}
         </button>
         {createMutation.isError && (
-          <p className="w-full text-sm text-red-600 dark:text-red-400">
+          <p className="w-full text-sm text-accent-sale-700">
             {createMutation.error instanceof ApiError
               ? createMutation.error.message
               : "Не удалось добавить вариант"}
@@ -368,7 +368,7 @@ function ImageTile({
       onDragOver={onDragOver}
       onDrop={onDrop}
       className={`relative aspect-square cursor-move overflow-hidden rounded-lg border ${
-        isDragging ? "border-zinc-900 dark:border-zinc-100" : "border-zinc-200 dark:border-zinc-800"
+        isDragging ? "border-brand" : "border-ink/10"
       }`}
     >
       {/* eslint-disable-next-line @next/next/no-img-element -- presigned S3 URL, next/image optimization is pointless here (see Задача 2.3) */}
@@ -377,7 +377,7 @@ function ImageTile({
         type="button"
         onClick={() => deleteMutation.mutate()}
         disabled={deleteMutation.isPending}
-        className="absolute right-1 top-1 rounded bg-black/60 px-2 py-1 text-xs text-white disabled:opacity-50"
+        className="absolute right-1 top-1 rounded-lg bg-ink/70 px-2 py-1 text-xs text-white disabled:opacity-50"
       >
         Удалить
       </button>
@@ -431,8 +431,8 @@ function ImagesTab({ product }: { product: AdminProductDetail }) {
           />
         ))}
       </div>
-      {images.length === 0 && <p className="mb-4 text-zinc-500">Фотографий пока нет</p>}
-      <p className="mb-2 text-xs text-zinc-500">
+      {images.length === 0 && <p className="mb-4 text-ink-muted">Фотографий пока нет</p>}
+      <p className="mb-2 text-xs text-ink-muted">
         Перетаскивайте фото, чтобы изменить порядок отображения.
       </p>
 
@@ -445,12 +445,12 @@ function ImagesTab({ product }: { product: AdminProductDetail }) {
           if (file) uploadMutation.mutate(file);
           event.target.value = "";
         }}
-        className="text-sm text-zinc-700 dark:text-zinc-300"
+        className="text-sm text-ink-muted"
       />
       {(uploadMutation.isPending || reorderMutation.isPending) && (
-        <p className="mt-2 text-sm text-zinc-500">Загрузка…</p>
+        <p className="mt-2 text-sm text-ink-muted">Загрузка…</p>
       )}
-      {error && <p className="mt-2 text-sm text-red-600 dark:text-red-400">{error}</p>}
+      {error && <p className="mt-2 text-sm text-accent-sale-700">{error}</p>}
     </div>
   );
 }
@@ -466,7 +466,7 @@ export default function AdminProductDetailPage() {
   });
 
   if (isLoading || !product) {
-    return <p className="text-zinc-500">Загрузка…</p>;
+    return <p className="text-ink-muted">Загрузка…</p>;
   }
 
   const tabs: { key: Tab; label: string }[] = [
@@ -477,10 +477,10 @@ export default function AdminProductDetailPage() {
 
   return (
     <div>
-      <h1 className="mb-6 text-xl font-semibold text-zinc-900 dark:text-zinc-100">
+      <h1 className="mb-6 text-xl font-semibold text-ink">
         {product.name}
       </h1>
-      <div className="mb-6 flex gap-4 border-b border-zinc-200 dark:border-zinc-800">
+      <div className="mb-6 flex gap-4 border-b border-ink/10">
         {tabs.map((item) => (
           <button
             key={item.key}
@@ -488,8 +488,8 @@ export default function AdminProductDetailPage() {
             onClick={() => setTab(item.key)}
             className={`border-b-2 px-1 pb-2 text-sm font-medium ${
               tab === item.key
-                ? "border-zinc-900 text-zinc-900 dark:border-zinc-100 dark:text-zinc-100"
-                : "border-transparent text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100"
+                ? "border-brand text-ink"
+                : "border-transparent text-ink-muted hover:text-ink"
             }`}
           >
             {item.label}

@@ -1,26 +1,85 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+@theme {
+  --color-bg: #ffffff;
+  --color-surface: #f4f5f7;
+  --color-ink: #14161a;
+  --color-ink-muted: #6b7280;
+  --color-brand: #2f5af5;
+  --color-accent-sale: #ff6a4d;
+  --color-success: #1aa35a;
+  /* Darker text-safe variants of the two brand accents: at full brightness
+     both fail WCAG AA against a white/light background (accent-sale 2.83:1,
+     success 3.27:1, both need 4.5:1 for body text). Same hue family, used
+     wherever the color renders as text or an icon; badge/swatch backgrounds
+     keep the brighter base color. */
+  --color-accent-sale-700: #b84c37;
+  --color-success-700: #157a42;
+
+  --font-sans: var(--font-inter);
+  --font-display: var(--font-manrope);
+  --font-mono: var(--font-jetbrains-mono);
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  color-scheme: light;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-bg);
+  color: var(--color-ink);
+}
+
+/* Safety net so every focusable element gets a visible ring even where a
+   component doesn't set its own focus-visible utilities explicitly. */
+:focus-visible {
+  outline: 2px solid var(--color-brand);
+  outline-offset: 2px;
+}
+
+/* Hand-authored motion (header shrink is plain CSS transitions and already
+   respects prefers-reduced-motion via the media query below). Keyframe
+   animations are opt-in only when the user hasn't asked for reduced motion,
+   so there is nothing to "turn off" -- it never starts. */
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes cart-pulse {
+    0% {
+      transform: scale(1);
+    }
+    35% {
+      transform: scale(1.18);
+    }
+    100% {
+      transform: scale(1);
+    }
+  }
+
+  @keyframes price-tick {
+    0% {
+      opacity: 0;
+      transform: translateY(0.35em);
+    }
+    100% {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .animate-cart-pulse {
+    animation: cart-pulse 0.4s ease-out;
+  }
+
+  .animate-price-tick {
+    animation: price-tick 0.22s ease-out;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

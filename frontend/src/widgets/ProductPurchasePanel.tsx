@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { useAddCartItemMutation } from "@/entities/cart/queries";
 import type { ProductVariant } from "@/entities/product/api";
 import { formatPrice } from "@/shared/lib/formatPrice";
+import { isColorFacet, resolveSwatchColor } from "@/shared/lib/colorSwatches";
 
 interface Axis {
   key: string;
@@ -46,6 +47,14 @@ function stockLabel(variant: ProductVariant | undefined): string {
   return "В наличии";
 }
 
+function discountPercent(variant: ProductVariant | undefined): number | null {
+  if (!variant?.compare_at_price) return null;
+  const price = Number(variant.price);
+  const comparePrice = Number(variant.compare_at_price);
+  if (!(comparePrice > price)) return null;
+  return Math.round((1 - price / comparePrice) * 100);
+}
+
 interface ProductPurchasePanelProps {
   variants: ProductVariant[];
   productId: string;
@@ -71,6 +80,7 @@ export function ProductPurchasePanel({
   const available = Boolean(
     selectedVariant && selectedVariant.is_available && selectedVariant.stock_qty > 0
   );
+  const discount = discountPercent(selectedVariant);
 
   function isValueAvailable(axisKey: string, value: string): boolean {
     const candidate = { ...selection, [axisKey]: value };
@@ -78,45 +88,94 @@ export function ProductPurchasePanel({
   }
 
   return (
-    <div className="space-y-5">
-      <p className="text-2xl font-semibold text-zinc-900 dark:text-zinc-50">
-        {selectedVariant ? formatPrice(selectedVariant.price) : "—"}
-      </p>
+    <div className="space-y-5 lg:sticky lg:top-24">
+      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+        <p
+          key={selectedVariant?.id ?? "none"}
+          className="animate-price-tick font-mono text-2xl font-semibold text-ink"
+        >
+          {selectedVariant ? formatPrice(selectedVariant.price) : "—"}
+        </p>
+        {discount !== null && selectedVariant?.compare_at_price && (
+          <>
+            <p className="font-mono text-base text-ink-muted line-through">
+              {formatPrice(selectedVariant.compare_at_price)}
+            </p>
+            <span className="rounded-lg bg-accent-sale px-2 py-0.5 text-xs font-semibold text-white">
+              -{discount}%
+            </span>
+          </>
+        )}
+      </div>
 
-      {axes.map((axis) => (
-        <div key={axis.key}>
-          <p className="mb-2 text-sm font-medium capitalize text-zinc-900 dark:text-zinc-100">
-            {axis.key}
-          </p>
-          <div className="flex flex-wrap gap-2">
-            {axis.values.map((value) => {
-              const isSelected = selection[axis.key] === value;
-              const isEnabled = isValueAvailable(axis.key, value);
-              return (
-                <button
-                  key={value}
-                  type="button"
-                  disabled={!isEnabled}
-                  onClick={() => setSelection((prev) => ({ ...prev, [axis.key]: value }))}
-                  className={`rounded border px-3 py-1.5 text-sm ${
-                    isSelected
-                      ? "border-zinc-900 bg-zinc-900 text-white dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-900"
-                      : "border-zinc-300 text-zinc-700 dark:border-zinc-700 dark:text-zinc-300"
-                  } ${!isEnabled ? "cursor-not-allowed opacity-40 line-through" : ""}`}
-                >
-                  {value}
-                </button>
-              );
-            })}
+      {axes.map((axis) => {
+        const asColor = isColorFacet(axis.key);
+        return (
+          <div key={axis.key}>
+            <p className="mb-2 text-sm font-medium capitalize text-ink">{axis.key}</p>
+            <div className="flex flex-wrap gap-2">
+              {axis.values.map((value) => {
+                const isSelected = selection[axis.key] === value;
+                const isEnabled = isValueAvailable(axis.key, value);
+                const swatch = asColor ? resolveSwatchColor(value) : null;
+
+                if (asColor) {
+                  const isTransparent = swatch === "transparent";
+                  return (
+                    <button
+                      key={value}
+                      type="button"
+                      title={value}
+                      disabled={!isEnabled}
+                      onClick={() => setSelection((prev) => ({ ...prev, [axis.key]: value }))}
+                      className={`relative flex h-9 w-9 items-center justify-center rounded-full ring-1 ring-inset transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand ${
+                        isSelected ? "ring-2 ring-brand ring-offset-2" : "ring-ink/15"
+                      } ${!isEnabled ? "cursor-not-allowed opacity-30" : ""} ${!swatch ? "bg-surface" : ""}`}
+                      style={
+                        isTransparent
+                          ? {
+                              background:
+                                "linear-gradient(135deg, transparent 46%, #d1d5db 46%, #d1d5db 54%, transparent 54%)",
+                            }
+                          : swatch
+                            ? { backgroundColor: swatch }
+                            : undefined
+                      }
+                    >
+                      {!swatch && (
+                        <span className="text-[10px] font-medium text-ink-muted">
+                          {value.slice(0, 1).toUpperCase()}
+                        </span>
+                      )}
+                      <span className="sr-only">{value}</span>
+                    </button>
+                  );
+                }
+
+                return (
+                  <button
+                    key={value}
+                    type="button"
+                    disabled={!isEnabled}
+                    onClick={() => setSelection((prev) => ({ ...prev, [axis.key]: value }))}
+                    className={`rounded-lg border px-3 py-1.5 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand ${
+                      isSelected
+                        ? "border-brand bg-brand/10 text-brand"
+                        : "border-ink/15 text-ink-muted"
+                    } ${!isEnabled ? "cursor-not-allowed opacity-40 line-through" : ""}`}
+                  >
+                    {value}
+                  </button>
+                );
+              })}
+            </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
 
       <p
         className={
-          available
-            ? "text-sm font-medium text-emerald-600 dark:text-emerald-400"
-            : "text-sm font-medium text-zinc-500"
+          available ? "text-sm font-medium text-success-700" : "text-sm font-medium text-ink-muted"
         }
       >
         {stockLabel(selectedVariant)}
@@ -141,17 +200,13 @@ export function ProductPurchasePanel({
             },
           });
         }}
-        className="w-full rounded bg-zinc-900 px-4 py-3 font-medium text-white transition disabled:cursor-not-allowed disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900"
+        className="w-full rounded-lg bg-brand px-4 py-3 font-medium text-white transition hover:bg-brand/90 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
       >
         {addItem.isPending ? "Добавляем…" : "Добавить в корзину"}
       </button>
 
-      {addItem.isSuccess && (
-        <p className="text-sm text-emerald-600 dark:text-emerald-400">Добавлено в корзину</p>
-      )}
-      {addItem.isError && (
-        <p className="text-sm text-red-600 dark:text-red-400">{addItem.error.message}</p>
-      )}
+      {addItem.isSuccess && <p className="text-sm text-success-700">Добавлено в корзину</p>}
+      {addItem.isError && <p className="text-sm text-accent-sale-700">{addItem.error.message}</p>}
     </div>
   );
 }

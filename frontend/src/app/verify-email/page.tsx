@@ -30,22 +30,22 @@ function VerifyEmailStatus() {
 
   if (!token) {
     return (
-      <p className="text-sm text-red-600 dark:text-red-400">
+      <p className="text-sm text-accent-sale-700">
         Ссылка неполная — не хватает токена.
       </p>
     );
   }
 
   if (status === "verifying") {
-    return <p className="text-sm text-zinc-500">Подтверждаем email…</p>;
+    return <p className="text-sm text-ink-muted">Подтверждаем email…</p>;
   }
 
   return (
     <p
       className={
         status === "success"
-          ? "text-sm text-zinc-600 dark:text-zinc-400"
-          : "text-sm text-red-600 dark:text-red-400"
+          ? "text-sm text-ink-muted "
+          : "text-sm text-accent-sale-700 "
       }
     >
       {message}
@@ -56,15 +56,15 @@ function VerifyEmailStatus() {
 export default function VerifyEmailPage() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center px-4 text-center">
-      <h1 className="mb-6 text-xl font-semibold text-zinc-900 dark:text-zinc-100">
+      <h1 className="mb-6 font-display text-xl font-bold text-ink">
         Подтверждение email
       </h1>
-      <Suspense fallback={<p className="text-sm text-zinc-500">Подтверждаем email…</p>}>
+      <Suspense fallback={<p className="text-sm text-ink-muted">Подтверждаем email…</p>}>
         <VerifyEmailStatus />
       </Suspense>
       <Link
         href="/"
-        className="mt-6 text-sm text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100"
+        className="mt-6 text-sm text-ink-muted hover:text-ink"
       >
         На главную
       </Link>

@@ -42,12 +42,12 @@ export default function NewAdminProductPage() {
 
   return (
     <div>
-      <h1 className="mb-6 text-xl font-semibold text-zinc-900 dark:text-zinc-100">
+      <h1 className="mb-6 text-xl font-semibold text-ink">
         Новый товар
       </h1>
       <form onSubmit={handleSubmit} className="max-w-lg space-y-4">
         <div>
-          <label className="mb-1 block text-sm text-zinc-600 dark:text-zinc-400">Название</label>
+          <label className="mb-1 block text-sm text-ink-muted">Название</label>
           <input
             value={name}
             onChange={(event) => {
@@ -55,11 +55,11 @@ export default function NewAdminProductPage() {
               if (!slugTouched) setSlug(slugify(event.target.value));
             }}
             required
-            className="w-full rounded border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+            className="w-full rounded-lg border border-ink/15 px-3 py-2 text-sm bg-bg"
           />
         </div>
         <div>
-          <label className="mb-1 block text-sm text-zinc-600 dark:text-zinc-400">Слаг</label>
+          <label className="mb-1 block text-sm text-ink-muted">Слаг</label>
           <input
             value={slug}
             onChange={(event) => {
@@ -67,16 +67,16 @@ export default function NewAdminProductPage() {
               setSlugTouched(true);
             }}
             required
-            className="w-full rounded border border-zinc-300 px-3 py-2 text-sm font-mono dark:border-zinc-700 dark:bg-zinc-900"
+            className="w-full rounded-lg border border-ink/15 px-3 py-2 text-sm font-mono bg-bg"
           />
         </div>
         <div>
-          <label className="mb-1 block text-sm text-zinc-600 dark:text-zinc-400">Категория</label>
+          <label className="mb-1 block text-sm text-ink-muted">Категория</label>
           <select
             value={categoryId}
             onChange={(event) => setCategoryId(event.target.value)}
             required
-            className="w-full rounded border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+            className="w-full rounded-lg border border-ink/15 px-3 py-2 text-sm bg-bg"
           >
             <option value="" disabled>
               Выберите категорию
@@ -89,16 +89,16 @@ export default function NewAdminProductPage() {
           </select>
         </div>
         <div>
-          <label className="mb-1 block text-sm text-zinc-600 dark:text-zinc-400">Описание</label>
+          <label className="mb-1 block text-sm text-ink-muted">Описание</label>
           <textarea
             value={description}
             onChange={(event) => setDescription(event.target.value)}
             rows={4}
-            className="w-full rounded border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+            className="w-full rounded-lg border border-ink/15 px-3 py-2 text-sm bg-bg"
           />
         </div>
         {mutation.isError && (
-          <p className="text-sm text-red-600 dark:text-red-400">
+          <p className="text-sm text-accent-sale-700">
             {mutation.error instanceof ApiError
               ? mutation.error.message
               : "Не удалось создать товар"}
@@ -107,11 +107,11 @@ export default function NewAdminProductPage() {
         <button
           type="submit"
           disabled={mutation.isPending}
-          className="rounded bg-zinc-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900"
+          className="rounded-lg bg-brand px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
         >
           {mutation.isPending ? "Создание…" : "Создать и продолжить"}
         </button>
-        <p className="text-xs text-zinc-500">
+        <p className="text-xs text-ink-muted">
           После создания вы сможете добавить варианты и фотографии.
         </p>
       </form>

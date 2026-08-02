@@ -6,6 +6,16 @@ import { type ReactNode, useEffect } from "react";
 
 import { logout, useAuthStore } from "@/entities/auth/store";
 
+const NAV_LINKS = [
+  { href: "/account", label: "Профиль" },
+  { href: "/account/orders", label: "Заказы" },
+  { href: "/account/addresses", label: "Адреса" },
+];
+
+function isNavLinkActive(pathname: string, href: string): boolean {
+  return href === "/account" ? pathname === "/account" : pathname.startsWith(href);
+}
+
 export default function AccountLayout({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -20,7 +30,7 @@ export default function AccountLayout({ children }: { children: ReactNode }) {
 
   if (status === "loading") {
     return (
-      <div className="flex min-h-screen items-center justify-center text-zinc-500">Загрузка…</div>
+      <div className="flex min-h-screen items-center justify-center text-ink-muted">Загрузка…</div>
     );
   }
 
@@ -31,28 +41,30 @@ export default function AccountLayout({ children }: { children: ReactNode }) {
   return (
     <div className="mx-auto max-w-3xl px-4 py-8">
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-        <nav className="flex gap-4 text-sm font-medium text-zinc-700 dark:text-zinc-300">
-          <Link href="/account" className="hover:text-zinc-900 dark:hover:text-zinc-100">
-            Профиль
-          </Link>
-          <Link href="/account/orders" className="hover:text-zinc-900 dark:hover:text-zinc-100">
-            Заказы
-          </Link>
-          <Link
-            href="/account/addresses"
-            className="hover:text-zinc-900 dark:hover:text-zinc-100"
-          >
-            Адреса
-          </Link>
+        <nav className="flex gap-4 text-sm font-medium">
+          {NAV_LINKS.map((link) => (
+            <Link
+              key={link.href}
+              href={link.href}
+              aria-current={isNavLinkActive(pathname, link.href) ? "page" : undefined}
+              className={
+                isNavLinkActive(pathname, link.href)
+                  ? "font-semibold text-brand"
+                  : "text-ink-muted hover:text-ink"
+              }
+            >
+              {link.label}
+            </Link>
+          ))}
         </nav>
-        <div className="flex items-center gap-3 text-sm text-zinc-500">
+        <div className="flex items-center gap-3 text-sm text-ink-muted">
           <span>{email}</span>
           <button
             type="button"
             onClick={() => {
               void logout().then(() => router.push("/"));
             }}
-            className="underline hover:text-zinc-900 dark:hover:text-zinc-100"
+            className="underline hover:text-ink"
           >
             Выйти
           </button>

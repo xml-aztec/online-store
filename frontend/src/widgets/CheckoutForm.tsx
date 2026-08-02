@@ -15,6 +15,13 @@ const PAYMENT_METHOD_LABELS: Record<string, string> = {
   online: "Онлайн-оплата",
 };
 
+const INPUT_CLASS =
+  "w-full rounded-lg border border-ink/15 bg-bg px-3 py-2 text-sm text-ink focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/30";
+const LABEL_CLASS = "mb-1 block text-sm text-ink-muted";
+const LEGEND_CLASS = "mb-1 font-display text-base font-semibold text-ink";
+const RADIO_ROW_CLASS = "flex items-center gap-2 text-sm text-ink";
+const RADIO_CLASS = "accent-brand";
+
 const addressSchema = z.object({
   city: z.string().min(1, "Укажите город"),
   street: z.string().min(1, "Укажите улицу"),
@@ -141,7 +148,7 @@ export function CheckoutForm() {
   if (cart && cart.items.length === 0) {
     return (
       <div className="py-16 text-center">
-        <p className="text-zinc-500">Корзина пуста — оформить заказ не получится.</p>
+        <p className="text-ink-muted">Корзина пуста — оформить заказ не получится.</p>
       </div>
     );
   }
@@ -150,11 +157,9 @@ export function CheckoutForm() {
     <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-8 lg:grid-cols-[1fr_320px]">
       <div className="space-y-6">
         <fieldset className="space-y-3">
-          <legend className="mb-1 text-base font-semibold text-zinc-900 dark:text-zinc-100">
-            Контакты
-          </legend>
+          <legend className={LEGEND_CLASS}>Контакты</legend>
           <div>
-            <label htmlFor="email" className="mb-1 block text-sm text-zinc-600 dark:text-zinc-400">
+            <label htmlFor="email" className={LABEL_CLASS}>
               Email
             </label>
             <input
@@ -162,12 +167,12 @@ export function CheckoutForm() {
               type="email"
               value={form.email}
               onChange={(event) => update("email", event.target.value)}
-              className="w-full rounded border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+              className={INPUT_CLASS}
             />
-            {fieldErrors.email && <p className="mt-1 text-xs text-red-600">{fieldErrors.email}</p>}
+            {fieldErrors.email && <p className="mt-1 text-xs text-accent-sale-700">{fieldErrors.email}</p>}
           </div>
           <div>
-            <label htmlFor="phone" className="mb-1 block text-sm text-zinc-600 dark:text-zinc-400">
+            <label htmlFor="phone" className={LABEL_CLASS}>
               Телефон
             </label>
             <input
@@ -175,15 +180,12 @@ export function CheckoutForm() {
               type="tel"
               value={form.phone}
               onChange={(event) => update("phone", event.target.value)}
-              className="w-full rounded border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+              className={INPUT_CLASS}
             />
-            {fieldErrors.phone && <p className="mt-1 text-xs text-red-600">{fieldErrors.phone}</p>}
+            {fieldErrors.phone && <p className="mt-1 text-xs text-accent-sale-700">{fieldErrors.phone}</p>}
           </div>
           <div>
-            <label
-              htmlFor="full_name"
-              className="mb-1 block text-sm text-zinc-600 dark:text-zinc-400"
-            >
+            <label htmlFor="full_name" className={LABEL_CLASS}>
               Имя
             </label>
             <input
@@ -191,49 +193,49 @@ export function CheckoutForm() {
               type="text"
               value={form.full_name}
               onChange={(event) => update("full_name", event.target.value)}
-              className="w-full rounded border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+              className={INPUT_CLASS}
             />
             {fieldErrors.full_name && (
-              <p className="mt-1 text-xs text-red-600">{fieldErrors.full_name}</p>
+              <p className="mt-1 text-xs text-accent-sale-700">{fieldErrors.full_name}</p>
             )}
           </div>
         </fieldset>
 
         <fieldset className="space-y-3">
-          <legend className="mb-1 text-base font-semibold text-zinc-900 dark:text-zinc-100">
-            Способ доставки
-          </legend>
-          <label className="flex items-center gap-2 text-sm">
+          <legend className={LEGEND_CLASS}>Способ доставки</legend>
+          <label className={RADIO_ROW_CLASS}>
             <input
               type="radio"
               name="delivery_method"
               checked={form.delivery_method === "pickup"}
               onChange={() => update("delivery_method", "pickup")}
+              className={RADIO_CLASS}
             />
             Самовывоз — бесплатно
           </label>
-          <label className="flex items-center gap-2 text-sm">
+          <label className={RADIO_ROW_CLASS}>
             <input
               type="radio"
               name="delivery_method"
               checked={form.delivery_method === "courier"}
               onChange={() => update("delivery_method", "courier")}
+              className={RADIO_CLASS}
             />
             Курьером{courierCostLabel ? ` — ${courierCostLabel}` : ""}
           </label>
 
           {form.delivery_method === "courier" && (
-            <div className="mt-2 space-y-2 border-l-2 border-zinc-200 pl-4 dark:border-zinc-800">
+            <div className="mt-2 space-y-2 border-l-2 border-ink/10 pl-4">
               <div>
                 <input
                   type="text"
                   placeholder="Город"
                   value={form.city}
                   onChange={(event) => update("city", event.target.value)}
-                  className="w-full rounded border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+                  className={INPUT_CLASS}
                 />
                 {fieldErrors["city"] && (
-                  <p className="mt-1 text-xs text-red-600">{fieldErrors["city"]}</p>
+                  <p className="mt-1 text-xs text-accent-sale-700">{fieldErrors["city"]}</p>
                 )}
               </div>
               <div>
@@ -242,10 +244,10 @@ export function CheckoutForm() {
                   placeholder="Улица"
                   value={form.street}
                   onChange={(event) => update("street", event.target.value)}
-                  className="w-full rounded border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+                  className={INPUT_CLASS}
                 />
                 {fieldErrors["street"] && (
-                  <p className="mt-1 text-xs text-red-600">{fieldErrors["street"]}</p>
+                  <p className="mt-1 text-xs text-accent-sale-700">{fieldErrors["street"]}</p>
                 )}
               </div>
               <div className="flex gap-2">
@@ -254,34 +256,33 @@ export function CheckoutForm() {
                   placeholder="Дом"
                   value={form.building}
                   onChange={(event) => update("building", event.target.value)}
-                  className="w-full rounded border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+                  className={INPUT_CLASS}
                 />
                 <input
                   type="text"
                   placeholder="Квартира"
                   value={form.apartment}
                   onChange={(event) => update("apartment", event.target.value)}
-                  className="w-full rounded border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+                  className={INPUT_CLASS}
                 />
               </div>
               {fieldErrors["building"] && (
-                <p className="mt-1 text-xs text-red-600">{fieldErrors["building"]}</p>
+                <p className="mt-1 text-xs text-accent-sale-700">{fieldErrors["building"]}</p>
               )}
             </div>
           )}
         </fieldset>
 
         <fieldset className="space-y-3">
-          <legend className="mb-1 text-base font-semibold text-zinc-900 dark:text-zinc-100">
-            Способ оплаты
-          </legend>
+          <legend className={LEGEND_CLASS}>Способ оплаты</legend>
           {(config?.payment_methods ?? ["cash_on_delivery"]).map((method) => (
-            <label key={method} className="flex items-center gap-2 text-sm">
+            <label key={method} className={RADIO_ROW_CLASS}>
               <input
                 type="radio"
                 name="payment_method"
                 checked={form.payment_method === method}
                 onChange={() => update("payment_method", method)}
+                className={RADIO_CLASS}
               />
               {PAYMENT_METHOD_LABELS[method] ?? method}
             </label>
@@ -289,7 +290,7 @@ export function CheckoutForm() {
         </fieldset>
 
         <fieldset>
-          <label htmlFor="comment" className="mb-1 block text-sm text-zinc-600 dark:text-zinc-400">
+          <label htmlFor="comment" className={LABEL_CLASS}>
             Комментарий к заказу
           </label>
           <textarea
@@ -297,31 +298,29 @@ export function CheckoutForm() {
             value={form.comment}
             onChange={(event) => update("comment", event.target.value)}
             rows={3}
-            className="w-full rounded border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+            className={INPUT_CLASS}
           />
         </fieldset>
       </div>
 
-      <aside className="h-fit rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
+      <aside className="h-fit rounded-xl border border-ink/10 p-4 lg:sticky lg:top-24">
         {cart && (
           <dl className="space-y-2 text-sm">
             <div className="flex justify-between">
-              <dt className="text-zinc-500">Товары</dt>
-              <dd className="text-zinc-900 dark:text-zinc-100">{formatPrice(cart.subtotal)}</dd>
+              <dt className="text-ink-muted">Товары</dt>
+              <dd className="font-mono text-ink">{formatPrice(cart.subtotal)}</dd>
             </div>
             {Number(cart.discount_amount) > 0 && (
               <div className="flex justify-between">
-                <dt className="text-zinc-500">Скидка</dt>
-                <dd className="text-emerald-600 dark:text-emerald-400">
-                  −{formatPrice(cart.discount_amount)}
-                </dd>
+                <dt className="text-ink-muted">Скидка</dt>
+                <dd className="font-mono text-success-700">−{formatPrice(cart.discount_amount)}</dd>
               </div>
             )}
           </dl>
         )}
 
         {checkoutMutation.isError && (
-          <p className="mt-3 rounded bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
+          <p className="mt-3 rounded-lg bg-accent-sale/10 p-3 text-sm text-accent-sale-700">
             {checkoutMutation.error.message}
           </p>
         )}
@@ -329,7 +328,7 @@ export function CheckoutForm() {
         <button
           type="submit"
           disabled={checkoutMutation.isPending || !cart || cart.items.length === 0}
-          className="mt-4 w-full rounded bg-zinc-900 px-4 py-3 text-sm font-medium text-white transition disabled:cursor-not-allowed disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900"
+          className="mt-4 w-full rounded-lg bg-brand px-4 py-3 text-sm font-medium text-white transition hover:bg-brand/90 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
         >
           {checkoutMutation.isPending ? "Оформляем…" : "Оплатить"}
         </button>

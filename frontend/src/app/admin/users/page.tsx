@@ -31,10 +31,10 @@ function UserRow({ user, isSelf }: { user: AdminUser; isSelf: boolean }) {
   });
 
   return (
-    <tr className="border-b border-zinc-100 align-top last:border-0 dark:border-zinc-900">
+    <tr className="border-b border-ink/10 align-top last:border-0">
       <td className="px-3 py-2">
         {user.email}
-        {isSelf && <span className="ml-2 text-xs text-zinc-500">(вы)</span>}
+        {isSelf && <span className="ml-2 text-xs text-ink-muted">(вы)</span>}
       </td>
       <td className="px-3 py-2">{user.full_name ?? "—"}</td>
       <td className="px-3 py-2">
@@ -42,7 +42,7 @@ function UserRow({ user, isSelf }: { user: AdminUser; isSelf: boolean }) {
           value={user.role}
           disabled={isSelf || mutation.isPending}
           onChange={(event) => mutation.mutate({ role: event.target.value })}
-          className="rounded border border-zinc-300 px-2 py-1 text-sm disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900"
+          className="rounded-lg border border-ink/15 px-2 py-1 text-sm disabled:opacity-50 bg-bg"
         >
           {Object.entries(ROLE_LABELS).map(([value, label]) => (
             <option key={value} value={value}>
@@ -62,11 +62,11 @@ function UserRow({ user, isSelf }: { user: AdminUser; isSelf: boolean }) {
           активен
         </label>
       </td>
-      <td className="px-3 py-2 text-sm text-zinc-500">
+      <td className="px-3 py-2 text-sm text-ink-muted">
         {user.email_verified ? "подтверждён" : "не подтверждён"}
       </td>
-      <td className="px-3 py-2 text-sm text-zinc-500">
-        {error && <span className="text-red-600 dark:text-red-400">{error}</span>}
+      <td className="px-3 py-2 text-sm text-ink-muted">
+        {error && <span className="text-accent-sale-700">{error}</span>}
       </td>
     </tr>
   );
@@ -85,10 +85,10 @@ export default function AdminUsersPage() {
   if (role !== "admin") {
     return (
       <div>
-        <h1 className="mb-6 text-xl font-semibold text-zinc-900 dark:text-zinc-100">
+        <h1 className="mb-6 text-xl font-semibold text-ink">
           Пользователи
         </h1>
-        <p className="text-zinc-500">
+        <p className="text-ink-muted">
           Управление пользователями доступно только роли «admin» (ТЗ 6.4).
         </p>
       </div>
@@ -97,21 +97,21 @@ export default function AdminUsersPage() {
 
   return (
     <div>
-      <h1 className="mb-6 text-xl font-semibold text-zinc-900 dark:text-zinc-100">
+      <h1 className="mb-6 text-xl font-semibold text-ink">
         Пользователи
       </h1>
       <input
         value={search}
         onChange={(event) => setSearch(event.target.value)}
         placeholder="Поиск по email…"
-        className="mb-4 w-full max-w-sm rounded border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+        className="mb-4 w-full max-w-sm rounded-lg border border-ink/15 px-3 py-2 text-sm bg-bg"
       />
-      {isLoading && <p className="text-zinc-500">Загрузка…</p>}
+      {isLoading && <p className="text-ink-muted">Загрузка…</p>}
       {data && (
-        <div className="overflow-x-auto rounded-lg border border-zinc-200 dark:border-zinc-800">
+        <div className="overflow-x-auto rounded-lg border border-ink/10">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-zinc-200 bg-zinc-50 text-left text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900">
+              <tr className="border-b border-ink/10 bg-surface text-left text-ink-muted">
                 <th className="px-3 py-2">Email</th>
                 <th className="px-3 py-2">Имя</th>
                 <th className="px-3 py-2">Роль</th>
@@ -127,7 +127,7 @@ export default function AdminUsersPage() {
             </tbody>
           </table>
           {data.items.length === 0 && (
-            <p className="p-4 text-center text-zinc-500">Пользователи не найдены</p>
+            <p className="p-4 text-center text-ink-muted">Пользователи не найдены</p>
           )}
         </div>
       )}

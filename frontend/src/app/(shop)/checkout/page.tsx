@@ -9,9 +9,7 @@ export const metadata: Metadata = {
 export default function CheckoutPage() {
   return (
     <div className="mx-auto max-w-4xl px-4 py-8">
-      <h1 className="mb-6 text-xl font-semibold text-zinc-900 dark:text-zinc-100">
-        Оформление заказа
-      </h1>
+      <h1 className="mb-6 font-display text-xl font-bold text-ink">Оформление заказа</h1>
       <CheckoutForm />
     </div>
   );

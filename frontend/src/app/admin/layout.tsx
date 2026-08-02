@@ -8,6 +8,26 @@ import { logout, useAuthStore } from "@/entities/auth/store";
 
 const ALLOWED_ROLES = new Set(["manager", "admin"]);
 
+interface NavLink {
+  href: string;
+  label: string;
+  adminOnly?: boolean;
+}
+
+const NAV_LINKS: NavLink[] = [
+  { href: "/admin", label: "Дашборд" },
+  { href: "/admin/orders", label: "Заказы" },
+  { href: "/admin/categories", label: "Категории", adminOnly: true },
+  { href: "/admin/products", label: "Товары", adminOnly: true },
+  { href: "/admin/imports", label: "Импорт", adminOnly: true },
+  { href: "/admin/promo-codes", label: "Промокоды", adminOnly: true },
+  { href: "/admin/users", label: "Пользователи", adminOnly: true },
+];
+
+function isNavLinkActive(pathname: string, href: string): boolean {
+  return href === "/admin" ? pathname === "/admin" : pathname.startsWith(href);
+}
+
 export default function AdminLayout({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -22,7 +42,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
 
   if (status === "loading") {
     return (
-      <div className="flex min-h-screen items-center justify-center text-zinc-500">Загрузка…</div>
+      <div className="flex min-h-screen items-center justify-center text-ink-muted">Загрузка…</div>
     );
   }
 
@@ -31,53 +51,33 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   }
 
   return (
-    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
-      <header className="border-b border-zinc-200 bg-white dark:border-zinc-800 dark:bg-black">
+    <div className="min-h-screen bg-surface">
+      <header className="border-b border-ink/10 bg-bg">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-3">
-          <nav className="flex gap-4 text-sm font-medium text-zinc-700 dark:text-zinc-300">
-            <Link href="/admin" className="hover:text-zinc-900 dark:hover:text-zinc-100">
-              Дашборд
-            </Link>
-            <Link href="/admin/orders" className="hover:text-zinc-900 dark:hover:text-zinc-100">
-              Заказы
-            </Link>
-            {role === "admin" && (
-              <Link href="/admin/categories" className="hover:text-zinc-900 dark:hover:text-zinc-100">
-                Категории
-              </Link>
-            )}
-            {role === "admin" && (
-              <Link href="/admin/products" className="hover:text-zinc-900 dark:hover:text-zinc-100">
-                Товары
-              </Link>
-            )}
-            {role === "admin" && (
-              <Link href="/admin/imports" className="hover:text-zinc-900 dark:hover:text-zinc-100">
-                Импорт
-              </Link>
-            )}
-            {role === "admin" && (
+          <nav className="flex gap-4 text-sm font-medium">
+            {NAV_LINKS.filter((link) => !link.adminOnly || role === "admin").map((link) => (
               <Link
-                href="/admin/promo-codes"
-                className="hover:text-zinc-900 dark:hover:text-zinc-100"
+                key={link.href}
+                href={link.href}
+                aria-current={isNavLinkActive(pathname, link.href) ? "page" : undefined}
+                className={
+                  isNavLinkActive(pathname, link.href)
+                    ? "font-semibold text-brand"
+                    : "text-ink-muted hover:text-ink"
+                }
               >
-                Промокоды
+                {link.label}
               </Link>
-            )}
-            {role === "admin" && (
-              <Link href="/admin/users" className="hover:text-zinc-900 dark:hover:text-zinc-100">
-                Пользователи
-              </Link>
-            )}
+            ))}
           </nav>
-          <div className="flex items-center gap-3 text-sm text-zinc-500">
+          <div className="flex items-center gap-3 text-sm text-ink-muted">
             <span>{email}</span>
             <button
               type="button"
               onClick={() => {
                 void logout().then(() => router.push("/login"));
               }}
-              className="underline hover:text-zinc-900 dark:hover:text-zinc-100"
+              className="underline hover:text-ink"
             >
               Выйти
             </button>

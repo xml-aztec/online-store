@@ -33,17 +33,17 @@ function AddressCard({ address }: { address: AddressPublic }) {
   });
 
   return (
-    <div className="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
+    <div className="rounded-lg border border-ink/10 p-4">
       <div className="flex items-start justify-between gap-3">
         <div className="text-sm">
-          <p className="font-medium text-zinc-900 dark:text-zinc-100">
+          <p className="font-medium text-ink">
             {address.city}, {address.street} {address.building}
             {address.apartment ? `, кв. ${address.apartment}` : ""}
           </p>
-          {address.postal_code && <p className="text-zinc-500">Индекс: {address.postal_code}</p>}
-          {address.comment && <p className="text-zinc-500">{address.comment}</p>}
+          {address.postal_code && <p className="text-ink-muted">Индекс: {address.postal_code}</p>}
+          {address.comment && <p className="text-ink-muted">{address.comment}</p>}
           {address.is_default && (
-            <span className="mt-1 inline-block rounded-full bg-zinc-100 px-2 py-0.5 text-xs text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400">
+            <span className="mt-1 inline-block rounded-full bg-brand/10 px-2 py-0.5 text-xs font-medium text-brand">
               По умолчанию
             </span>
           )}
@@ -54,7 +54,7 @@ function AddressCard({ address }: { address: AddressPublic }) {
               type="button"
               onClick={() => setDefaultMutation.mutate()}
               disabled={setDefaultMutation.isPending}
-              className="rounded border border-zinc-300 px-2 py-1 text-xs hover:border-zinc-400 disabled:opacity-50 dark:border-zinc-700"
+              className="rounded-lg border border-ink/15 px-2 py-1 text-xs hover:border-brand/40 disabled:opacity-50"
             >
               Сделать основным
             </button>
@@ -63,13 +63,13 @@ function AddressCard({ address }: { address: AddressPublic }) {
             type="button"
             onClick={() => deleteMutation.mutate()}
             disabled={deleteMutation.isPending}
-            className="rounded border border-red-300 px-2 py-1 text-xs text-red-600 hover:border-red-400 disabled:opacity-50 dark:border-red-900 dark:text-red-400"
+            className="rounded-lg border border-accent-sale/40 px-2 py-1 text-xs text-accent-sale-700 hover:border-accent-sale/60 disabled:opacity-50"
           >
             Удалить
           </button>
         </div>
       </div>
-      {error && <p className="mt-2 text-xs text-red-600 dark:text-red-400">{error}</p>}
+      {error && <p className="mt-2 text-xs text-accent-sale-700">{error}</p>}
     </div>
   );
 }
@@ -110,60 +110,60 @@ function CreateAddressForm() {
   return (
     <form
       onSubmit={handleSubmit}
-      className="mb-6 flex flex-wrap items-end gap-3 rounded-lg border border-zinc-200 p-4 dark:border-zinc-800"
+      className="mb-6 flex flex-wrap items-end gap-3 rounded-lg border border-ink/10 p-4"
     >
       <div>
-        <label className="mb-1 block text-xs text-zinc-500">Город</label>
+        <label className="mb-1 block text-xs text-ink-muted">Город</label>
         <input
           value={city}
           onChange={(event) => setCity(event.target.value)}
           required
-          className="w-32 rounded border border-zinc-300 px-2 py-1 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+          className="w-32 rounded-lg border border-ink/15 px-2 py-1 text-sm bg-bg focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/30"
         />
       </div>
       <div>
-        <label className="mb-1 block text-xs text-zinc-500">Улица</label>
+        <label className="mb-1 block text-xs text-ink-muted">Улица</label>
         <input
           value={street}
           onChange={(event) => setStreet(event.target.value)}
           required
-          className="w-40 rounded border border-zinc-300 px-2 py-1 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+          className="w-40 rounded-lg border border-ink/15 px-2 py-1 text-sm bg-bg focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/30"
         />
       </div>
       <div>
-        <label className="mb-1 block text-xs text-zinc-500">Дом</label>
+        <label className="mb-1 block text-xs text-ink-muted">Дом</label>
         <input
           value={building}
           onChange={(event) => setBuilding(event.target.value)}
           required
-          className="w-20 rounded border border-zinc-300 px-2 py-1 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+          className="w-20 rounded-lg border border-ink/15 px-2 py-1 text-sm bg-bg focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/30"
         />
       </div>
       <div>
-        <label className="mb-1 block text-xs text-zinc-500">Квартира</label>
+        <label className="mb-1 block text-xs text-ink-muted">Квартира</label>
         <input
           value={apartment}
           onChange={(event) => setApartment(event.target.value)}
-          className="w-20 rounded border border-zinc-300 px-2 py-1 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+          className="w-20 rounded-lg border border-ink/15 px-2 py-1 text-sm bg-bg focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/30"
         />
       </div>
       <div>
-        <label className="mb-1 block text-xs text-zinc-500">Комментарий</label>
+        <label className="mb-1 block text-xs text-ink-muted">Комментарий</label>
         <input
           value={comment}
           onChange={(event) => setComment(event.target.value)}
-          className="w-40 rounded border border-zinc-300 px-2 py-1 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+          className="w-40 rounded-lg border border-ink/15 px-2 py-1 text-sm bg-bg focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/30"
         />
       </div>
       <button
         type="submit"
         disabled={mutation.isPending}
-        className="rounded bg-zinc-900 px-4 py-1.5 text-sm font-medium text-white disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900"
+        className="rounded-lg bg-brand hover:bg-brand/90 px-4 py-1.5 text-sm font-medium text-white disabled:opacity-50"
       >
         {mutation.isPending ? "Добавляем…" : "Добавить адрес"}
       </button>
       {mutation.isError && (
-        <p className="w-full text-sm text-red-600 dark:text-red-400">
+        <p className="w-full text-sm text-accent-sale-700">
           {mutation.error instanceof ApiError ? mutation.error.message : "Не удалось добавить адрес"}
         </p>
       )}
@@ -176,10 +176,10 @@ export default function AccountAddressesPage() {
 
   return (
     <div>
-      <h1 className="mb-6 text-xl font-semibold text-zinc-900 dark:text-zinc-100">Мои адреса</h1>
+      <h1 className="mb-6 font-display text-xl font-bold text-ink">Мои адреса</h1>
       <CreateAddressForm />
-      {isLoading && <p className="text-zinc-500">Загрузка…</p>}
-      {addresses && addresses.length === 0 && <p className="text-zinc-500">Адресов пока нет</p>}
+      {isLoading && <p className="text-ink-muted">Загрузка…</p>}
+      {addresses && addresses.length === 0 && <p className="text-ink-muted">Адресов пока нет</p>}
       <div className="space-y-3">
         {addresses?.map((address) => <AddressCard key={address.id} address={address} />)}
       </div>

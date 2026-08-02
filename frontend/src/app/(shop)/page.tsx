@@ -1,9 +1,13 @@
+import { Package } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 
 import { getCategoryTree, type CategoryNode } from "@/entities/category/api";
 import { listProducts, type ListProductsParams, type ProductListResponse } from "@/entities/product/api";
+import { resolveCategoryIcon } from "@/shared/lib/categoryIcons";
+import { HeroCarousel } from "@/widgets/HeroCarousel";
 import { ProductCard } from "@/widgets/ProductCard";
+import { ProductCarousel } from "@/widgets/ProductCarousel";
 
 export const revalidate = 60;
 
@@ -18,6 +22,8 @@ const EMPTY_PRODUCT_LIST: ProductListResponse = {
   page_size: 0,
   facets: { price_min: null, price_max: null, options: {} },
 };
+
+const CAROUSEL_ITEM_CLASS = "w-[46%] shrink-0 snap-start sm:w-[31%] lg:w-[23%]";
 
 // The homepage is eligible for static prerendering at build time (no dynamic
 // APIs used), which means `next build` fetches this data with no live backend
@@ -41,65 +47,135 @@ async function safeProductList(params: ListProductsParams): Promise<ProductListR
   }
 }
 
+function HeroSlide({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="relative flex min-h-64 flex-col items-start justify-center gap-4 overflow-hidden bg-surface px-6 py-10 sm:min-h-80 sm:px-10 sm:py-14">
+      {children}
+    </div>
+  );
+}
+
+function HeroDecoration({ Icon }: { Icon: typeof Package }) {
+  return (
+    <Icon
+      aria-hidden="true"
+      className="pointer-events-none absolute -right-6 -top-8 h-40 w-40 text-brand/10 sm:h-56 sm:w-56"
+    />
+  );
+}
+
 export default async function HomePage() {
-  const [categories, newest, popular] = await Promise.all([
-    safeCategoryTree(),
-    safeProductList({ sort: "newest", page_size: 8 }),
-    safeProductList({ sort: "popular", page_size: 8 }),
+  const categories = await safeCategoryTree();
+  const featuredCategory = categories[0];
+
+  const [newest, popular, featured] = await Promise.all([
+    safeProductList({ sort: "newest", page_size: 10 }),
+    safeProductList({ sort: "popular", page_size: 10 }),
+    featuredCategory
+      ? safeProductList({ category: featuredCategory.slug, sort: "newest", page_size: 10 })
+      : Promise.resolve(EMPTY_PRODUCT_LIST),
   ]);
 
+  const heroSlides = [
+    <HeroSlide key="intro">
+      <HeroDecoration Icon={Package} />
+      <h1 className="font-display text-2xl font-bold text-ink sm:text-4xl">
+        Товары для дома HobbyLife
+      </h1>
+      <p className="max-w-xl text-ink-muted">
+        Посуда и пищевые контейнеры, товары для кухни и хранения с доставкой по Бишкеку.
+      </p>
+      <Link
+        href="/catalog"
+        className="rounded-lg bg-brand px-6 py-3 text-sm font-medium text-white hover:bg-brand/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+      >
+        Смотреть каталог
+      </Link>
+    </HeroSlide>,
+    ...categories.slice(0, 2).map((category) => {
+      const Icon = resolveCategoryIcon(category.name);
+      return (
+        <HeroSlide key={category.id}>
+          <HeroDecoration Icon={Icon} />
+          <p className="text-sm font-medium uppercase tracking-wide text-brand">Категория</p>
+          <h2 className="font-display text-2xl font-bold text-ink sm:text-4xl">{category.name}</h2>
+          <Link
+            href={`/catalog/${category.slug}`}
+            className="rounded-lg bg-brand px-6 py-3 text-sm font-medium text-white hover:bg-brand/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+          >
+            Смотреть товары
+          </Link>
+        </HeroSlide>
+      );
+    }),
+  ];
+
   return (
-    <div className="mx-auto max-w-6xl px-4 py-8">
-      <section className="rounded-2xl bg-zinc-900 px-6 py-12 text-white sm:px-10 sm:py-16">
-        <h1 className="text-2xl font-semibold sm:text-4xl">Товары для дома HobbyLife</h1>
-        <p className="mt-3 max-w-xl text-zinc-300">
-          Посуда и пищевые контейнеры, товары для кухни и хранения с доставкой по Бишкеку.
-        </p>
-        <Link
-          href="/catalog"
-          className="mt-6 inline-block rounded-full bg-white px-6 py-3 text-sm font-medium text-zinc-900"
-        >
-          Смотреть каталог
-        </Link>
-      </section>
+    <div className="mx-auto max-w-6xl px-4 py-6 sm:py-8">
+      <HeroCarousel slides={heroSlides} />
 
       {categories.length > 0 && (
         <section className="mt-10">
-          <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">Категории</h2>
-          <div className="mt-4 flex flex-wrap gap-3">
-            {categories.map((category) => (
-              <Link
-                key={category.id}
-                href={`/catalog/${category.slug}`}
-                className="rounded-full border border-zinc-300 px-4 py-2 text-sm hover:border-zinc-400 dark:border-zinc-700"
-              >
-                {category.name}
-              </Link>
-            ))}
+          <h2 className="font-display text-lg font-semibold text-ink">Категории</h2>
+          <div className="mt-4 flex flex-wrap gap-4 sm:gap-6">
+            {categories.map((category) => {
+              const Icon = resolveCategoryIcon(category.name);
+              return (
+                <Link
+                  key={category.id}
+                  href={`/catalog/${category.slug}`}
+                  className="flex w-20 flex-col items-center gap-2 text-center focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+                >
+                  <span className="flex h-16 w-16 items-center justify-center rounded-full bg-surface text-ink transition group-hover:bg-brand/10">
+                    <Icon className="h-6 w-6" aria-hidden="true" />
+                  </span>
+                  <span className="line-clamp-2 text-xs font-medium text-ink-muted">
+                    {category.name}
+                  </span>
+                </Link>
+              );
+            })}
           </div>
         </section>
       )}
 
       {newest.items.length > 0 && (
-        <section className="mt-10">
-          <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">Новинки</h2>
-          <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+        <div className="mt-10">
+          <ProductCarousel title="Новинки" viewAllHref="/catalog?sort=newest">
             {newest.items.map((product) => (
-              <ProductCard key={product.id} product={product} />
+              <div key={product.id} className={CAROUSEL_ITEM_CLASS}>
+                <ProductCard product={product} />
+              </div>
             ))}
-          </div>
-        </section>
+          </ProductCarousel>
+        </div>
       )}
 
       {popular.items.length > 0 && (
-        <section className="mt-10">
-          <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">Популярное</h2>
-          <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+        <div className="mt-10">
+          <ProductCarousel title="Хиты продаж" viewAllHref="/catalog?sort=popular">
             {popular.items.map((product) => (
-              <ProductCard key={product.id} product={product} />
+              <div key={product.id} className={CAROUSEL_ITEM_CLASS}>
+                <ProductCard product={product} />
+              </div>
             ))}
-          </div>
-        </section>
+          </ProductCarousel>
+        </div>
+      )}
+
+      {featuredCategory && featured.items.length > 0 && (
+        <div className="mt-10">
+          <ProductCarousel
+            title={featuredCategory.name}
+            viewAllHref={`/catalog/${featuredCategory.slug}`}
+          >
+            {featured.items.map((product) => (
+              <div key={product.id} className={CAROUSEL_ITEM_CLASS}>
+                <ProductCard product={product} />
+              </div>
+            ))}
+          </ProductCarousel>
+        </div>
       )}
     </div>
   );

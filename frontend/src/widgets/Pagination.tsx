@@ -33,11 +33,12 @@ export function Pagination({ basePath, searchParams, page, totalPages }: Paginat
         <Link
           key={p}
           href={hrefForPage(basePath, searchParams, p)}
-          className={
+          aria-current={p === page ? "page" : undefined}
+          className={`rounded-lg px-3 py-1 font-mono focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand ${
             p === page
-              ? "rounded bg-zinc-900 px-3 py-1 text-white dark:bg-zinc-100 dark:text-zinc-900"
-              : "rounded border border-zinc-300 px-3 py-1 text-zinc-700 hover:border-zinc-400 dark:border-zinc-700 dark:text-zinc-300"
-          }
+              ? "bg-brand text-white"
+              : "border border-ink/15 text-ink-muted hover:border-brand/40 hover:text-ink"
+          }`}
         >
           {p}
         </Link>

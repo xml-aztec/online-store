@@ -36,12 +36,12 @@ export default function RegisterPage() {
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center px-4">
-      <h1 className="mb-6 text-xl font-semibold text-zinc-900 dark:text-zinc-100">
+      <h1 className="mb-6 font-display text-xl font-bold text-ink">
         Регистрация — HobbyLife
       </h1>
       <form onSubmit={handleSubmit} className="w-full max-w-sm space-y-4">
         <div>
-          <label htmlFor="fullName" className="mb-1 block text-sm text-zinc-600 dark:text-zinc-400">
+          <label htmlFor="fullName" className="mb-1 block text-sm text-ink-muted">
             Имя
           </label>
           <input
@@ -50,11 +50,11 @@ export default function RegisterPage() {
             required
             value={fullName}
             onChange={(event) => setFullName(event.target.value)}
-            className="w-full rounded border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+            className="w-full rounded-lg border border-ink/15 px-3 py-2 text-sm bg-bg focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/30"
           />
         </div>
         <div>
-          <label htmlFor="email" className="mb-1 block text-sm text-zinc-600 dark:text-zinc-400">
+          <label htmlFor="email" className="mb-1 block text-sm text-ink-muted">
             Email
           </label>
           <input
@@ -63,11 +63,11 @@ export default function RegisterPage() {
             required
             value={email}
             onChange={(event) => setEmail(event.target.value)}
-            className="w-full rounded border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+            className="w-full rounded-lg border border-ink/15 px-3 py-2 text-sm bg-bg focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/30"
           />
         </div>
         <div>
-          <label htmlFor="password" className="mb-1 block text-sm text-zinc-600 dark:text-zinc-400">
+          <label htmlFor="password" className="mb-1 block text-sm text-ink-muted">
             Пароль
           </label>
           <input
@@ -77,22 +77,22 @@ export default function RegisterPage() {
             minLength={8}
             value={password}
             onChange={(event) => setPassword(event.target.value)}
-            className="w-full rounded border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+            className="w-full rounded-lg border border-ink/15 px-3 py-2 text-sm bg-bg focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/30"
           />
-          <p className="mt-1 text-xs text-zinc-500">Минимум 8 символов</p>
+          <p className="mt-1 text-xs text-ink-muted">Минимум 8 символов</p>
         </div>
-        {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
+        {error && <p className="text-sm text-accent-sale-700">{error}</p>}
         <button
           type="submit"
           disabled={isSubmitting}
-          className="w-full rounded bg-zinc-900 px-4 py-3 text-sm font-medium text-white transition disabled:cursor-not-allowed disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900"
+          className="w-full rounded-lg bg-brand hover:bg-brand/90 px-4 py-3 text-sm font-medium text-white transition disabled:cursor-not-allowed disabled:opacity-50"
         >
           {isSubmitting ? "Регистрируем…" : "Зарегистрироваться"}
         </button>
       </form>
-      <p className="mt-6 text-sm text-zinc-500">
+      <p className="mt-6 text-sm text-ink-muted">
         Уже есть аккаунт?{" "}
-        <Link href="/login" className="text-zinc-900 underline dark:text-zinc-100">
+        <Link href="/login" className="text-ink underline">
           Войти
         </Link>
       </p>
