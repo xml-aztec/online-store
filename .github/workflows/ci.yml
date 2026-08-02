@@ -83,6 +83,23 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # minio/minio has no usable default CMD (needs "server /data"), and
+      # jobs.<id>.services doesn't support overriding a service container's
+      # command -- run it as a plain background container instead. The runner
+      # (not a nested container) executes the later steps, so "localhost:9000"
+      # here resolves the same way it does for a developer running pytest
+      # locally against `docker compose`'s published MinIO port.
+      - name: Start MinIO
+        run: |
+          docker run -d --name minio -p 9000:9000 \
+            -e MINIO_ROOT_USER=hobbylife \
+            -e MINIO_ROOT_PASSWORD=hobbylife123 \
+            minio/minio server /data
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:9000/minio/health/live && break
+            sleep 1
+          done
+
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -95,7 +112,7 @@ jobs:
 
       - name: pytest
         working-directory: backend
-        run: pytest
+        run: pytest --cov=app --cov-report=term-missing --cov-fail-under=80
 
   build:
     runs-on: ubuntu-latest
