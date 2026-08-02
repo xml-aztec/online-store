@@ -176,6 +176,75 @@ async def test_cannot_delete_category_with_children(
 
 
 @pytest.mark.asyncio
+async def test_category_nesting_allows_exactly_3_levels(
+    client: AsyncClient, db_session: AsyncSession
+) -> None:
+    headers = await _admin_headers(db_session)
+    level1 = await _make_category(db_session)
+    await db_session.commit()
+
+    level2_response = await client.post(
+        "/v1/admin/categories",
+        json={"name": "Уровень 2", "slug": _slug("l2"), "parent_id": str(level1.id)},
+        headers=headers,
+    )
+    assert level2_response.status_code == 201
+    level2_id = level2_response.json()["id"]
+
+    level3_response = await client.post(
+        "/v1/admin/categories",
+        json={"name": "Уровень 3", "slug": _slug("l3"), "parent_id": level2_id},
+        headers=headers,
+    )
+    assert level3_response.status_code == 201
+
+
+@pytest.mark.asyncio
+async def test_category_nesting_rejects_4th_level(
+    client: AsyncClient, db_session: AsyncSession
+) -> None:
+    headers = await _admin_headers(db_session)
+    level1 = await _make_category(db_session)
+    level2 = await _make_category(db_session, parent_id=level1.id)
+    level3 = await _make_category(db_session, parent_id=level2.id)
+    await db_session.commit()
+
+    response = await client.post(
+        "/v1/admin/categories",
+        json={"name": "Уровень 4", "slug": _slug("l4"), "parent_id": str(level3.id)},
+        headers=headers,
+    )
+
+    assert response.status_code == 409
+    assert response.json()["error"]["code"] == "CATEGORY_TOO_DEEP"
+
+
+@pytest.mark.asyncio
+async def test_reparenting_category_rejects_resulting_depth_over_3(
+    client: AsyncClient, db_session: AsyncSession
+) -> None:
+    # moved has its own child (moved_child), so moving it under level3 (already
+    # at depth 3) would push moved_child to depth 5 -- must be rejected even
+    # though "moved" itself isn't a brand-new category.
+    headers = await _admin_headers(db_session)
+    level1 = await _make_category(db_session)
+    level2 = await _make_category(db_session, parent_id=level1.id)
+    level3 = await _make_category(db_session, parent_id=level2.id)
+    moved = await _make_category(db_session)
+    await _make_category(db_session, parent_id=moved.id)
+    await db_session.commit()
+
+    response = await client.patch(
+        f"/v1/admin/categories/{moved.id}",
+        json={"parent_id": str(level3.id)},
+        headers=headers,
+    )
+
+    assert response.status_code == 409
+    assert response.json()["error"]["code"] == "CATEGORY_TOO_DEEP"
+
+
+@pytest.mark.asyncio
 async def test_product_crud_and_soft_delete(client: AsyncClient, db_session: AsyncSession) -> None:
     headers = await _admin_headers(db_session)
     category = await _make_category(db_session)
