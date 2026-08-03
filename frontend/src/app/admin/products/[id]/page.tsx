@@ -260,21 +260,21 @@ function VariantRow({ productId, variant }: { productId: string; variant: AdminP
           {optionsToString(variant.options) || "—"}
         </div>
       </td>
-      <td className="px-3 py-2.5 font-mono text-xs text-ink-muted">{variant.sku}</td>
       <td className="px-3 py-2.5">
         <input
           value={price}
           onChange={(event) => setPrice(event.target.value)}
-          className="w-24 rounded-lg border border-ink/15 bg-bg px-2 py-1.5 text-right font-mono text-sm outline-none focus:border-brand"
+          className="w-full min-w-0 rounded-lg border border-ink/15 bg-bg px-2 py-1.5 text-right font-mono text-sm outline-none focus:border-brand"
         />
       </td>
       <td className="px-3 py-2.5">
         <input
           value={stockQty}
           onChange={(event) => setStockQty(event.target.value)}
-          className="w-20 rounded-lg border border-ink/15 bg-bg px-2 py-1.5 text-right font-mono text-sm outline-none focus:border-brand"
+          className="w-full min-w-0 rounded-lg border border-ink/15 bg-bg px-2 py-1.5 text-right font-mono text-sm outline-none focus:border-brand"
         />
       </td>
+      <td className="px-3 py-2.5 font-mono text-xs text-ink-muted">{variant.sku}</td>
       <td className="px-3 py-2.5 text-right">
         <div className="flex items-center justify-end gap-2">
           <button
@@ -333,13 +333,20 @@ function VariantsTab({ product }: { product: AdminProductDetail }) {
   return (
     <div>
       <div className="overflow-hidden rounded-lg border border-ink/10">
-        <table className="w-full">
+        <table className="w-full table-fixed">
+          <colgroup>
+            <col />
+            <col className="w-24" />
+            <col className="w-24" />
+            <col className="w-32" />
+            <col className="w-9" />
+          </colgroup>
           <thead>
             <tr className="border-b border-ink/10 bg-surface text-left text-[11px] font-semibold uppercase tracking-wide text-ink-muted">
               <th className="px-3 py-2">Опция</th>
-              <th className="px-3 py-2">SKU</th>
               <th className="px-3 py-2 text-right">Цена</th>
               <th className="px-3 py-2 text-right">Остаток</th>
+              <th className="px-3 py-2">SKU</th>
               <th className="px-3 py-2" />
             </tr>
           </thead>
@@ -564,7 +571,7 @@ export default function AdminProductDetailPage() {
   ];
 
   return (
-    <div className="max-w-3xl rounded-2xl bg-surface p-6">
+    <div className="w-full max-w-[640px] rounded-2xl border border-ink/10 bg-surface p-6">
       <div className="mb-4 flex items-center justify-between gap-3">
         <div>
           <p className="text-xs text-ink-muted">Товары / редактирование</p>
@@ -574,7 +581,7 @@ export default function AdminProductDetailPage() {
           <button
             type="submit"
             form="basic-form"
-            className="shrink-0 rounded-lg bg-brand px-5 py-2 font-display text-sm font-bold text-white hover:bg-brand/90"
+            className="flex h-[38px] shrink-0 items-center rounded-lg bg-brand px-5 font-display text-sm font-bold text-white hover:bg-brand/90"
           >
             Сохранить
           </button>
