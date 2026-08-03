@@ -78,6 +78,18 @@ function LoginForm() {
   );
 }
 
+function RegisterLink() {
+  const searchParams = useSearchParams();
+  const redirect = searchParams.get("redirect");
+  const href = redirect ? `/register?redirect=${encodeURIComponent(redirect)}` : "/register";
+
+  return (
+    <Link href={href} className="text-ink underline">
+      Зарегистрироваться
+    </Link>
+  );
+}
+
 export default function LoginPage() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center px-4">
@@ -89,9 +101,9 @@ export default function LoginPage() {
       </Suspense>
       <p className="mt-6 text-sm text-ink-muted">
         Нет аккаунта?{" "}
-        <Link href="/register" className="text-ink underline">
-          Зарегистрироваться
-        </Link>
+        <Suspense fallback={<Link href="/register" className="text-ink underline">Зарегистрироваться</Link>}>
+          <RegisterLink />
+        </Suspense>
       </p>
       <Link
         href="/"

@@ -8,8 +8,10 @@ import pytest
 from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.auth.models import User
 from app.catalog.models import Category, Product, ProductVariant
 from app.core.redis import get_redis
+from app.core.security import create_access_token, hash_password
 from app.database import async_session_factory
 from app.exceptions import DomainError
 from app.orders import service as orders_service
@@ -46,6 +48,19 @@ async def _make_variant(
     return variant
 
 
+async def _make_user(db_session: AsyncSession, *, password: str = "TestPass123") -> User:
+    user = User(
+        email=f"buyer-{uuid.uuid4().hex[:10]}@example.com", password_hash=hash_password(password)
+    )
+    db_session.add(user)
+    await db_session.commit()
+    return user
+
+
+def _auth_headers(user: User) -> dict[str, str]:
+    return {"Authorization": f"Bearer {create_access_token(user.id, user.role)}"}
+
+
 @pytest.mark.asyncio
 async def test_checkout_config_reports_available_payment_methods_and_tariffs(
     client: httpx.AsyncClient,
@@ -61,22 +76,37 @@ async def test_checkout_config_reports_available_payment_methods_and_tariffs(
 
 
 @pytest.mark.asyncio
-async def test_checkout_with_empty_cart_returns_409(client: httpx.AsyncClient) -> None:
+async def test_checkout_requires_authentication(client: httpx.AsyncClient) -> None:
     response = await client.post("/v1/orders", json=CHECKOUT_BASE)
+
+    assert response.status_code == 401
+    assert response.json()["error"]["code"] == "NOT_AUTHENTICATED"
+
+
+@pytest.mark.asyncio
+async def test_checkout_with_empty_cart_returns_409(
+    client: httpx.AsyncClient, db_session: AsyncSession
+) -> None:
+    user = await _make_user(db_session)
+    response = await client.post("/v1/orders", json=CHECKOUT_BASE, headers=_auth_headers(user))
 
     assert response.status_code == 409
     assert response.json()["error"]["code"] == "EMPTY_CART"
 
 
 @pytest.mark.asyncio
-async def test_order_creation_rate_limited_after_10_per_hour(client: httpx.AsyncClient) -> None:
+async def test_order_creation_rate_limited_after_10_per_hour(
+    client: httpx.AsyncClient, db_session: AsyncSession
+) -> None:
+    user = await _make_user(db_session)
+    headers = _auth_headers(user)
     # ТЗ 5.5: 10 order creations / hour / IP. The rate-limit check runs before
     # cart/stock logic, so an empty cart (409) still counts against the limit.
     for _ in range(10):
-        response = await client.post("/v1/orders", json=CHECKOUT_BASE)
+        response = await client.post("/v1/orders", json=CHECKOUT_BASE, headers=headers)
         assert response.status_code == 409
 
-    response = await client.post("/v1/orders", json=CHECKOUT_BASE)
+    response = await client.post("/v1/orders", json=CHECKOUT_BASE, headers=headers)
 
     assert response.status_code == 429
     assert response.json()["error"]["code"] == "RATE_LIMITED"
@@ -86,10 +116,14 @@ async def test_order_creation_rate_limited_after_10_per_hour(client: httpx.Async
 async def test_cash_on_delivery_checkout_goes_straight_to_processing(
     client: httpx.AsyncClient, db_session: AsyncSession
 ) -> None:
+    user = await _make_user(db_session)
+    headers = _auth_headers(user)
     variant = await _make_variant(db_session, price=Decimal("500.00"), stock_qty=10)
-    await client.post("/v1/cart/items", json={"variant_id": str(variant.id), "qty": 2})
+    await client.post(
+        "/v1/cart/items", json={"variant_id": str(variant.id), "qty": 2}, headers=headers
+    )
 
-    response = await client.post("/v1/orders", json=CHECKOUT_BASE)
+    response = await client.post("/v1/orders", json=CHECKOUT_BASE, headers=headers)
 
     assert response.status_code == 201
     body = response.json()
@@ -101,11 +135,12 @@ async def test_cash_on_delivery_checkout_goes_straight_to_processing(
     assert order.status == "processing"
     assert order.subtotal == Decimal("1000.00")
     assert order.expires_at is None
+    assert order.user_id == user.id
 
     await db_session.refresh(variant)
     assert variant.stock_qty == 8
 
-    cart_after = await client.get("/v1/cart")
+    cart_after = await client.get("/v1/cart", headers=headers)
     assert cart_after.json()["items"] == []
 
 
@@ -113,10 +148,16 @@ async def test_cash_on_delivery_checkout_goes_straight_to_processing(
 async def test_online_checkout_sets_awaiting_payment_and_creates_payment(
     client: httpx.AsyncClient, db_session: AsyncSession
 ) -> None:
+    user = await _make_user(db_session)
+    headers = _auth_headers(user)
     variant = await _make_variant(db_session, price=Decimal("500.00"), stock_qty=10)
-    await client.post("/v1/cart/items", json={"variant_id": str(variant.id), "qty": 1})
+    await client.post(
+        "/v1/cart/items", json={"variant_id": str(variant.id), "qty": 1}, headers=headers
+    )
 
-    response = await client.post("/v1/orders", json={**CHECKOUT_BASE, "payment_method": "online"})
+    response = await client.post(
+        "/v1/orders", json={**CHECKOUT_BASE, "payment_method": "online"}, headers=headers
+    )
 
     assert response.status_code == 201
     body = response.json()
@@ -138,11 +179,15 @@ async def test_online_checkout_sets_awaiting_payment_and_creates_payment(
 async def test_courier_without_address_returns_422(
     client: httpx.AsyncClient, db_session: AsyncSession
 ) -> None:
+    user = await _make_user(db_session)
+    headers = _auth_headers(user)
     variant = await _make_variant(db_session, stock_qty=10)
-    await client.post("/v1/cart/items", json={"variant_id": str(variant.id), "qty": 1})
+    await client.post(
+        "/v1/cart/items", json={"variant_id": str(variant.id), "qty": 1}, headers=headers
+    )
 
     response = await client.post(
-        "/v1/orders", json={**CHECKOUT_BASE, "delivery_method": "courier"}
+        "/v1/orders", json={**CHECKOUT_BASE, "delivery_method": "courier"}, headers=headers
     )
 
     assert response.status_code == 422
@@ -153,8 +198,12 @@ async def test_courier_without_address_returns_422(
 async def test_courier_delivery_cost_applied_below_free_threshold(
     client: httpx.AsyncClient, db_session: AsyncSession
 ) -> None:
+    user = await _make_user(db_session)
+    headers = _auth_headers(user)
     variant = await _make_variant(db_session, price=Decimal("100.00"), stock_qty=10)
-    await client.post("/v1/cart/items", json={"variant_id": str(variant.id), "qty": 1})
+    await client.post(
+        "/v1/cart/items", json={"variant_id": str(variant.id), "qty": 1}, headers=headers
+    )
 
     response = await client.post(
         "/v1/orders",
@@ -163,6 +212,7 @@ async def test_courier_delivery_cost_applied_below_free_threshold(
             "delivery_method": "courier",
             "address": {"city": "Бишкек", "street": "Тестовая", "building": "1"},
         },
+        headers=headers,
     )
 
     order = await db_session.scalar(
@@ -177,8 +227,12 @@ async def test_courier_delivery_cost_applied_below_free_threshold(
 async def test_courier_delivery_free_above_threshold(
     client: httpx.AsyncClient, db_session: AsyncSession
 ) -> None:
+    user = await _make_user(db_session)
+    headers = _auth_headers(user)
     variant = await _make_variant(db_session, price=Decimal("5000.00"), stock_qty=10)
-    await client.post("/v1/cart/items", json={"variant_id": str(variant.id), "qty": 1})
+    await client.post(
+        "/v1/cart/items", json={"variant_id": str(variant.id), "qty": 1}, headers=headers
+    )
 
     response = await client.post(
         "/v1/orders",
@@ -187,6 +241,7 @@ async def test_courier_delivery_free_above_threshold(
             "delivery_method": "courier",
             "address": {"city": "Бишкек", "street": "Тестовая", "building": "1"},
         },
+        headers=headers,
     )
 
     order = await db_session.scalar(
@@ -200,17 +255,21 @@ async def test_courier_delivery_free_above_threshold(
 async def test_checkout_applies_promo_discount_and_increments_used_count(
     client: httpx.AsyncClient, db_session: AsyncSession
 ) -> None:
+    user = await _make_user(db_session)
+    headers = _auth_headers(user)
     variant = await _make_variant(db_session, price=Decimal("1000.00"), stock_qty=10)
-    await client.post("/v1/cart/items", json={"variant_id": str(variant.id), "qty": 1})
+    await client.post(
+        "/v1/cart/items", json={"variant_id": str(variant.id), "qty": 1}, headers=headers
+    )
 
     promo = PromoCode(
         code=_slug("promo").upper(), discount_type="percent", discount_value=Decimal("10.00")
     )
     db_session.add(promo)
     await db_session.commit()
-    await client.post("/v1/cart/promo", json={"code": promo.code})
+    await client.post("/v1/cart/promo", json={"code": promo.code}, headers=headers)
 
-    response = await client.post("/v1/orders", json=CHECKOUT_BASE)
+    response = await client.post("/v1/orders", json=CHECKOUT_BASE, headers=headers)
 
     order = await db_session.scalar(
         select(Order).where(Order.number == response.json()["number"])
@@ -227,8 +286,12 @@ async def test_checkout_applies_promo_discount_and_increments_used_count(
 async def test_checkout_ignores_client_submitted_price_and_recomputes_from_db(
     client: httpx.AsyncClient, db_session: AsyncSession
 ) -> None:
+    user = await _make_user(db_session)
+    headers = _auth_headers(user)
     variant = await _make_variant(db_session, price=Decimal("500.00"), stock_qty=10)
-    await client.post("/v1/cart/items", json={"variant_id": str(variant.id), "qty": 1})
+    await client.post(
+        "/v1/cart/items", json={"variant_id": str(variant.id), "qty": 1}, headers=headers
+    )
 
     # Price changes after add-to-cart but before checkout -- the order must use
     # the DB price at checkout time, not whatever the cart saw earlier.
@@ -236,7 +299,9 @@ async def test_checkout_ignores_client_submitted_price_and_recomputes_from_db(
     await db_session.commit()
 
     response = await client.post(
-        "/v1/orders", json={**CHECKOUT_BASE, "price": "1.00", "total": "1.00"}
+        "/v1/orders",
+        json={**CHECKOUT_BASE, "price": "1.00", "total": "1.00"},
+        headers=headers,
     )
 
     assert response.status_code == 201
@@ -252,13 +317,17 @@ async def test_checkout_ignores_client_submitted_price_and_recomputes_from_db(
 async def test_checkout_out_of_stock_returns_409_and_leaves_stock_untouched(
     client: httpx.AsyncClient, db_session: AsyncSession
 ) -> None:
+    user = await _make_user(db_session)
+    headers = _auth_headers(user)
     variant = await _make_variant(db_session, stock_qty=1)
-    await client.post("/v1/cart/items", json={"variant_id": str(variant.id), "qty": 1})
+    await client.post(
+        "/v1/cart/items", json={"variant_id": str(variant.id), "qty": 1}, headers=headers
+    )
 
     variant.stock_qty = 0
     await db_session.commit()
 
-    response = await client.post("/v1/orders", json=CHECKOUT_BASE)
+    response = await client.post("/v1/orders", json=CHECKOUT_BASE, headers=headers)
 
     assert response.status_code == 409
     body = response.json()

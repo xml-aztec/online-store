@@ -81,13 +81,14 @@ async def checkout(
     request: Request,
     db: Annotated[AsyncSession, Depends(get_db)],
     cart: Annotated[CartContext, Depends(get_cart_context)],
+    user: Annotated[User, Depends(get_current_user)],
 ) -> CheckoutResponse:
     # ТЗ 5.5: 10 order creations / hour / IP.
     await check_rate_limit(f"ratelimit:order:{client_ip(request)}", *ORDER_CREATE_RATE_LIMIT)
     order, payment_url = await orders_service.create_order(
         db,
         cart_key=cart.key,
-        user_id=cart.user.id if cart.user is not None else None,
+        user_id=user.id,
         email=payload.email,
         phone=payload.phone,
         full_name=payload.full_name,

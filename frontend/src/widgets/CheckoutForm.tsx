@@ -1,11 +1,16 @@
 "use client";
 
-import { useQueryClient } from "@tanstack/react-query";
-import { useRouter } from "next/navigation";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import { z } from "zod";
 
+import { listAddresses, type AddressPublic } from "@/entities/account/api";
 import { CART_QUERY_KEY, useCartQuery } from "@/entities/cart/queries";
+import { getMe } from "@/entities/auth/api";
+import type { UserPublic } from "@/entities/auth/api";
+import { useAuthStore } from "@/entities/auth/store";
 import type { CheckoutRequest } from "@/entities/orders/api";
 import { useCheckoutConfigQuery, useCheckoutMutation } from "@/entities/orders/queries";
 import { formatPrice } from "@/shared/lib/formatPrice";
@@ -62,7 +67,7 @@ const checkoutSchema = z
 
 type FormState = z.infer<typeof checkoutSchema>;
 
-const INITIAL_STATE: FormState = {
+const EMPTY_STATE: FormState = {
   email: "",
   phone: "",
   full_name: "",
@@ -76,14 +81,32 @@ const INITIAL_STATE: FormState = {
   postal_code: "",
 };
 
-export function CheckoutForm() {
+function buildInitialState(me: UserPublic | undefined, addresses: AddressPublic[] | undefined): FormState {
+  const defaultAddress = addresses?.find((address) => address.is_default) ?? addresses?.[0];
+  return {
+    ...EMPTY_STATE,
+    email: me?.email ?? "",
+    phone: me?.phone ?? "",
+    full_name: me?.full_name ?? "",
+    city: defaultAddress?.city ?? "",
+    street: defaultAddress?.street ?? "",
+    building: defaultAddress?.building ?? "",
+    apartment: defaultAddress?.apartment ?? "",
+    postal_code: defaultAddress?.postal_code ?? "",
+  };
+}
+
+// Only mounted once the account/address data has settled, so the initial
+// FormState can be computed synchronously (from real data) in useState's
+// lazy initializer instead of patched in afterwards via an effect.
+function CheckoutFields({ initialForm }: { initialForm: FormState }) {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { data: cart } = useCartQuery();
   const { data: config } = useCheckoutConfigQuery();
   const checkoutMutation = useCheckoutMutation();
 
-  const [form, setForm] = useState<FormState>(INITIAL_STATE);
+  const [form, setForm] = useState<FormState>(initialForm);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   const subtotal = cart ? Number(cart.subtotal) : 0;
@@ -335,4 +358,54 @@ export function CheckoutForm() {
       </aside>
     </form>
   );
+}
+
+export function CheckoutForm() {
+  const pathname = usePathname();
+  const { status: authStatus } = useAuthStore();
+  const isAuthorized = authStatus === "authenticated";
+
+  const meQuery = useQuery({ queryKey: ["me"], queryFn: getMe, enabled: isAuthorized });
+  const addressesQuery = useQuery({
+    queryKey: ["addresses"],
+    queryFn: listAddresses,
+    enabled: isAuthorized,
+  });
+
+  if (authStatus === "loading") {
+    return <p className="py-16 text-center text-ink-muted">Загрузка…</p>;
+  }
+
+  if (!isAuthorized) {
+    return (
+      <div className="py-16 text-center">
+        <p className="text-ink-muted">
+          Чтобы оформить заказ, нужно войти в аккаунт или зарегистрироваться.
+        </p>
+        <div className="mt-4 flex items-center justify-center gap-3">
+          <Link
+            href={`/login?redirect=${encodeURIComponent(pathname)}`}
+            className="rounded-lg bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand/90"
+          >
+            Войти
+          </Link>
+          <Link
+            href={`/register?redirect=${encodeURIComponent(pathname)}`}
+            className="rounded-lg border border-ink/15 px-4 py-2 text-sm font-medium text-ink hover:border-brand/40"
+          >
+            Зарегистрироваться
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  // Wait for profile + saved-address data to settle so the form mounts with
+  // real initial values already in place (see CheckoutFields) rather than
+  // flashing empty and refilling a moment later.
+  if (meQuery.isLoading || addressesQuery.isLoading) {
+    return <p className="py-16 text-center text-ink-muted">Загрузка…</p>;
+  }
+
+  return <CheckoutFields initialForm={buildInitialState(meQuery.data, addressesQuery.data)} />;
 }
