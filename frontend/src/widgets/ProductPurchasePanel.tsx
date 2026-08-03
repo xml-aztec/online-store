@@ -6,6 +6,7 @@ import { useAddCartItemMutation } from "@/entities/cart/queries";
 import type { ProductVariant } from "@/entities/product/api";
 import { formatPrice } from "@/shared/lib/formatPrice";
 import { isColorFacet, resolveSwatchColor, swatchStyle } from "@/shared/lib/colorSwatches";
+import { optionLabel } from "@/shared/lib/optionLabels";
 import { stockLabel as sharedStockLabel } from "@/shared/lib/stock";
 import { FavoriteButton } from "@/shared/ui/FavoriteButton";
 
@@ -116,7 +117,7 @@ export function ProductPurchasePanel({
         const asColor = isColorFacet(axis.key);
         return (
           <div key={axis.key}>
-            <p className="mb-2 text-sm font-medium capitalize text-ink">{axis.key}</p>
+            <p className="mb-2 text-sm font-medium text-ink">{optionLabel(axis.key)}</p>
             <div className="flex flex-wrap gap-2">
               {axis.values.map((value) => {
                 const isSelected = selection[axis.key] === value;

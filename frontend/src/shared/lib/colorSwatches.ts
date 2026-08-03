@@ -35,7 +35,8 @@ export function resolveSwatchColor(name: string): string | null {
 }
 
 export function isColorFacet(key: string): boolean {
-  return key.trim().toLowerCase() === "цвет";
+  const normalized = key.trim().toLowerCase();
+  return normalized === "цвет" || normalized === "color";
 }
 
 // "прозрачный" (transparent) needs a diagonal-stripe fill to read as a swatch

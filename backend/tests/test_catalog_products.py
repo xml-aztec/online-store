@@ -410,6 +410,36 @@ async def test_product_detail_includes_working_presigned_image_url(
 
 
 @pytest.mark.asyncio
+async def test_list_item_image_urls_ordered_and_capped(
+    client: AsyncClient, db_session: AsyncSession
+) -> None:
+    # generate_presigned_url() is a pure local signing computation (no network
+    # call), so unlike the round-trip test above this doesn't need real
+    # S3/MinIO reachability -- just enough images to exercise ordering + cap.
+    data = await _seed_catalog(db_session)
+    product = data["container"]
+    for index in range(8):
+        db_session.add(
+            ProductImage(
+                product_id=product.id,
+                s3_key=f"products/{product.id}/{index}.webp",
+                sort_order=index,
+            )
+        )
+    await db_session.commit()
+
+    response = await client.get("/v1/products", params={"category": data["root"].slug})
+    item = _item_by_slug(response.json()["items"], product.slug)
+
+    assert len(item["image_urls"]) == 6  # _CARD_IMAGE_LIMIT
+    assert item["image_url"] == item["image_urls"][0]
+    # Ordering follows sort_order -- the URLs embed the key, so index 0..5 (not
+    # e.g. a shuffled or last-6 subset) is what should show up.
+    for index, url in enumerate(item["image_urls"]):
+        assert f"/{index}.webp" in url
+
+
+@pytest.mark.asyncio
 async def test_products_list_p95_latency_under_100ms(
     client: AsyncClient, db_session: AsyncSession
 ) -> None:

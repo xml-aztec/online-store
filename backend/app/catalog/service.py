@@ -288,7 +288,7 @@ async def list_products(
     paginated_query = order_query.offset((page - 1) * page_size).limit(page_size)
     rows = (await session.execute(paginated_query)).all()
 
-    images_by_product = await _load_primary_images(session, [row[0].id for row in rows])
+    images_by_product = await _load_images_by_product(session, [row[0].id for row in rows])
     items = [_row_to_list_item(row, images_by_product) for row in rows]
 
     facets = await _compute_facets(
@@ -308,7 +308,7 @@ async def list_products(
     )
 
 
-def _row_to_list_item(row: Any, images_by_product: dict[uuid.UUID, str]) -> ProductListItem:
+def _row_to_list_item(row: Any, images_by_product: dict[uuid.UUID, list[str]]) -> ProductListItem:
     (
         product,
         price_from,
@@ -320,6 +320,7 @@ def _row_to_list_item(row: Any, images_by_product: dict[uuid.UUID, str]) -> Prod
         rating_avg,
         rating_count,
     ) = row
+    images = images_by_product.get(product.id, [])
     return ProductListItem(
         id=product.id,
         name=product.name,
@@ -327,7 +328,8 @@ def _row_to_list_item(row: Any, images_by_product: dict[uuid.UUID, str]) -> Prod
         price_from=price_from,
         price_to=price_to,
         is_available=is_available,
-        image_url=images_by_product.get(product.id),
+        image_url=images[0] if images else None,
+        image_urls=images,
         discount_percent=int(discount_percent) if discount_percent is not None else None,
         compare_at_price=compare_at_price,
         stock_qty=int(stock_qty or 0),
@@ -336,9 +338,15 @@ def _row_to_list_item(row: Any, images_by_product: dict[uuid.UUID, str]) -> Prod
     )
 
 
-async def _load_primary_images(
-    session: AsyncSession, product_ids: list[uuid.UUID]
-) -> dict[uuid.UUID, str]:
+# Product cards hover-cycle through a few images (Wildberries-style) -- capped
+# so a product with dozens of photos doesn't balloon every catalog page's
+# presigned-URL count.
+_CARD_IMAGE_LIMIT = 6
+
+
+async def _load_images_by_product(
+    session: AsyncSession, product_ids: list[uuid.UUID], *, limit: int = _CARD_IMAGE_LIMIT
+) -> dict[uuid.UUID, list[str]]:
     if not product_ids:
         return {}
 
@@ -350,12 +358,14 @@ async def _load_primary_images(
         )
     ).all()
 
-    primary_by_product: dict[uuid.UUID, str] = {}
+    images_by_product: dict[uuid.UUID, list[str]] = {}
     for product_id, s3_key, thumbnail_s3_key in rows:
-        if product_id not in primary_by_product:
-            primary_by_product[product_id] = generate_presigned_url(thumbnail_s3_key or s3_key)
+        urls = images_by_product.setdefault(product_id, [])
+        if len(urls) >= limit:
+            continue
+        urls.append(generate_presigned_url(thumbnail_s3_key or s3_key))
 
-    return primary_by_product
+    return images_by_product
 
 
 async def hydrate_product_list_items(
@@ -423,7 +433,7 @@ async def hydrate_product_list_items(
         )
     ).all()
 
-    images_by_product = await _load_primary_images(session, [row[0].id for row in rows])
+    images_by_product = await _load_images_by_product(session, [row[0].id for row in rows])
     items = [_row_to_list_item(row, images_by_product) for row in rows]
     return {item.id: item for item in items}
 

@@ -4,6 +4,7 @@ import Link from "next/link";
 
 import type { FacetsResponse } from "@/entities/product/api";
 import { isColorFacet, resolveSwatchColor, swatchStyle } from "@/shared/lib/colorSwatches";
+import { optionLabel } from "@/shared/lib/optionLabels";
 import { PriceRangeSlider } from "@/shared/ui/PriceRangeSlider";
 
 type SearchParamsRecord = Record<string, string | string[] | undefined>;
@@ -114,7 +115,7 @@ export function FiltersForm({ basePath, searchParams, facets }: FiltersFormProps
         const asColor = isColorFacet(key);
 
         return (
-          <FilterSection key={key} title={key}>
+          <FilterSection key={key} title={optionLabel(key)}>
             <div className="flex flex-wrap gap-2">
               {values.map((value) => {
                 const checked = selected.has(value);

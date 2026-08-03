@@ -2039,6 +2039,11 @@ export interface components {
             is_available: boolean;
             /** Image Url */
             image_url: string | null;
+            /**
+             * Image Urls
+             * @default []
+             */
+            image_urls: string[];
             /** Discount Percent */
             discount_percent?: number | null;
             /** Compare At Price */

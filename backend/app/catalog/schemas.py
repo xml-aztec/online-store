@@ -53,6 +53,11 @@ class ProductListItem(BaseModel):
     price_to: Decimal
     is_available: bool
     image_url: str | None
+    # Up to a handful of additional photos (image_url repeated as the first
+    # entry) so product cards can hover-cycle through them; capped server-side
+    # in catalog/service.py so a heavily-photographed product doesn't bloat
+    # every catalog page's presigned-URL count.
+    image_urls: list[str] = []
     # Non-personalized aggregates -- safe to bake into an SSR'd/cached response,
     # unlike anything user-specific (e.g. is_favorite), which stays client-fetched.
     discount_percent: int | None = None
