@@ -6,7 +6,14 @@ from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.catalog import service as catalog_service
-from app.catalog.schemas import CategoryNode, ProductDetail, ProductListResponse, ProductSort
+from app.catalog.schemas import (
+    BannerPublic,
+    CategoryNode,
+    ProductDetail,
+    ProductListResponse,
+    ProductSort,
+)
+from app.core.storage import generate_presigned_url
 from app.database import get_db
 from app.exceptions import DomainError
 
@@ -27,6 +34,23 @@ def _parse_options(request: Request) -> dict[str, list[str]]:
 @router.get("/categories", response_model=list[CategoryNode])
 async def list_categories(db: Annotated[AsyncSession, Depends(get_db)]) -> list[CategoryNode]:
     return await catalog_service.get_category_tree(db)
+
+
+@router.get("/banners", response_model=list[BannerPublic])
+async def list_banners(db: Annotated[AsyncSession, Depends(get_db)]) -> list[BannerPublic]:
+    banners = await catalog_service.list_banners(db)
+    return [
+        BannerPublic(
+            id=banner.id,
+            title=banner.title,
+            subtitle=banner.subtitle,
+            link_url=banner.link_url,
+            button_text=banner.button_text,
+            image_url=generate_presigned_url(banner.s3_key),
+            sort_order=banner.sort_order,
+        )
+        for banner in banners
+    ]
 
 
 @router.get("/products", response_model=ProductListResponse)

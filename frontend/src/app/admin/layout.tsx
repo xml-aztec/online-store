@@ -3,6 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import {
   ClipboardList,
+  GalleryHorizontal,
   Home,
   LayoutDashboard,
   LogOut,
@@ -57,6 +58,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     { href: "/admin/reviews", label: "Отзывы", icon: Star },
     { href: "/admin/categories", label: "Категории", icon: Rows3, adminOnly: true },
     { href: "/admin/products", label: "Товары", icon: Package, adminOnly: true },
+    { href: "/admin/banners", label: "Баннеры", icon: GalleryHorizontal, adminOnly: true },
     { href: "/admin/imports", label: "Импорт", icon: Upload, adminOnly: true },
     { href: "/admin/promo-codes", label: "Промокоды", icon: Tag, adminOnly: true },
     { href: "/admin/users", label: "Пользователи", icon: Users, adminOnly: true },

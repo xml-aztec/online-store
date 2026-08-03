@@ -7,6 +7,7 @@ from app.config import settings
 from app.workers.tasks import (
     apply_import_job,
     cancel_expired_orders,
+    process_banner_image,
     process_payment_succeeded,
     process_product_image,
     send_order_status_email,
@@ -20,6 +21,7 @@ class WorkerSettings:
         send_verification_email,
         send_password_reset_email,
         process_product_image,
+        process_banner_image,
         send_order_status_email,
         process_payment_succeeded,
         apply_import_job,

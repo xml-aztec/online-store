@@ -80,6 +80,16 @@ class ProductDetail(BaseModel):
     rating_count: int = 0
 
 
+class BannerPublic(BaseModel):
+    id: uuid.UUID
+    title: str | None
+    subtitle: str | None
+    link_url: str | None
+    button_text: str | None
+    image_url: str
+    sort_order: int
+
+
 class FacetsResponse(BaseModel):
     price_min: Decimal | None
     price_max: Decimal | None

@@ -11,7 +11,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.catalog.models import Category, Product, ProductImage, ProductVariant
+from app.catalog.models import Banner, Category, Product, ProductImage, ProductVariant
 from app.catalog.schemas import (
     CategoryNode,
     CategorySummary,
@@ -60,6 +60,18 @@ _MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024
 
 _CATEGORY_TREE_CACHE_KEY = "catalog:categories:tree"
 _CATEGORY_TREE_CACHE_TTL = 300
+
+
+def _validate_image_upload(content_type: str | None, contents: bytes) -> str:
+    if content_type is None or not content_type.startswith("image/"):
+        raise DomainError("Файл должен быть изображением", code="INVALID_IMAGE", status_code=400)
+    if len(contents) > _MAX_IMAGE_SIZE_BYTES:
+        raise DomainError(
+            "Файл слишком большой (максимум 10 МБ)", code="IMAGE_TOO_LARGE", status_code=400
+        )
+    return content_type
+
+
 # word_similarity (not similarity): matches the query against the best-matching word
 # within the name, so a typo in one word isn't diluted by other words in a longer name.
 _TRIGRAM_SIMILARITY_THRESHOLD = 0.3
@@ -1076,13 +1088,7 @@ async def upload_product_image(
     contents: bytes,
 ) -> ProductImage:
     await _get_admin_product_or_404(session, product_id)
-
-    if content_type is None or not content_type.startswith("image/"):
-        raise DomainError("Файл должен быть изображением", code="INVALID_IMAGE", status_code=400)
-    if len(contents) > _MAX_IMAGE_SIZE_BYTES:
-        raise DomainError(
-            "Файл слишком большой (максимум 10 МБ)", code="IMAGE_TOO_LARGE", status_code=400
-        )
+    content_type = _validate_image_upload(content_type, contents)
 
     upload_id = uuid.uuid4().hex
     original_key = f"products/{product_id}/{upload_id}/original"
@@ -1171,3 +1177,153 @@ async def reorder_product_images(
 
     await session.commit()
     return sorted(images_by_id.values(), key=lambda image: image.sort_order)
+
+
+# --- Banners ---
+
+
+async def list_banners(session: AsyncSession) -> list[Banner]:
+    rows = (
+        await session.scalars(
+            select(Banner).where(Banner.is_active.is_(True)).order_by(Banner.sort_order)
+        )
+    ).all()
+    return list(rows)
+
+
+async def list_banners_admin(session: AsyncSession) -> list[Banner]:
+    rows = (await session.scalars(select(Banner).order_by(Banner.sort_order))).all()
+    return list(rows)
+
+
+async def _get_admin_banner_or_404(session: AsyncSession, banner_id: uuid.UUID) -> Banner:
+    banner = await session.get(Banner, banner_id)
+    if banner is None:
+        raise DomainError("Баннер не найден", code="BANNER_NOT_FOUND", status_code=404)
+    return banner
+
+
+async def create_banner(
+    session: AsyncSession,
+    *,
+    content_type: str | None,
+    contents: bytes,
+    title: str | None,
+    subtitle: str | None,
+    link_url: str | None,
+    button_text: str | None,
+) -> Banner:
+    content_type = _validate_image_upload(content_type, contents)
+
+    upload_id = uuid.uuid4().hex
+    original_key = f"banners/{upload_id}/original"
+
+    ensure_bucket_exists()
+    client = get_s3_client()
+    client.put_object(
+        Bucket=settings.s3_bucket, Key=original_key, Body=contents, ContentType=content_type
+    )
+
+    next_sort_order = await session.scalar(
+        select(func.coalesce(func.max(Banner.sort_order) + 1, 0))
+    )
+
+    banner = Banner(
+        title=title,
+        subtitle=subtitle,
+        link_url=link_url,
+        button_text=button_text,
+        s3_key=original_key,
+        sort_order=next_sort_order or 0,
+    )
+    session.add(banner)
+    await session.commit()
+
+    pool = await get_arq_pool()
+    await pool.enqueue_job(
+        "process_banner_image", banner_id=str(banner.id), original_s3_key=original_key
+    )
+
+    return banner
+
+
+async def replace_banner_image(
+    session: AsyncSession, *, banner_id: uuid.UUID, content_type: str | None, contents: bytes
+) -> Banner:
+    banner = await _get_admin_banner_or_404(session, banner_id)
+    content_type = _validate_image_upload(content_type, contents)
+
+    # The old original/preview objects live under the previous upload_id's
+    # prefix -- keep them around until the new upload is committed, then clean
+    # up, so a crash mid-upload never leaves the banner pointing at nothing.
+    old_prefix = banner.s3_key.rsplit("/", 1)[0] + "/"
+
+    upload_id = uuid.uuid4().hex
+    original_key = f"banners/{upload_id}/original"
+    ensure_bucket_exists()
+    client = get_s3_client()
+    client.put_object(
+        Bucket=settings.s3_bucket, Key=original_key, Body=contents, ContentType=content_type
+    )
+
+    banner.s3_key = original_key
+    banner.thumbnail_s3_key = None
+    await session.commit()
+
+    listing = client.list_objects_v2(Bucket=settings.s3_bucket, Prefix=old_prefix)
+    keys = [obj["Key"] for obj in listing.get("Contents", [])]
+    if keys:
+        client.delete_objects(
+            Bucket=settings.s3_bucket, Delete={"Objects": [{"Key": key} for key in keys]}
+        )
+
+    pool = await get_arq_pool()
+    await pool.enqueue_job(
+        "process_banner_image", banner_id=str(banner.id), original_s3_key=original_key
+    )
+
+    return banner
+
+
+async def update_banner(
+    session: AsyncSession, *, banner_id: uuid.UUID, updates: dict[str, Any]
+) -> Banner:
+    banner = await _get_admin_banner_or_404(session, banner_id)
+    for field, value in updates.items():
+        setattr(banner, field, value)
+    await session.commit()
+    return banner
+
+
+async def delete_banner(session: AsyncSession, *, banner_id: uuid.UUID) -> None:
+    banner = await _get_admin_banner_or_404(session, banner_id)
+
+    prefix = banner.s3_key.rsplit("/", 1)[0] + "/"
+    client = get_s3_client()
+    listing = client.list_objects_v2(Bucket=settings.s3_bucket, Prefix=prefix)
+    keys = [obj["Key"] for obj in listing.get("Contents", [])]
+    if keys:
+        client.delete_objects(
+            Bucket=settings.s3_bucket, Delete={"Objects": [{"Key": key} for key in keys]}
+        )
+
+    await session.delete(banner)
+    await session.commit()
+
+
+async def reorder_banners(session: AsyncSession, *, banner_ids: list[uuid.UUID]) -> list[Banner]:
+    banners = (await session.scalars(select(Banner))).all()
+    banners_by_id = {banner.id: banner for banner in banners}
+
+    if set(banner_ids) != set(banners_by_id.keys()):
+        raise DomainError(
+            "Список баннеров должен содержать ровно все баннеры",
+            code="BANNER_REORDER_MISMATCH",
+            status_code=422,
+        )
+
+    for index, banner_id in enumerate(banner_ids):
+        banners_by_id[banner_id].sort_order = index
+
+    await session.commit()
+    return sorted(banners_by_id.values(), key=lambda banner: banner.sort_order)

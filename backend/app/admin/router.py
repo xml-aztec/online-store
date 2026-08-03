@@ -1,10 +1,13 @@
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, File, Query, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, Query, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.admin.schemas import (
+    AdminBannerPublic,
+    AdminBannerReorderRequest,
+    AdminBannerUpdate,
     AdminCategoryCreate,
     AdminCategoryListResponse,
     AdminCategoryPublic,
@@ -23,7 +26,7 @@ from app.admin.schemas import (
     BulkStatusResponse,
 )
 from app.catalog import service as catalog_service
-from app.catalog.models import Category, Product, ProductImage, ProductVariant
+from app.catalog.models import Banner, Category, Product, ProductImage, ProductVariant
 from app.core.storage import generate_presigned_url
 from app.database import get_db
 from app.dependencies import require_role
@@ -63,6 +66,20 @@ def _image_to_public(image: ProductImage) -> AdminProductImagePublic:
         thumbnail_url=generate_presigned_url(image.thumbnail_s3_key or image.s3_key),
         alt=image.alt,
         sort_order=image.sort_order,
+    )
+
+
+def _banner_to_public(banner: Banner) -> AdminBannerPublic:
+    return AdminBannerPublic(
+        id=banner.id,
+        title=banner.title,
+        subtitle=banner.subtitle,
+        link_url=banner.link_url,
+        button_text=banner.button_text,
+        image_url=generate_presigned_url(banner.s3_key),
+        thumbnail_url=generate_presigned_url(banner.thumbnail_s3_key or banner.s3_key),
+        sort_order=banner.sort_order,
+        is_active=banner.is_active,
     )
 
 
@@ -344,3 +361,74 @@ async def delete_product_image(
     product_id: uuid.UUID, image_id: uuid.UUID, db: Annotated[AsyncSession, Depends(get_db)]
 ) -> None:
     await catalog_service.delete_product_image(db, product_id=product_id, image_id=image_id)
+
+
+# --- Banners ---
+
+
+@router.get("/banners", response_model=list[AdminBannerPublic])
+async def list_banners(db: Annotated[AsyncSession, Depends(get_db)]) -> list[AdminBannerPublic]:
+    banners = await catalog_service.list_banners_admin(db)
+    return [_banner_to_public(banner) for banner in banners]
+
+
+@router.post("/banners", response_model=AdminBannerPublic, status_code=status.HTTP_201_CREATED)
+async def create_banner(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    file: Annotated[UploadFile, File()],
+    title: Annotated[str | None, Form()] = None,
+    subtitle: Annotated[str | None, Form()] = None,
+    link_url: Annotated[str | None, Form()] = None,
+    button_text: Annotated[str | None, Form()] = None,
+) -> AdminBannerPublic:
+    contents = await file.read()
+    banner = await catalog_service.create_banner(
+        db,
+        content_type=file.content_type,
+        contents=contents,
+        title=title,
+        subtitle=subtitle,
+        link_url=link_url,
+        button_text=button_text,
+    )
+    return _banner_to_public(banner)
+
+
+@router.patch("/banners/reorder", response_model=list[AdminBannerPublic])
+async def reorder_banners(
+    payload: AdminBannerReorderRequest, db: Annotated[AsyncSession, Depends(get_db)]
+) -> list[AdminBannerPublic]:
+    banners = await catalog_service.reorder_banners(db, banner_ids=payload.banner_ids)
+    return [_banner_to_public(banner) for banner in banners]
+
+
+@router.patch("/banners/{banner_id}", response_model=AdminBannerPublic)
+async def update_banner(
+    banner_id: uuid.UUID,
+    payload: AdminBannerUpdate,
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> AdminBannerPublic:
+    banner = await catalog_service.update_banner(
+        db, banner_id=banner_id, updates=payload.model_dump(exclude_unset=True)
+    )
+    return _banner_to_public(banner)
+
+
+@router.post("/banners/{banner_id}/image", response_model=AdminBannerPublic)
+async def replace_banner_image(
+    banner_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    file: Annotated[UploadFile, File()],
+) -> AdminBannerPublic:
+    contents = await file.read()
+    banner = await catalog_service.replace_banner_image(
+        db, banner_id=banner_id, content_type=file.content_type, contents=contents
+    )
+    return _banner_to_public(banner)
+
+
+@router.delete("/banners/{banner_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_banner(
+    banner_id: uuid.UUID, db: Annotated[AsyncSession, Depends(get_db)]
+) -> None:
+    await catalog_service.delete_banner(db, banner_id=banner_id)

@@ -399,6 +399,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/banners": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Banners */
+        get: operations["list_banners_v1_banners_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/products": {
         parameters: {
             query?: never;
@@ -622,6 +639,76 @@ export interface paths {
         post?: never;
         /** Delete Product Image */
         delete: operations["delete_product_image_v1_admin_products__product_id__images__image_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/banners": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Banners */
+        get: operations["list_banners_v1_admin_banners_get"];
+        put?: never;
+        /** Create Banner */
+        post: operations["create_banner_v1_admin_banners_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/banners/reorder": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Reorder Banners */
+        patch: operations["reorder_banners_v1_admin_banners_reorder_patch"];
+        trace?: never;
+    };
+    "/v1/admin/banners/{banner_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Banner */
+        delete: operations["delete_banner_v1_admin_banners__banner_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update Banner */
+        patch: operations["update_banner_v1_admin_banners__banner_id__patch"];
+        trace?: never;
+    };
+    "/v1/admin/banners/{banner_id}/image": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Replace Banner Image */
+        post: operations["replace_banner_image_v1_admin_banners__banner_id__image_post"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -1095,6 +1182,48 @@ export interface components {
             comment?: string | null;
             /** Is Default */
             is_default?: boolean | null;
+        };
+        /** AdminBannerPublic */
+        AdminBannerPublic: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Title */
+            title: string | null;
+            /** Subtitle */
+            subtitle: string | null;
+            /** Link Url */
+            link_url: string | null;
+            /** Button Text */
+            button_text: string | null;
+            /** Image Url */
+            image_url: string;
+            /** Thumbnail Url */
+            thumbnail_url: string;
+            /** Sort Order */
+            sort_order: number;
+            /** Is Active */
+            is_active: boolean;
+        };
+        /** AdminBannerReorderRequest */
+        AdminBannerReorderRequest: {
+            /** Banner Ids */
+            banner_ids: string[];
+        };
+        /** AdminBannerUpdate */
+        AdminBannerUpdate: {
+            /** Title */
+            title?: string | null;
+            /** Subtitle */
+            subtitle?: string | null;
+            /** Link Url */
+            link_url?: string | null;
+            /** Button Text */
+            button_text?: string | null;
+            /** Is Active */
+            is_active?: boolean | null;
         };
         /** AdminCategoryCreate */
         AdminCategoryCreate: {
@@ -1636,6 +1765,44 @@ export interface components {
         ApplyPromoRequest: {
             /** Code */
             code: string;
+        };
+        /** BannerPublic */
+        BannerPublic: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Title */
+            title: string | null;
+            /** Subtitle */
+            subtitle: string | null;
+            /** Link Url */
+            link_url: string | null;
+            /** Button Text */
+            button_text: string | null;
+            /** Image Url */
+            image_url: string;
+            /** Sort Order */
+            sort_order: number;
+        };
+        /** Body_create_banner_v1_admin_banners_post */
+        Body_create_banner_v1_admin_banners_post: {
+            /** File */
+            file: string;
+            /** Title */
+            title?: string | null;
+            /** Subtitle */
+            subtitle?: string | null;
+            /** Link Url */
+            link_url?: string | null;
+            /** Button Text */
+            button_text?: string | null;
+        };
+        /** Body_replace_banner_image_v1_admin_banners__banner_id__image_post */
+        Body_replace_banner_image_v1_admin_banners__banner_id__image_post: {
+            /** File */
+            file: string;
         };
         /** Body_upload_import_v1_admin_imports_xlsx_post */
         Body_upload_import_v1_admin_imports_xlsx_post: {
@@ -3053,6 +3220,26 @@ export interface operations {
             };
         };
     };
+    list_banners_v1_banners_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BannerPublic"][];
+                };
+            };
+        };
+    };
     list_products_v1_products_get: {
         parameters: {
             query?: {
@@ -3699,6 +3886,191 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_banners_v1_admin_banners_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminBannerPublic"][];
+                };
+            };
+        };
+    };
+    create_banner_v1_admin_banners_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_create_banner_v1_admin_banners_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminBannerPublic"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reorder_banners_v1_admin_banners_reorder_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminBannerReorderRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminBannerPublic"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_banner_v1_admin_banners__banner_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                banner_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_banner_v1_admin_banners__banner_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                banner_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminBannerUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminBannerPublic"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    replace_banner_image_v1_admin_banners__banner_id__image_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                banner_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_replace_banner_image_v1_admin_banners__banner_id__image_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminBannerPublic"];
+                };
             };
             /** @description Validation Error */
             422: {

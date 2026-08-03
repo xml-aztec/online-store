@@ -6,8 +6,14 @@ from app.config import settings
 
 def _host_reachable(url: str) -> bool:
     parsed = urlparse(url)
+    # parsed.port is None for scheme-only URLs (e.g. R2's "https://<id>.r2.
+    # cloudflarestorage.com" with no explicit port) -- socket.create_connection
+    # silently treats a None port as 0 and gets a real-but-misleading
+    # ConnectionRefusedError, so every check here would report "unreachable"
+    # even when the host is fine. Fall back to the scheme's default port.
+    port = parsed.port or (443 if parsed.scheme == "https" else 80)
     try:
-        with socket.create_connection((parsed.hostname, parsed.port), timeout=1):
+        with socket.create_connection((parsed.hostname, port), timeout=1):
             return True
     except OSError:
         return False

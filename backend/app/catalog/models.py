@@ -113,3 +113,16 @@ class ProductImage(TimestampedBase):
     sort_order: Mapped[int] = mapped_column(nullable=False, server_default=text("0"))
 
     product: Mapped[Product] = relationship(back_populates="images")
+
+
+class Banner(TimestampedBase):
+    __tablename__ = "banners"
+
+    title: Mapped[str | None] = mapped_column(nullable=True)
+    subtitle: Mapped[str | None] = mapped_column(nullable=True)
+    link_url: Mapped[str | None] = mapped_column(nullable=True)
+    button_text: Mapped[str | None] = mapped_column(nullable=True)
+    s3_key: Mapped[str] = mapped_column(nullable=False)
+    thumbnail_s3_key: Mapped[str | None] = mapped_column(nullable=True)
+    sort_order: Mapped[int] = mapped_column(nullable=False, server_default=text("0"))
+    is_active: Mapped[bool] = mapped_column(nullable=False, server_default=text("true"))

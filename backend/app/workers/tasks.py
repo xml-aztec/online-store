@@ -8,7 +8,7 @@ from PIL import Image
 from sqlalchemy import select
 
 from app.auth.models import User
-from app.catalog.models import ProductImage
+from app.catalog.models import Banner, ProductImage
 from app.config import settings
 from app.core.email import send_email
 from app.core.storage import get_s3_client
@@ -23,6 +23,11 @@ if TYPE_CHECKING:
 
 _PREVIEW_THUMBNAIL_SIZE = 400
 _PREVIEW_LARGE_SIZE = 800
+# Banners render full-bleed across the homepage hero, so the "large" preview
+# needs to hold up at desktop widths -- 800px (sized for a product gallery)
+# would look visibly soft stretched across a ~1200px+ container.
+_BANNER_THUMBNAIL_SIZE = 400
+_BANNER_HERO_SIZE = 1920
 
 _ORDER_STATUS_LABELS = {
     "paid": "оплата получена",
@@ -64,7 +69,12 @@ async def send_password_reset_email(ctx: dict[str, Any], *, user_id: str, token:
 async def process_product_image(
     ctx: dict[str, Any], *, image_id: str, original_s3_key: str
 ) -> None:
-    thumbnail_key, large_key = await asyncio.to_thread(_generate_previews, original_s3_key)
+    thumbnail_key, large_key = await asyncio.to_thread(
+        _generate_previews,
+        original_s3_key,
+        thumbnail_size=_PREVIEW_THUMBNAIL_SIZE,
+        large_size=_PREVIEW_LARGE_SIZE,
+    )
 
     async with async_session_factory() as session:
         image = await session.get(ProductImage, uuid.UUID(image_id))
@@ -75,20 +85,47 @@ async def process_product_image(
         await session.commit()
 
 
-def _generate_previews(original_s3_key: str) -> tuple[str, str]:
+async def process_banner_image(
+    ctx: dict[str, Any], *, banner_id: str, original_s3_key: str
+) -> None:
+    thumbnail_key, hero_key = await asyncio.to_thread(
+        _generate_previews,
+        original_s3_key,
+        thumbnail_size=_BANNER_THUMBNAIL_SIZE,
+        large_size=_BANNER_HERO_SIZE,
+    )
+
+    async with async_session_factory() as session:
+        banner = await session.get(Banner, uuid.UUID(banner_id))
+        if banner is None:
+            return
+        # The banner's photo may have been replaced (replace_banner_image)
+        # while this resize was in flight -- s3_key no longer pointing at the
+        # original we just resized means our result is stale, and applying it
+        # would silently revert the banner back to the old, now-deleted photo.
+        if banner.s3_key != original_s3_key:
+            return
+        banner.s3_key = hero_key
+        banner.thumbnail_s3_key = thumbnail_key
+        await session.commit()
+
+
+def _generate_previews(
+    original_s3_key: str, *, thumbnail_size: int, large_size: int
+) -> tuple[str, str]:
     client = get_s3_client()
     original_bytes = client.get_object(Bucket=settings.s3_bucket, Key=original_s3_key)[
         "Body"
     ].read()
 
     base_path = original_s3_key.rsplit("/", 1)[0]
-    thumbnail_key = f"{base_path}/{_PREVIEW_THUMBNAIL_SIZE}.webp"
-    large_key = f"{base_path}/{_PREVIEW_LARGE_SIZE}.webp"
+    thumbnail_key = f"{base_path}/{thumbnail_size}.webp"
+    large_key = f"{base_path}/{large_size}.webp"
 
     with Image.open(io.BytesIO(original_bytes)) as original:
         original.load()
-        _save_resized(client, original, max_size=_PREVIEW_THUMBNAIL_SIZE, key=thumbnail_key)
-        _save_resized(client, original, max_size=_PREVIEW_LARGE_SIZE, key=large_key)
+        _save_resized(client, original, max_size=thumbnail_size, key=thumbnail_key)
+        _save_resized(client, original, max_size=large_size, key=large_key)
 
     return thumbnail_key, large_key
 

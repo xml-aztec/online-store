@@ -6,6 +6,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuthStore } from "@/entities/auth/store";
 import { listAdminUsers, updateAdminUser, type AdminUser } from "@/entities/user/adminApi";
 import { ApiError } from "@/shared/api/client";
+import { Toggle } from "@/shared/ui/Toggle";
 
 const QUERY_KEY = ["admin-users"];
 const ROLE_LABELS: Record<string, string> = {
@@ -52,15 +53,12 @@ function UserRow({ user, isSelf }: { user: AdminUser; isSelf: boolean }) {
         </select>
       </td>
       <td className="px-3 py-2">
-        <label className="flex items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            checked={user.is_active}
-            disabled={isSelf || mutation.isPending}
-            onChange={(event) => mutation.mutate({ is_active: event.target.checked })}
-          />
-          активен
-        </label>
+        <Toggle
+          checked={user.is_active}
+          disabled={isSelf || mutation.isPending}
+          onChange={(checked) => mutation.mutate({ is_active: checked })}
+          label={`Пользователь ${user.is_active ? "активен" : "заблокирован"}: ${user.email}`}
+        />
       </td>
       <td className="px-3 py-2 text-sm text-ink-muted">
         {user.email_verified ? "подтверждён" : "не подтверждён"}

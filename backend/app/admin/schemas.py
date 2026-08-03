@@ -93,6 +93,30 @@ class AdminImageReorderRequest(BaseModel):
     image_ids: list[uuid.UUID]
 
 
+class AdminBannerPublic(BaseModel):
+    id: uuid.UUID
+    title: str | None
+    subtitle: str | None
+    link_url: str | None
+    button_text: str | None
+    image_url: str
+    thumbnail_url: str
+    sort_order: int
+    is_active: bool
+
+
+class AdminBannerUpdate(BaseModel):
+    title: str | None = None
+    subtitle: str | None = None
+    link_url: str | None = None
+    button_text: str | None = None
+    is_active: bool | None = None
+
+
+class AdminBannerReorderRequest(BaseModel):
+    banner_ids: list[uuid.UUID]
+
+
 class AdminProductListItem(BaseModel):
     id: uuid.UUID
     category_id: uuid.UUID

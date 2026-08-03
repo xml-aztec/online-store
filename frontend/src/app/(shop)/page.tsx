@@ -1,7 +1,9 @@
 import { Package } from "lucide-react";
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 
+import { getBanners, type Banner } from "@/entities/banner/api";
 import { getCategoryTree, type CategoryNode } from "@/entities/category/api";
 import { listProducts, type ListProductsParams, type ProductListResponse } from "@/entities/product/api";
 import { resolveCategoryIcon } from "@/shared/lib/categoryIcons";
@@ -47,6 +49,14 @@ async function safeProductList(params: ListProductsParams): Promise<ProductListR
   }
 }
 
+async function safeBannerList(): Promise<Banner[]> {
+  try {
+    return await getBanners();
+  } catch {
+    return [];
+  }
+}
+
 function HeroSlide({ children }: { children: React.ReactNode }) {
   return (
     <div className="grid min-h-64 grid-cols-1 items-center gap-6 overflow-hidden bg-surface px-6 py-10 sm:min-h-80 sm:grid-cols-[1fr_auto] sm:px-10 sm:py-14">
@@ -64,8 +74,65 @@ function HeroDecoration({ Icon }: { Icon: typeof Package }) {
   );
 }
 
+// Admin-managed hero banners (see /admin/banners) -- a real photo with
+// optional headline/subhead/CTA overlaid on a gradient for legibility, and
+// the whole slide is a link when the admin sets one.
+function PhotoHeroSlide({
+  banner,
+  priority,
+  headingTag: HeadingTag,
+}: {
+  banner: Banner;
+  priority: boolean;
+  headingTag: "h1" | "h2";
+}) {
+  const hasCopy = Boolean(banner.title || banner.subtitle || banner.button_text);
+
+  const slide = (
+    <div className="relative min-h-64 overflow-hidden bg-surface sm:min-h-80">
+      <Image
+        src={banner.image_url}
+        alt={banner.title ?? ""}
+        fill
+        unoptimized
+        priority={priority}
+        sizes="(min-width: 1024px) 1152px, 100vw"
+        className="object-cover"
+      />
+      {hasCopy && (
+        <>
+          <div
+            aria-hidden="true"
+            className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent"
+          />
+          <div className="absolute inset-0 flex flex-col items-start justify-end gap-3 px-6 py-8 sm:px-10 sm:py-12">
+            {banner.subtitle && (
+              <p className="text-sm font-medium uppercase tracking-wide text-white/85">
+                {banner.subtitle}
+              </p>
+            )}
+            {banner.title && (
+              <HeadingTag className="max-w-xl font-display text-2xl font-extrabold tracking-tight text-white sm:text-4xl">
+                {banner.title}
+              </HeadingTag>
+            )}
+            {banner.button_text && (
+              <span className="rounded-lg bg-white px-6 py-3 text-sm font-medium text-ink">
+                {banner.button_text}
+              </span>
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  );
+
+  if (!banner.link_url) return slide;
+  return <Link href={banner.link_url}>{slide}</Link>;
+}
+
 export default async function HomePage() {
-  const categories = await safeCategoryTree();
+  const [categories, banners] = await Promise.all([safeCategoryTree(), safeBannerList()]);
   const featuredCategory = categories[0];
 
   const [newest, popular, featured] = await Promise.all([
@@ -76,48 +143,63 @@ export default async function HomePage() {
       : Promise.resolve(EMPTY_PRODUCT_LIST),
   ]);
 
-  const heroSlides = [
-    <HeroSlide key="intro">
-      <div className="flex flex-col items-start gap-4">
-        <span className="rounded-lg bg-accent-sale px-2.5 py-1 text-xs font-bold text-white">
-          Доставка по Бишкеку за 1 день
-        </span>
-        <h1 className="font-display text-2xl font-extrabold tracking-tight text-ink sm:text-4xl">
-          Товары для дома HobbyLife
-        </h1>
-        <p className="max-w-xl text-ink-muted">
-          Посуда и пищевые контейнеры, товары для кухни и хранения с доставкой по Бишкеку.
-        </p>
-        <Link
-          href="/catalog"
-          className="rounded-lg bg-ink px-6 py-3 text-sm font-medium text-white hover:bg-ink/85 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
-        >
-          Смотреть каталог
-        </Link>
-      </div>
-      <HeroDecoration Icon={Package} />
-    </HeroSlide>,
-    ...categories.slice(0, 2).map((category) => {
-      const Icon = resolveCategoryIcon(category.name);
-      return (
-        <HeroSlide key={category.id}>
-          <div className="flex flex-col items-start gap-4">
-            <p className="text-sm font-medium uppercase tracking-wide text-brand">Категория</p>
-            <h2 className="font-display text-2xl font-extrabold tracking-tight text-ink sm:text-4xl">
-              {category.name}
-            </h2>
-            <Link
-              href={`/catalog/${category.slug}`}
-              className="rounded-lg bg-ink px-6 py-3 text-sm font-medium text-white hover:bg-ink/85 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
-            >
-              Смотреть товары
-            </Link>
-          </div>
-          <HeroDecoration Icon={Icon} />
-        </HeroSlide>
-      );
-    }),
-  ];
+  // Real, admin-managed banners (/admin/banners) take over the hero once any
+  // exist; a fresh store with none yet falls back to the built-in intro +
+  // first-two-categories slides so the homepage is never empty.
+  const heroSlides =
+    banners.length > 0
+      ? banners.map((banner, index) => (
+          <PhotoHeroSlide
+            key={banner.id}
+            banner={banner}
+            priority={index === 0}
+            headingTag={index === 0 ? "h1" : "h2"}
+          />
+        ))
+      : [
+          <HeroSlide key="intro">
+            <div className="flex flex-col items-start gap-4">
+              <span className="rounded-lg bg-accent-sale px-2.5 py-1 text-xs font-bold text-white">
+                Доставка по Бишкеку за 1 день
+              </span>
+              <h1 className="font-display text-2xl font-extrabold tracking-tight text-ink sm:text-4xl">
+                Товары для дома HobbyLife
+              </h1>
+              <p className="max-w-xl text-ink-muted">
+                Посуда и пищевые контейнеры, товары для кухни и хранения с доставкой по Бишкеку.
+              </p>
+              <Link
+                href="/catalog"
+                className="rounded-lg bg-ink px-6 py-3 text-sm font-medium text-white hover:bg-ink/85 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+              >
+                Смотреть каталог
+              </Link>
+            </div>
+            <HeroDecoration Icon={Package} />
+          </HeroSlide>,
+          ...categories.slice(0, 2).map((category) => {
+            const Icon = resolveCategoryIcon(category.name);
+            return (
+              <HeroSlide key={category.id}>
+                <div className="flex flex-col items-start gap-4">
+                  <p className="text-sm font-medium uppercase tracking-wide text-brand">
+                    Категория
+                  </p>
+                  <h2 className="font-display text-2xl font-extrabold tracking-tight text-ink sm:text-4xl">
+                    {category.name}
+                  </h2>
+                  <Link
+                    href={`/catalog/${category.slug}`}
+                    className="rounded-lg bg-ink px-6 py-3 text-sm font-medium text-white hover:bg-ink/85 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+                  >
+                    Смотреть товары
+                  </Link>
+                </div>
+                <HeroDecoration Icon={Icon} />
+              </HeroSlide>
+            );
+          }),
+        ];
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6 sm:py-8">
