@@ -7,6 +7,7 @@ from typing import Any, cast
 
 from sqlalchemy import ColumnElement, case, func, or_, select, text, update
 from sqlalchemy.engine import CursorResult
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -652,7 +653,13 @@ async def create_category(
 
     category = Category(name=name, slug=slug, parent_id=parent_id, sort_order=sort_order)
     session.add(category)
-    await session.commit()
+    try:
+        await session.commit()
+    except IntegrityError as exc:
+        await session.rollback()
+        raise DomainError(
+            "Категория с таким slug уже существует", code="SLUG_ALREADY_EXISTS", status_code=409
+        ) from exc
     await invalidate_category_cache()
     return category
 
@@ -695,7 +702,13 @@ async def update_category(
     for key, value in updates.items():
         setattr(category, key, value)
 
-    await session.commit()
+    try:
+        await session.commit()
+    except IntegrityError as exc:
+        await session.rollback()
+        raise DomainError(
+            "Категория с таким slug уже существует", code="SLUG_ALREADY_EXISTS", status_code=409
+        ) from exc
     await invalidate_category_cache()
     return category
 
@@ -858,7 +871,13 @@ async def create_product(
         attributes=attributes,
     )
     session.add(product)
-    await session.commit()
+    try:
+        await session.commit()
+    except IntegrityError as exc:
+        await session.rollback()
+        raise DomainError(
+            "Товар с таким slug уже существует", code="SLUG_ALREADY_EXISTS", status_code=409
+        ) from exc
     await invalidate_category_cache()
     return product
 
@@ -875,7 +894,13 @@ async def update_product(
     for key, value in updates.items():
         setattr(product, key, value)
 
-    await session.commit()
+    try:
+        await session.commit()
+    except IntegrityError as exc:
+        await session.rollback()
+        raise DomainError(
+            "Товар с таким slug уже существует", code="SLUG_ALREADY_EXISTS", status_code=409
+        ) from exc
     # category_id/is_active changes both shift category product_count, and the
     # cheapest correct move is to invalidate unconditionally rather than
     # inspect `updates` for exactly which keys matter.
@@ -970,7 +995,15 @@ async def create_variant(
         stock_qty=stock_qty,
     )
     session.add(variant)
-    await session.commit()
+    try:
+        await session.commit()
+    except IntegrityError as exc:
+        await session.rollback()
+        raise DomainError(
+            "Вариант с таким SKU или набором опций уже существует",
+            code="VARIANT_ALREADY_EXISTS",
+            status_code=409,
+        ) from exc
     return variant
 
 
@@ -999,7 +1032,15 @@ async def update_variant(
     for key, value in updates.items():
         setattr(variant, key, value)
 
-    await session.commit()
+    try:
+        await session.commit()
+    except IntegrityError as exc:
+        await session.rollback()
+        raise DomainError(
+            "Вариант с таким SKU или набором опций уже существует",
+            code="VARIANT_ALREADY_EXISTS",
+            status_code=409,
+        ) from exc
     return variant
 
 
