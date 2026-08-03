@@ -13,19 +13,57 @@ import {
 } from "@/entities/category/adminApi";
 import { ApiError } from "@/shared/api/client";
 import { slugify } from "@/shared/lib/slugify";
+import { Toggle } from "@/shared/ui/Toggle";
 
 const QUERY_KEY = ["admin-categories"];
+
+interface FlatCategory extends AdminCategory {
+  depth: number;
+}
+
+// Depth-first flatten, siblings ordered by sort_order -- gives the indented
+// "tree read top to bottom" list the admin mockup shows, and is also the
+// order drag-and-drop reorders within (see handleDrop below).
+function flattenTree(categories: AdminCategory[]): FlatCategory[] {
+  const byParent = new Map<string | null, AdminCategory[]>();
+  for (const category of categories) {
+    const key = category.parent_id ?? null;
+    const siblings = byParent.get(key) ?? [];
+    siblings.push(category);
+    byParent.set(key, siblings);
+  }
+  for (const siblings of byParent.values()) {
+    siblings.sort((a, b) => a.sort_order - b.sort_order);
+  }
+
+  const result: FlatCategory[] = [];
+  function visit(parentId: string | null, depth: number) {
+    for (const category of byParent.get(parentId) ?? []) {
+      result.push({ ...category, depth });
+      visit(category.id, depth + 1);
+    }
+  }
+  visit(null, 0);
+  return result;
+}
 
 function CategoryRow({
   category,
   categories,
+  onDragStart,
+  onDragOver,
+  onDrop,
+  isDragging,
 }: {
-  category: AdminCategory;
+  category: FlatCategory;
   categories: AdminCategory[];
+  onDragStart: () => void;
+  onDragOver: (event: React.DragEvent) => void;
+  onDrop: () => void;
+  isDragging: boolean;
 }) {
   const queryClient = useQueryClient();
   const [error, setError] = useState<string | null>(null);
-  const parent = categories.find((item) => item.id === category.parent_id);
 
   const updateMutation = useMutation({
     mutationFn: (payload: Parameters<typeof updateAdminCategory>[1]) =>
@@ -48,20 +86,35 @@ function CategoryRow({
       setError(err instanceof ApiError ? err.message : "Не удалось удалить"),
   });
 
+  const productCount = categories.filter((c) => c.parent_id === category.id).length;
+
   return (
-    <tr className="border-b border-ink/10 align-top last:border-0">
-      <td className="px-3 py-2">{category.name}</td>
+    <tr
+      draggable
+      onDragStart={onDragStart}
+      onDragOver={onDragOver}
+      onDrop={onDrop}
+      className={`cursor-move border-b border-ink/10 align-top last:border-0 ${
+        isDragging ? "bg-brand/5" : ""
+      } ${category.is_active ? "" : "opacity-55"}`}
+    >
+      <td className="px-3 py-2" style={{ paddingLeft: `${12 + category.depth * 24}px` }}>
+        <span className="mr-2 text-ink-muted" aria-hidden="true">
+          ⠿
+        </span>
+        {category.name}
+      </td>
       <td className="px-3 py-2 font-mono text-xs text-ink-muted">{category.slug}</td>
-      <td className="px-3 py-2 text-ink-muted">{parent?.name ?? "—"}</td>
+      <td className="px-3 py-2 font-mono text-xs text-ink-muted">
+        {productCount > 0 ? `${productCount} подкат.` : "—"}
+      </td>
       <td className="px-3 py-2">
-        <label className="flex items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            checked={category.is_active}
-            onChange={(event) => updateMutation.mutate({ is_active: event.target.checked })}
-          />
-          активна
-        </label>
+        <Toggle
+          checked={category.is_active}
+          disabled={updateMutation.isPending}
+          onChange={(checked) => updateMutation.mutate({ is_active: checked })}
+          label={`Категория ${category.is_active ? "активна" : "скрыта"}: ${category.name}`}
+        />
       </td>
       <td className="px-3 py-2 text-right">
         <button
@@ -169,10 +222,24 @@ function CreateCategoryForm({ categories }: { categories: AdminCategory[] }) {
 
 export default function AdminCategoriesPage() {
   const role = useAuthStore((state) => state.role);
+  const queryClient = useQueryClient();
+  const [dragId, setDragId] = useState<string | null>(null);
   const { data, isLoading } = useQuery({
     queryKey: QUERY_KEY,
     queryFn: () => listAdminCategories(1, 100),
     enabled: role === "admin",
+  });
+
+  const reorderMutation = useMutation({
+    mutationFn: async (updates: { id: string; sort_order: number }[]) => {
+      // No bulk-reorder endpoint (unlike product images) -- categories change
+      // order rarely enough that sequential PATCHes are fine for this
+      // low-concurrency internal tool.
+      for (const update of updates) {
+        await updateAdminCategory(update.id, { sort_order: update.sort_order });
+      }
+    },
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: QUERY_KEY }),
   });
 
   if (role !== "admin") {
@@ -187,11 +254,41 @@ export default function AdminCategoriesPage() {
   }
 
   const categories = data?.items ?? [];
+  const flat = flattenTree(categories);
+
+  function handleDrop(dropId: string) {
+    if (!dragId || dragId === dropId) {
+      setDragId(null);
+      return;
+    }
+    const dragged = categories.find((c) => c.id === dragId);
+    const target = categories.find((c) => c.id === dropId);
+    setDragId(null);
+    // Only reorder within the same parent -- moving a category to a
+    // different parent is a separate action (not modeled here) to avoid
+    // silently changing the tree shape via a drag.
+    if (!dragged || !target || dragged.parent_id !== target.parent_id) return;
+
+    const siblings = categories
+      .filter((c) => c.parent_id === dragged.parent_id)
+      .sort((a, b) => a.sort_order - b.sort_order);
+    const fromIndex = siblings.findIndex((c) => c.id === dragId);
+    const toIndex = siblings.findIndex((c) => c.id === dropId);
+    const reordered = [...siblings];
+    const [moved] = reordered.splice(fromIndex, 1);
+    reordered.splice(toIndex, 0, moved);
+
+    reorderMutation.mutate(reordered.map((c, index) => ({ id: c.id, sort_order: index })));
+  }
 
   return (
     <div>
       <h1 className="mb-6 text-xl font-semibold text-ink">Категории</h1>
       <CreateCategoryForm categories={categories} />
+      <p className="mb-3 text-xs text-ink-muted">
+        Перетаскивание за ⠿ меняет порядок среди категорий одного уровня; выключенная категория
+        скрывается из каталога, товары остаются.
+      </p>
       {isLoading && <p className="text-ink-muted">Загрузка…</p>}
       {data && (
         <div className="overflow-x-auto rounded-lg border border-ink/10">
@@ -200,14 +297,22 @@ export default function AdminCategoriesPage() {
               <tr className="border-b border-ink/10 bg-surface text-left text-ink-muted">
                 <th className="px-3 py-2">Название</th>
                 <th className="px-3 py-2">Слаг</th>
-                <th className="px-3 py-2">Родитель</th>
+                <th className="px-3 py-2">Подкатегории</th>
                 <th className="px-3 py-2">Активна</th>
                 <th className="px-3 py-2" />
               </tr>
             </thead>
             <tbody>
-              {categories.map((category) => (
-                <CategoryRow key={category.id} category={category} categories={categories} />
+              {flat.map((category) => (
+                <CategoryRow
+                  key={category.id}
+                  category={category}
+                  categories={categories}
+                  isDragging={dragId === category.id}
+                  onDragStart={() => setDragId(category.id)}
+                  onDragOver={(event) => event.preventDefault()}
+                  onDrop={() => handleDrop(category.id)}
+                />
               ))}
             </tbody>
           </table>

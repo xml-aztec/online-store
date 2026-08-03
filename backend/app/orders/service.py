@@ -190,6 +190,7 @@ async def create_order(
             OrderItem(
                 order_id=order.id,
                 variant_id=variant.id,
+                product_id=variant.product_id,
                 product_name=variant.product.name,
                 variant_options=variant.options,
                 sku=variant.sku,
@@ -473,10 +474,17 @@ async def delete_promo_code_admin(session: AsyncSession, *, promo_code_id: uuid.
 # --- Admin: orders ---
 
 
+async def count_orders_by_status(session: AsyncSession) -> dict[str, int]:
+    rows = (
+        await session.execute(select(Order.status, func.count()).group_by(Order.status))
+    ).all()
+    return {row[0]: row[1] for row in rows}
+
+
 async def list_orders_admin(
     session: AsyncSession,
     *,
-    status_filter: str | None,
+    status_filter: list[str] | None,
     date_from: datetime | None,
     date_to: datetime | None,
     search: str | None,
@@ -484,8 +492,8 @@ async def list_orders_admin(
     page_size: int,
 ) -> tuple[list[Order], int]:
     conditions: list[ColumnElement[bool]] = []
-    if status_filter is not None:
-        conditions.append(Order.status == status_filter)
+    if status_filter:
+        conditions.append(Order.status.in_(status_filter))
     if date_from is not None:
         conditions.append(Order.created_at >= date_from)
     if date_to is not None:
@@ -540,20 +548,26 @@ class TopProductStats:
 class StatsSummary:
     last_7_days: PeriodStats
     last_30_days: PeriodStats
+    prev_7_days: PeriodStats
+    prev_30_days: PeriodStats
     top_products: list[TopProductStats]
 
 
-async def _period_stats(session: AsyncSession, *, since: datetime) -> PeriodStats:
+async def _period_stats(
+    session: AsyncSession, *, since: datetime, until: datetime | None = None
+) -> PeriodStats:
+    order_conditions = [Order.created_at >= since]
+    revenue_conditions = [Order.created_at >= since, Order.status != "cancelled"]
+    if until is not None:
+        order_conditions.append(Order.created_at < until)
+        revenue_conditions.append(Order.created_at < until)
+
     orders_count = (
-        await session.scalar(
-            select(func.count()).select_from(Order).where(Order.created_at >= since)
-        )
+        await session.scalar(select(func.count()).select_from(Order).where(*order_conditions))
     ) or 0
     revenue = (
         await session.scalar(
-            select(func.coalesce(func.sum(Order.total), 0)).where(
-                Order.created_at >= since, Order.status != "cancelled"
-            )
+            select(func.coalesce(func.sum(Order.total), 0)).where(*revenue_conditions)
         )
     ) or Decimal("0")
     return PeriodStats(orders_count=orders_count, revenue=Decimal(revenue))
@@ -583,6 +597,12 @@ async def get_stats_summary(session: AsyncSession) -> StatsSummary:
     return StatsSummary(
         last_7_days=await _period_stats(session, since=now - timedelta(days=7)),
         last_30_days=await _period_stats(session, since=now - timedelta(days=30)),
+        prev_7_days=await _period_stats(
+            session, since=now - timedelta(days=14), until=now - timedelta(days=7)
+        ),
+        prev_30_days=await _period_stats(
+            session, since=now - timedelta(days=60), until=now - timedelta(days=30)
+        ),
         top_products=[
             TopProductStats(
                 product_name=row.product_name,

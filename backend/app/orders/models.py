@@ -95,6 +95,12 @@ class OrderItem(TimestampedBase):
     variant_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("product_variants.id", ondelete="SET NULL"), nullable=True
     )
+    # Denormalized alongside variant_id (rather than derived via a join) so a
+    # purchase still proves review eligibility after the variant itself is
+    # deleted -- see app/reviews/service.py::check_eligibility.
+    product_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("products.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     product_name: Mapped[str] = mapped_column(nullable=False)
     variant_options: Mapped[dict[str, Any]] = mapped_column(
         JSONB, nullable=False, server_default=text("'{}'::jsonb")

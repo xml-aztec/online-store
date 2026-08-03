@@ -3,10 +3,15 @@
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 
-import { ORDER_STATUS_LABELS } from "@/entities/orders/api";
 import { getStatsSummary, listAdminOrders } from "@/entities/orders/adminApi";
 import { formatPrice } from "@/shared/lib/formatPrice";
-import { orderStatusPillClass } from "@/shared/lib/orderStatusStyles";
+import { MetricCard } from "@/shared/ui/MetricCard";
+import { StatusPill } from "@/shared/ui/StatusPill";
+
+function percentDelta(current: number, previous: number): number | null {
+  if (previous === 0) return current === 0 ? 0 : null;
+  return ((current - previous) / previous) * 100;
+}
 
 export default function AdminDashboardPage() {
   const { data: stats, isLoading: statsLoading } = useQuery({
@@ -18,27 +23,59 @@ export default function AdminDashboardPage() {
     queryFn: () => listAdminOrders({ pageSize: 10 }),
   });
 
+  const avgOrderValue =
+    stats && stats.last_30_days.orders_count > 0
+      ? Number(stats.last_30_days.revenue) / stats.last_30_days.orders_count
+      : null;
+  const prevAvgOrderValue =
+    stats && stats.prev_30_days.orders_count > 0
+      ? Number(stats.prev_30_days.revenue) / stats.prev_30_days.orders_count
+      : null;
+
   return (
     <div>
       <h1 className="mb-6 text-xl font-semibold text-ink">Дашборд</h1>
 
       {statsLoading && <p className="text-ink-muted">Загрузка статистики…</p>}
       {stats && (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div className="rounded-lg border border-ink/10 p-4">
-            <p className="text-sm text-ink-muted">Выручка за 7 дней</p>
-            <p className="font-mono text-2xl font-semibold text-ink">
-              {formatPrice(stats.last_7_days.revenue)}
-            </p>
-            <p className="text-sm text-ink-muted">{stats.last_7_days.orders_count} заказов</p>
-          </div>
-          <div className="rounded-lg border border-ink/10 p-4">
-            <p className="text-sm text-ink-muted">Выручка за 30 дней</p>
-            <p className="font-mono text-2xl font-semibold text-ink">
-              {formatPrice(stats.last_30_days.revenue)}
-            </p>
-            <p className="text-sm text-ink-muted">{stats.last_30_days.orders_count} заказов</p>
-          </div>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <MetricCard
+            label="Выручка · 7 дней"
+            value={formatPrice(stats.last_7_days.revenue)}
+            deltaPercent={percentDelta(
+              Number(stats.last_7_days.revenue),
+              Number(stats.prev_7_days.revenue)
+            )}
+            caption="к прошлому периоду"
+          />
+          <MetricCard
+            label="Выручка · 30 дней"
+            value={formatPrice(stats.last_30_days.revenue)}
+            deltaPercent={percentDelta(
+              Number(stats.last_30_days.revenue),
+              Number(stats.prev_30_days.revenue)
+            )}
+            caption="к прошлому периоду"
+          />
+          <MetricCard
+            label="Заказы · 7 дней"
+            value={String(stats.last_7_days.orders_count)}
+            deltaPercent={percentDelta(
+              stats.last_7_days.orders_count,
+              stats.prev_7_days.orders_count
+            )}
+            caption="к прошлому периоду"
+          />
+          <MetricCard
+            label="Средний чек"
+            value={avgOrderValue != null ? formatPrice(avgOrderValue) : "—"}
+            deltaPercent={
+              avgOrderValue != null && prevAvgOrderValue != null
+                ? percentDelta(avgOrderValue, prevAvgOrderValue)
+                : null
+            }
+            caption="за 30 дней"
+          />
         </div>
       )}
 
@@ -110,11 +147,7 @@ export default function AdminDashboardPage() {
                       </Link>
                     </td>
                     <td className="px-3 py-2">
-                      <span
-                        className={`rounded-full border px-2 py-0.5 text-xs font-medium ${orderStatusPillClass(order.status)}`}
-                      >
-                        {ORDER_STATUS_LABELS[order.status] ?? order.status}
-                      </span>
+                      <StatusPill status={order.status} />
                     </td>
                     <td className="px-3 py-2">{order.email}</td>
                     <td className="px-3 py-2 font-mono">{formatPrice(order.total)}</td>

@@ -9,7 +9,8 @@ import { ORDER_STATUS_LABELS } from "@/entities/orders/api";
 import { getAdminOrder, refundAdminOrder, updateAdminOrderStatus } from "@/entities/orders/adminApi";
 import { ApiError } from "@/shared/api/client";
 import { formatPrice } from "@/shared/lib/formatPrice";
-import { orderStatusPillClass } from "@/shared/lib/orderStatusStyles";
+import { StatusPill } from "@/shared/ui/StatusPill";
+import { Timeline } from "@/shared/ui/Timeline";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -67,9 +68,7 @@ export default function AdminOrderDetailPage({ params }: PageProps) {
         <h1 className="text-xl font-semibold text-ink">
           Заказ <span className="font-mono">{order.number}</span>
         </h1>
-        <span className={`rounded-full border px-3 py-1 text-sm font-medium ${orderStatusPillClass(order.status)}`}>
-          {ORDER_STATUS_LABELS[order.status] ?? order.status}
-        </span>
+        <StatusPill status={order.status} size="md" />
       </div>
 
       <div className="mt-6 grid grid-cols-1 gap-8 lg:grid-cols-[1fr_320px]">
@@ -111,20 +110,13 @@ export default function AdminOrderDetailPage({ params }: PageProps) {
             <h2 className="mb-3 text-sm font-semibold uppercase text-ink-muted">
               История статусов
             </h2>
-            <ol className="space-y-3 border-l-2 border-ink/10 pl-4">
-              {order.status_history.map((entry, index) => (
-                <li key={index} className="text-sm">
-                  <p className="font-medium text-ink">
-                    {entry.from_status ? `${ORDER_STATUS_LABELS[entry.from_status] ?? entry.from_status} → ` : ""}
-                    {ORDER_STATUS_LABELS[entry.to_status] ?? entry.to_status}
-                  </p>
-                  <p className="text-xs text-ink-muted">
-                    {new Date(entry.created_at).toLocaleString("ru-RU")}
-                    {entry.comment ? ` — ${entry.comment}` : ""}
-                  </p>
-                </li>
-              ))}
-            </ol>
+            <Timeline
+              items={order.status_history.map((entry) => ({
+                label: ORDER_STATUS_LABELS[entry.to_status] ?? entry.to_status,
+                timestamp: new Date(entry.created_at).toLocaleString("ru-RU"),
+                description: entry.comment ?? undefined,
+              }))}
+            />
           </section>
         </div>
 

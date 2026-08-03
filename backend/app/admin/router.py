@@ -182,7 +182,7 @@ async def list_products(
     page: Annotated[int, Query(ge=1)] = 1,
     page_size: Annotated[int, Query(ge=1, le=100)] = 24,
 ) -> AdminProductListResponse:
-    products, total = await catalog_service.list_products_admin(
+    rows, total = await catalog_service.list_products_admin(
         db,
         search=search,
         category_id=category_id,
@@ -193,13 +193,18 @@ async def list_products(
     return AdminProductListResponse(
         items=[
             AdminProductListItem(
-                id=product.id,
-                category_id=product.category_id,
-                name=product.name,
-                slug=product.slug,
-                is_active=product.is_active,
+                id=row.product.id,
+                category_id=row.product.category_id,
+                name=row.product.name,
+                slug=row.product.slug,
+                is_active=row.product.is_active,
+                price_from=row.price_from,
+                price_to=row.price_to,
+                total_stock_qty=row.total_stock_qty,
+                variant_count=row.variant_count,
+                single_variant_id=row.single_variant_id,
             )
-            for product in products
+            for row in rows
         ],
         total=total,
         page=page,

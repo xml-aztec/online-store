@@ -11,6 +11,7 @@ from app.admin.schemas import (
     AdminOrderItemPublic,
     AdminOrderListItem,
     AdminOrderListResponse,
+    AdminOrderStatusCountsResponse,
     AdminOrderStatusHistoryPublic,
     AdminOrderStatusUpdateRequest,
     StatsPeriodResponse,
@@ -86,10 +87,18 @@ def _order_to_detail(order: Order) -> AdminOrderDetail:
     )
 
 
+@router.get("/orders/status-counts", response_model=AdminOrderStatusCountsResponse)
+async def get_order_status_counts(
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> AdminOrderStatusCountsResponse:
+    counts = await orders_service.count_orders_by_status(db)
+    return AdminOrderStatusCountsResponse(counts=counts)
+
+
 @router.get("/orders", response_model=AdminOrderListResponse)
 async def list_orders(
     db: Annotated[AsyncSession, Depends(get_db)],
-    status_filter: Annotated[str | None, Query(alias="status")] = None,
+    status_filter: Annotated[list[str] | None, Query(alias="status")] = None,
     date_from: datetime | None = None,
     date_to: datetime | None = None,
     search: str | None = None,
@@ -178,6 +187,12 @@ async def get_stats_summary(db: Annotated[AsyncSession, Depends(get_db)]) -> Sta
         ),
         last_30_days=StatsPeriodResponse(
             orders_count=stats.last_30_days.orders_count, revenue=stats.last_30_days.revenue
+        ),
+        prev_7_days=StatsPeriodResponse(
+            orders_count=stats.prev_7_days.orders_count, revenue=stats.prev_7_days.revenue
+        ),
+        prev_30_days=StatsPeriodResponse(
+            orders_count=stats.prev_30_days.orders_count, revenue=stats.prev_30_days.revenue
         ),
         top_products=[
             TopProductResponse(

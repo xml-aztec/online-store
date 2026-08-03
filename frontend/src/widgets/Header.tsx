@@ -1,6 +1,6 @@
 "use client";
 
-import { Search, ShoppingCart, User, X } from "lucide-react";
+import { Heart, Menu, Search, ShoppingCart, User, X } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -8,6 +8,7 @@ import { type FormEvent, useEffect, useRef, useState } from "react";
 
 import { cartItemCount, useCartQuery } from "@/entities/cart/queries";
 import { useAuthStore } from "@/entities/auth/store";
+import { useFavoriteIdsQuery } from "@/entities/favorites/queries";
 import { listProducts, type ProductListItem } from "@/entities/product/api";
 import { formatPrice } from "@/shared/lib/formatPrice";
 
@@ -115,6 +116,8 @@ export function Header() {
   const itemCount = cartItemCount(cart);
   const cartPulsing = usePreviousCartPulse(itemCount, cart !== undefined);
   const { status, role } = useAuthStore();
+  const { data: favoriteIds } = useFavoriteIdsQuery();
+  const favoriteCount = favoriteIds?.length ?? 0;
   const scrolled = useScrolled();
   const pathname = usePathname();
   const [previewClosedForPathname, setPreviewClosedForPathname] = useState(pathname);
@@ -195,6 +198,14 @@ export function Header() {
           HobbyLife
         </Link>
 
+        <Link
+          href="/catalog"
+          className="hidden shrink-0 items-center gap-2 rounded-xl bg-surface px-4 py-2.5 font-display text-sm font-bold text-ink hover:bg-ink/10 sm:flex focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+        >
+          <Menu className="h-[18px] w-[18px]" aria-hidden="true" />
+          Каталог
+        </Link>
+
         <div ref={searchBoxRef} className="relative order-3 w-full sm:order-none sm:flex-1">
           <form onSubmit={handleSearchSubmit} role="search">
             <label htmlFor="header-search" className="sr-only">
@@ -262,6 +273,15 @@ export function Header() {
             Войти
           </Link>
         )}
+
+        <Link
+          href="/favorites"
+          className="relative hidden shrink-0 items-center gap-1.5 text-sm font-medium text-ink-muted hover:text-ink sm:flex focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+          aria-label={`Избранное, товаров: ${favoriteCount}`}
+        >
+          <Heart className="h-4 w-4" aria-hidden="true" />
+          Избранное
+        </Link>
 
         <Link
           href="/cart"

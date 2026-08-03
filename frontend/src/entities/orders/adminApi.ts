@@ -5,9 +5,11 @@ export type AdminOrderListItem = components["schemas"]["AdminOrderListItem"];
 export type AdminOrderListResponse = components["schemas"]["AdminOrderListResponse"];
 export type AdminOrderDetail = components["schemas"]["AdminOrderDetail"];
 export type StatsSummaryResponse = components["schemas"]["StatsSummaryResponse"];
+export type AdminOrderStatusCountsResponse =
+  components["schemas"]["AdminOrderStatusCountsResponse"];
 
 export interface AdminOrdersFilter {
-  status?: string;
+  status?: string[];
   search?: string;
   dateFrom?: string;
   dateTo?: string;
@@ -19,7 +21,7 @@ export async function listAdminOrders(
   filter: AdminOrdersFilter = {}
 ): Promise<AdminOrderListResponse> {
   const params = new URLSearchParams();
-  if (filter.status) params.set("status", filter.status);
+  for (const status of filter.status ?? []) params.append("status", status);
   if (filter.search) params.set("search", filter.search);
   if (filter.dateFrom) params.set("date_from", filter.dateFrom);
   if (filter.dateTo) params.set("date_to", filter.dateTo);
@@ -27,6 +29,10 @@ export async function listAdminOrders(
   if (filter.pageSize) params.set("page_size", String(filter.pageSize));
   const query = params.toString();
   return apiFetch<AdminOrderListResponse>(`/admin/orders${query ? `?${query}` : ""}`);
+}
+
+export async function getOrderStatusCounts(): Promise<AdminOrderStatusCountsResponse> {
+  return apiFetch<AdminOrderStatusCountsResponse>("/admin/orders/status-counts");
 }
 
 export async function getAdminOrder(orderId: string): Promise<AdminOrderDetail> {

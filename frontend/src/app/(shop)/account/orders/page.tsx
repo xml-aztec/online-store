@@ -3,9 +3,9 @@
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 
-import { listMyOrders, ORDER_STATUS_LABELS } from "@/entities/orders/api";
+import { listMyOrders } from "@/entities/orders/api";
 import { formatPrice } from "@/shared/lib/formatPrice";
-import { orderStatusPillClass } from "@/shared/lib/orderStatusStyles";
+import { StatusPill } from "@/shared/ui/StatusPill";
 
 export default function AccountOrdersPage() {
   const { data, isLoading } = useQuery({
@@ -15,7 +15,7 @@ export default function AccountOrdersPage() {
 
   return (
     <div>
-      <h1 className="mb-6 font-display text-xl font-bold text-ink">Мои заказы</h1>
+      <h2 className="mb-4 font-display text-lg font-extrabold text-ink">Мои заказы</h2>
       {isLoading && <p className="text-ink-muted">Загрузка…</p>}
       {data && data.items.length === 0 && <p className="text-ink-muted">Заказов пока нет</p>}
       {data && data.items.length > 0 && (
@@ -40,11 +40,7 @@ export default function AccountOrdersPage() {
                     {order.number}
                   </td>
                   <td className="px-3 py-2">
-                    <span
-                      className={`rounded-full border px-2 py-0.5 text-xs font-medium ${orderStatusPillClass(order.status)}`}
-                    >
-                      {ORDER_STATUS_LABELS[order.status] ?? order.status}
-                    </span>
+                    <StatusPill status={order.status} />
                   </td>
                   <td className="px-3 py-2 font-mono">{formatPrice(order.total)}</td>
                   <td className="px-3 py-2 text-ink-muted">

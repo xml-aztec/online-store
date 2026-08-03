@@ -253,3 +253,82 @@ async def test_stats_summary_matches_known_orders(
     assert top_by_name["Тазик"]["quantity_sold"] == 3
     assert Decimal(top_by_name["Тазик"]["revenue"]) == Decimal("1500.00")
     assert "Контейнер" not in top_by_name  # cancelled order excluded
+
+
+@pytest.mark.asyncio
+async def test_stats_summary_includes_previous_period_for_deltas(
+    client: httpx.AsyncClient, db_session: AsyncSession
+) -> None:
+    manager = await _make_user(db_session, role="manager")
+    now = datetime.now(UTC)
+    headers = _headers(manager)
+
+    # Deltas rather than exact totals: the dev/test DB isn't guaranteed empty
+    # of other orders (see _seed_catalog's own note on the same issue), so
+    # this only asserts what *these* two orders contribute to each window.
+    baseline = (await client.get("/v1/admin/stats/summary", headers=headers)).json()
+
+    await _make_order(
+        db_session,
+        status="processing",
+        total=Decimal("100.00"),
+        created_at=now - timedelta(days=2),
+    )
+    # Falls in the previous-7-day window (8-14 days ago), not the current one.
+    await _make_order(
+        db_session,
+        status="processing",
+        total=Decimal("300.00"),
+        created_at=now - timedelta(days=10),
+    )
+
+    body = (await client.get("/v1/admin/stats/summary", headers=headers)).json()
+
+    assert body["last_7_days"]["orders_count"] - baseline["last_7_days"]["orders_count"] == 1
+    assert body["prev_7_days"]["orders_count"] - baseline["prev_7_days"]["orders_count"] == 1
+    revenue_delta = Decimal(body["prev_7_days"]["revenue"]) - Decimal(
+        baseline["prev_7_days"]["revenue"]
+    )
+    assert revenue_delta == Decimal("300.00")
+
+
+@pytest.mark.asyncio
+async def test_order_status_filter_accepts_multiple_values(
+    client: httpx.AsyncClient, db_session: AsyncSession
+) -> None:
+    manager = await _make_user(db_session, role="manager")
+    await _make_order(db_session, status="pending")
+    await _make_order(db_session, status="awaiting_payment")
+    await _make_order(db_session, status="delivered")
+
+    response = await client.get(
+        "/v1/admin/orders",
+        params={"status": ["pending", "awaiting_payment"]},
+        headers=_headers(manager),
+    )
+
+    assert response.status_code == 200
+    statuses = {item["status"] for item in response.json()["items"]}
+    assert statuses == {"pending", "awaiting_payment"}
+
+
+@pytest.mark.asyncio
+async def test_order_status_counts_endpoint(
+    client: httpx.AsyncClient, db_session: AsyncSession
+) -> None:
+    manager = await _make_user(db_session, role="manager")
+    headers = _headers(manager)
+    baseline = (await client.get("/v1/admin/orders/status-counts", headers=headers)).json()[
+        "counts"
+    ]
+
+    await _make_order(db_session, status="pending")
+    await _make_order(db_session, status="pending")
+    await _make_order(db_session, status="delivered")
+
+    response = await client.get("/v1/admin/orders/status-counts", headers=headers)
+
+    assert response.status_code == 200
+    counts = response.json()["counts"]
+    assert counts["pending"] - baseline.get("pending", 0) == 2
+    assert counts["delivered"] - baseline.get("delivered", 0) == 1

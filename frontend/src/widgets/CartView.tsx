@@ -1,5 +1,6 @@
 "use client";
 
+import { ShoppingCart } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 
@@ -39,13 +40,21 @@ export function CartView() {
 
   if (!cart || cart.items.length === 0) {
     return (
-      <div className="py-16 text-center">
-        <p className="text-ink-muted">Ваша корзина пуста</p>
+      <div className="flex flex-col items-center gap-4 py-16 text-center">
+        <span className="flex h-24 w-24 items-center justify-center rounded-full bg-surface">
+          <ShoppingCart className="h-10 w-10 text-ink-muted" aria-hidden="true" />
+        </span>
+        <div>
+          <p className="font-display text-lg font-bold text-ink">Корзина пуста</p>
+          <p className="mt-1 max-w-xs text-sm text-ink-muted">
+            Добавьте товары из каталога — доставим по Бишкеку за 1 день.
+          </p>
+        </div>
         <Link
           href="/catalog"
-          className="mt-4 inline-block rounded-lg bg-brand px-6 py-3 text-sm font-medium text-white hover:bg-brand/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+          className="mt-2 inline-block rounded-lg bg-brand px-6 py-3 text-sm font-medium text-white hover:bg-brand/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
         >
-          Перейти в каталог
+          В каталог
         </Link>
       </div>
     );
@@ -56,7 +65,7 @@ export function CartView() {
   );
 
   return (
-    <div className="grid grid-cols-1 gap-8 lg:grid-cols-[1fr_320px]">
+    <div className="grid grid-cols-1 gap-8 pb-24 lg:grid-cols-[1fr_320px] lg:pb-0">
       <div>
         <div className="mb-2 flex justify-end">
           <button
@@ -118,6 +127,10 @@ export function CartView() {
             <dt className="text-ink-muted">Товары</dt>
             <dd className="font-mono text-ink">{formatPrice(cart.subtotal)}</dd>
           </div>
+          <div className="flex justify-between">
+            <dt className="text-ink-muted">Доставка</dt>
+            <dd className="text-xs text-ink-muted">Рассчитывается при оформлении</dd>
+          </div>
           {Number(cart.discount_amount) > 0 && (
             <div className="flex justify-between">
               <dt className="text-ink-muted">Скидка</dt>
@@ -137,6 +150,22 @@ export function CartView() {
           Оформить заказ
         </Link>
       </aside>
+
+      <div
+        className="fixed inset-x-0 z-20 flex items-center gap-3 border-t border-ink/10 bg-bg px-4 py-3 shadow-[0_-4px_16px_rgba(20,22,26,0.06)] lg:hidden"
+        style={{ bottom: "calc(4rem + env(safe-area-inset-bottom))" }}
+      >
+        <div className="min-w-0 flex-1">
+          <p className="text-xs text-ink-muted">Итого</p>
+          <p className="truncate font-mono text-lg font-bold text-ink">{formatPrice(cart.total)}</p>
+        </div>
+        <Link
+          href="/checkout"
+          className="shrink-0 rounded-lg bg-brand px-5 py-2.5 text-sm font-medium text-white hover:bg-brand/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+        >
+          Оформить заказ
+        </Link>
+      </div>
     </div>
   );
 }

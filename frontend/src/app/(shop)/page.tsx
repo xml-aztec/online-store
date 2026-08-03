@@ -49,7 +49,7 @@ async function safeProductList(params: ListProductsParams): Promise<ProductListR
 
 function HeroSlide({ children }: { children: React.ReactNode }) {
   return (
-    <div className="relative flex min-h-64 flex-col items-start justify-center gap-4 overflow-hidden bg-surface px-6 py-10 sm:min-h-80 sm:px-10 sm:py-14">
+    <div className="grid min-h-64 grid-cols-1 items-center gap-6 overflow-hidden bg-surface px-6 py-10 sm:min-h-80 sm:grid-cols-[1fr_auto] sm:px-10 sm:py-14">
       {children}
     </div>
   );
@@ -59,7 +59,7 @@ function HeroDecoration({ Icon }: { Icon: typeof Package }) {
   return (
     <Icon
       aria-hidden="true"
-      className="pointer-events-none absolute -right-6 -top-8 h-40 w-40 text-brand/10 sm:h-56 sm:w-56"
+      className="mx-auto hidden h-32 w-32 text-brand/15 sm:block sm:h-48 sm:w-48"
     />
   );
 }
@@ -78,33 +78,42 @@ export default async function HomePage() {
 
   const heroSlides = [
     <HeroSlide key="intro">
+      <div className="flex flex-col items-start gap-4">
+        <span className="rounded-lg bg-accent-sale px-2.5 py-1 text-xs font-bold text-white">
+          Доставка по Бишкеку за 1 день
+        </span>
+        <h1 className="font-display text-2xl font-extrabold tracking-tight text-ink sm:text-4xl">
+          Товары для дома HobbyLife
+        </h1>
+        <p className="max-w-xl text-ink-muted">
+          Посуда и пищевые контейнеры, товары для кухни и хранения с доставкой по Бишкеку.
+        </p>
+        <Link
+          href="/catalog"
+          className="rounded-lg bg-ink px-6 py-3 text-sm font-medium text-white hover:bg-ink/85 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+        >
+          Смотреть каталог
+        </Link>
+      </div>
       <HeroDecoration Icon={Package} />
-      <h1 className="font-display text-2xl font-bold text-ink sm:text-4xl">
-        Товары для дома HobbyLife
-      </h1>
-      <p className="max-w-xl text-ink-muted">
-        Посуда и пищевые контейнеры, товары для кухни и хранения с доставкой по Бишкеку.
-      </p>
-      <Link
-        href="/catalog"
-        className="rounded-lg bg-brand px-6 py-3 text-sm font-medium text-white hover:bg-brand/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
-      >
-        Смотреть каталог
-      </Link>
     </HeroSlide>,
     ...categories.slice(0, 2).map((category) => {
       const Icon = resolveCategoryIcon(category.name);
       return (
         <HeroSlide key={category.id}>
+          <div className="flex flex-col items-start gap-4">
+            <p className="text-sm font-medium uppercase tracking-wide text-brand">Категория</p>
+            <h2 className="font-display text-2xl font-extrabold tracking-tight text-ink sm:text-4xl">
+              {category.name}
+            </h2>
+            <Link
+              href={`/catalog/${category.slug}`}
+              className="rounded-lg bg-ink px-6 py-3 text-sm font-medium text-white hover:bg-ink/85 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+            >
+              Смотреть товары
+            </Link>
+          </div>
           <HeroDecoration Icon={Icon} />
-          <p className="text-sm font-medium uppercase tracking-wide text-brand">Категория</p>
-          <h2 className="font-display text-2xl font-bold text-ink sm:text-4xl">{category.name}</h2>
-          <Link
-            href={`/catalog/${category.slug}`}
-            className="rounded-lg bg-brand px-6 py-3 text-sm font-medium text-white hover:bg-brand/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
-          >
-            Смотреть товары
-          </Link>
         </HeroSlide>
       );
     }),
@@ -144,7 +153,7 @@ export default async function HomePage() {
           <ProductCarousel title="Новинки" viewAllHref="/catalog?sort=newest">
             {newest.items.map((product) => (
               <div key={product.id} className={CAROUSEL_ITEM_CLASS}>
-                <ProductCard product={product} />
+                <ProductCard product={product} showFavorite badges={["new"]} />
               </div>
             ))}
           </ProductCarousel>
@@ -156,7 +165,7 @@ export default async function HomePage() {
           <ProductCarousel title="Хиты продаж" viewAllHref="/catalog?sort=popular">
             {popular.items.map((product) => (
               <div key={product.id} className={CAROUSEL_ITEM_CLASS}>
-                <ProductCard product={product} />
+                <ProductCard product={product} showFavorite badges={["hit"]} />
               </div>
             ))}
           </ProductCarousel>
@@ -171,7 +180,7 @@ export default async function HomePage() {
           >
             {featured.items.map((product) => (
               <div key={product.id} className={CAROUSEL_ITEM_CLASS}>
-                <ProductCard product={product} />
+                <ProductCard product={product} showFavorite />
               </div>
             ))}
           </ProductCarousel>

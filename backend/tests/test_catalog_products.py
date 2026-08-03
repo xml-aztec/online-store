@@ -434,3 +434,104 @@ async def test_products_list_p95_latency_under_100ms(
     durations.sort()
     p95 = durations[min(int(len(durations) * 0.95), len(durations) - 1)]
     assert p95 < 0.1, f"p95 latency {p95 * 1000:.1f}ms exceeds 100ms"
+
+
+def _item_by_slug(items: list[dict[str, Any]], slug: str) -> dict[str, Any]:
+    return next(item for item in items if item["slug"] == slug)
+
+
+@pytest.mark.asyncio
+async def test_discount_percent_and_stock_qty_on_list_item(
+    client: AsyncClient, db_session: AsyncSession
+) -> None:
+    data = await _seed_catalog(db_session)
+    # container_black has no compare_at_price (not on sale); give the other
+    # variant one so the product-level aggregate has something to report.
+    data["container_white_oos"].compare_at_price = Decimal("400.00")  # 350 vs 400 -> 13%
+    await db_session.commit()
+
+    response = await client.get("/v1/products", params={"category": data["root"].slug})
+    items = response.json()["items"]
+
+    container = _item_by_slug(items, data["container"].slug)
+    assert container["discount_percent"] == 13
+    assert Decimal(container["compare_at_price"]) == Decimal("400.00")
+    assert container["stock_qty"] == 10  # 10 (black) + 0 (white, out of stock)
+
+    lunchbox = _item_by_slug(items, data["lunchbox"].slug)
+    assert lunchbox["discount_percent"] is None
+    assert lunchbox["stock_qty"] == 5
+
+
+@pytest.mark.asyncio
+async def test_on_sale_filter(client: AsyncClient, db_session: AsyncSession) -> None:
+    data = await _seed_catalog(db_session)
+    data["lunchbox_blue"].compare_at_price = Decimal("600.00")
+    await db_session.commit()
+
+    response = await client.get(
+        "/v1/products", params={"category": data["root"].slug, "on_sale": "true"}
+    )
+
+    assert _slugs(response.json()["items"]) == {data["lunchbox"].slug}
+
+
+@pytest.mark.asyncio
+async def test_in_stock_filter(client: AsyncClient, db_session: AsyncSession) -> None:
+    data = await _seed_catalog(db_session)
+    # container has an in-stock variant (black) alongside its out-of-stock one
+    # (white), so it stays available under in_stock=true; a product whose
+    # *only* variant is out of stock should not.
+    only_variant = data["lunchbox_blue"]
+    only_variant.stock_qty = 0
+    await db_session.commit()
+
+    response = await client.get(
+        "/v1/products", params={"category": data["root"].slug, "in_stock": "true"}
+    )
+
+    slugs = _slugs(response.json()["items"])
+    assert data["container"].slug in slugs
+    assert data["lunchbox"].slug not in slugs
+
+
+@pytest.mark.asyncio
+async def test_rating_reflects_only_approved_reviews(
+    client: AsyncClient, db_session: AsyncSession
+) -> None:
+    from app.auth.models import User
+    from app.reviews.models import Review
+
+    data = await _seed_catalog(db_session)
+    user_a = User(email=f"{_slug('a')}@example.com", full_name="Покупатель А")
+    user_b = User(email=f"{_slug('b')}@example.com", full_name="Покупатель Б")
+    user_c = User(email=f"{_slug('c')}@example.com", full_name="Покупатель В")
+    db_session.add_all([user_a, user_b, user_c])
+    await db_session.flush()
+
+    db_session.add_all(
+        [
+            Review(
+                product_id=data["container"].id, user_id=user_a.id, rating=5, status="approved"
+            ),
+            Review(
+                product_id=data["container"].id, user_id=user_b.id, rating=3, status="approved"
+            ),
+            # Pending review shouldn't move the average or count.
+            Review(
+                product_id=data["container"].id, user_id=user_c.id, rating=1, status="pending"
+            ),
+        ]
+    )
+    await db_session.commit()
+
+    response = await client.get("/v1/products", params={"category": data["root"].slug})
+    container = _item_by_slug(response.json()["items"], data["container"].slug)
+
+    assert container["rating_avg"] == 4.0
+    assert container["rating_count"] == 2
+
+    detail_response = await client.get(f"/v1/products/{data['container'].slug}")
+    detail = detail_response.json()
+    assert detail["rating_avg"] == 4.0
+    assert detail["rating_count"] == 2

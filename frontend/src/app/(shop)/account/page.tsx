@@ -40,42 +40,44 @@ export default function AccountProfilePage() {
 
   return (
     <div>
-      <h1 className="mb-6 font-display text-xl font-bold text-ink">Профиль</h1>
-      <form onSubmit={handleSubmit} className="max-w-sm space-y-4">
-        <div>
-          <label className="mb-1 block text-sm text-ink-muted">Email</label>
+      <h2 className="mb-4 font-display text-lg font-extrabold text-ink">Профиль</h2>
+      <form onSubmit={handleSubmit} className="max-w-lg space-y-4 rounded-xl bg-surface p-6">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div>
+            <label htmlFor="fullName" className="mb-1.5 block text-xs font-medium text-ink-muted">
+              Имя
+            </label>
+            <input
+              id="fullName"
+              value={fullName ?? me.full_name ?? ""}
+              onChange={(event) => setFullName(event.target.value)}
+              className="w-full rounded-lg border border-ink/15 bg-bg px-3.5 py-2.5 text-sm text-ink focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/30"
+            />
+          </div>
+          <div>
+            <label htmlFor="phone" className="mb-1.5 block text-xs font-medium text-ink-muted">
+              Телефон
+            </label>
+            <input
+              id="phone"
+              value={phone ?? me.phone ?? ""}
+              onChange={(event) => setPhone(event.target.value)}
+              className="w-full rounded-lg border border-ink/15 bg-bg px-3.5 py-2.5 font-mono text-sm text-ink focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/30"
+            />
+          </div>
+        </div>
+        <div className="max-w-sm">
+          <label className="mb-1.5 block text-xs font-medium text-ink-muted">Email</label>
           <input
             value={email ?? ""}
             disabled
-            className="w-full rounded-lg border border-ink/10 bg-surface px-3 py-2 text-sm text-ink-muted"
-          />
-        </div>
-        <div>
-          <label htmlFor="fullName" className="mb-1 block text-sm text-ink-muted">
-            Имя
-          </label>
-          <input
-            id="fullName"
-            value={fullName ?? me.full_name ?? ""}
-            onChange={(event) => setFullName(event.target.value)}
-            className="w-full rounded-lg border border-ink/15 px-3 py-2 text-sm bg-bg focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/30"
-          />
-        </div>
-        <div>
-          <label htmlFor="phone" className="mb-1 block text-sm text-ink-muted">
-            Телефон
-          </label>
-          <input
-            id="phone"
-            value={phone ?? me.phone ?? ""}
-            onChange={(event) => setPhone(event.target.value)}
-            className="w-full rounded-lg border border-ink/15 px-3 py-2 text-sm bg-bg focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/30"
+            className="w-full rounded-lg border border-ink/10 bg-bg/60 px-3.5 py-2.5 text-sm text-ink-muted"
           />
         </div>
         <button
           type="submit"
           disabled={mutation.isPending}
-          className="rounded-lg bg-brand hover:bg-brand/90 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+          className="rounded-xl bg-brand px-6 py-2.5 font-display text-sm font-bold text-white hover:bg-brand/90 disabled:opacity-50"
         >
           {mutation.isPending ? "Сохраняем…" : saved ? "Сохранено ✓" : "Сохранить"}
         </button>

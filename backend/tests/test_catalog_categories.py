@@ -4,7 +4,7 @@ import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.catalog.models import Category
+from app.catalog.models import Category, Product, ProductVariant
 from app.catalog.service import get_category_tree, invalidate_category_cache
 from app.core.redis import get_redis
 
@@ -84,3 +84,53 @@ async def test_invalidate_category_cache_forces_refresh(db_session: AsyncSession
 
     refreshed = await get_category_tree(db_session)
     assert any(node.slug == new_category.slug for node in refreshed)
+
+
+@pytest.mark.asyncio
+async def test_category_tree_product_count_rolls_up_to_ancestors(
+    client: AsyncClient, db_session: AsyncSession
+) -> None:
+    root = Category(name="Дом", slug=_slug("root"))
+    db_session.add(root)
+    await db_session.flush()
+    child = Category(name="Кухня", slug=_slug("child"), parent_id=root.id)
+    db_session.add(child)
+    await db_session.flush()
+
+    product = Product(category_id=child.id, name="Товар", slug=_slug("product"))
+    db_session.add(product)
+    await db_session.flush()
+    variant = ProductVariant(product_id=product.id, sku=_slug("sku"), price=100, stock_qty=5)
+    db_session.add(variant)
+    await db_session.commit()
+
+    response = await client.get("/v1/categories")
+
+    body = response.json()
+    root_node = next(node for node in body if node["slug"] == root.slug)
+    child_node = root_node["children"][0]
+    assert child_node["slug"] == child.slug
+    assert child_node["product_count"] == 1
+    # A product's count rolls up through every ancestor, not just its own category.
+    assert root_node["product_count"] == 1
+
+
+@pytest.mark.asyncio
+async def test_category_tree_product_count_excludes_inactive_products(
+    client: AsyncClient, db_session: AsyncSession
+) -> None:
+    category = Category(name="Категория", slug=_slug("cat"))
+    db_session.add(category)
+    await db_session.flush()
+
+    active = Product(category_id=category.id, name="Активный", slug=_slug("active"))
+    inactive = Product(
+        category_id=category.id, name="Неактивный", slug=_slug("inactive"), is_active=False
+    )
+    db_session.add_all([active, inactive])
+    await db_session.commit()
+
+    response = await client.get("/v1/categories")
+
+    node = next(n for n in response.json() if n["slug"] == category.slug)
+    assert node["product_count"] == 1

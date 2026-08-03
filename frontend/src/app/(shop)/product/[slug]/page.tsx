@@ -3,8 +3,12 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { getProductBySlug } from "@/entities/product/api";
+import { listReviews } from "@/entities/reviews/api";
+import { RatingRow } from "@/shared/ui/RatingRow";
 import { ProductGallery } from "@/widgets/ProductGallery";
 import { ProductPurchasePanel } from "@/widgets/ProductPurchasePanel";
+import { ProductReviews } from "@/widgets/ProductReviews";
+import { ReviewForm } from "@/widgets/ReviewForm";
 
 interface ProductPageProps {
   params: Promise<{ slug: string }>;
@@ -34,6 +38,8 @@ export default async function ProductPage({ params }: ProductPageProps) {
   const { slug } = await params;
   const product = await getProductBySlug(slug);
   if (!product) notFound();
+
+  const reviewsResponse = await listReviews(slug);
 
   const prices = product.variants.map((variant) => Number(variant.price));
   const minPrice = prices.length > 0 ? Math.min(...prices) : undefined;
@@ -88,6 +94,13 @@ export default async function ProductPage({ params }: ProductPageProps) {
 
         <div>
           <h1 className="font-display text-2xl font-bold text-ink">{product.name}</h1>
+          <div className="mt-2">
+            <RatingRow
+              ratingAvg={product.rating_avg ?? null}
+              ratingCount={product.rating_count}
+              size="md"
+            />
+          </div>
           {product.description && <p className="mt-3 text-ink-muted">{product.description}</p>}
 
           <div className="mt-6">
@@ -116,6 +129,16 @@ export default async function ProductPage({ params }: ProductPageProps) {
             </div>
           )}
         </div>
+      </div>
+
+      <div className="mx-auto mt-12 max-w-2xl">
+        <h2 className="mb-4 font-display text-lg font-semibold text-ink">
+          Отзывы {reviewsResponse.total > 0 && `(${reviewsResponse.total})`}
+        </h2>
+        <div className="mb-6">
+          <ReviewForm slug={slug} />
+        </div>
+        <ProductReviews reviews={reviewsResponse.items} total={reviewsResponse.total} />
       </div>
     </div>
   );

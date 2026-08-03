@@ -5,7 +5,9 @@ import { useMemo, useState } from "react";
 import { useAddCartItemMutation } from "@/entities/cart/queries";
 import type { ProductVariant } from "@/entities/product/api";
 import { formatPrice } from "@/shared/lib/formatPrice";
-import { isColorFacet, resolveSwatchColor } from "@/shared/lib/colorSwatches";
+import { isColorFacet, resolveSwatchColor, swatchStyle } from "@/shared/lib/colorSwatches";
+import { stockLabel as sharedStockLabel } from "@/shared/lib/stock";
+import { FavoriteButton } from "@/shared/ui/FavoriteButton";
 
 interface Axis {
   key: string;
@@ -42,9 +44,8 @@ function defaultSelection(variants: ProductVariant[], axes: Axis[]): Record<stri
 }
 
 function stockLabel(variant: ProductVariant | undefined): string {
-  if (!variant || !variant.is_available || variant.stock_qty <= 0) return "Нет в наличии";
-  if (variant.stock_qty <= 5) return `Осталось ${variant.stock_qty} шт.`;
-  return "В наличии";
+  if (!variant) return "Нет в наличии";
+  return sharedStockLabel(variant.stock_qty, variant.is_available);
 }
 
 function discountPercent(variant: ProductVariant | undefined): number | null {
@@ -89,23 +90,26 @@ export function ProductPurchasePanel({
 
   return (
     <div className="space-y-5 lg:sticky lg:top-24">
-      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-        <p
-          key={selectedVariant?.id ?? "none"}
-          className="animate-price-tick font-mono text-2xl font-semibold text-ink"
-        >
-          {selectedVariant ? formatPrice(selectedVariant.price) : "—"}
-        </p>
-        {discount !== null && selectedVariant?.compare_at_price && (
-          <>
-            <p className="font-mono text-base text-ink-muted line-through">
-              {formatPrice(selectedVariant.compare_at_price)}
-            </p>
-            <span className="rounded-lg bg-accent-sale px-2 py-0.5 text-xs font-semibold text-white">
-              -{discount}%
-            </span>
-          </>
-        )}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+          <p
+            key={selectedVariant?.id ?? "none"}
+            className="animate-price-tick font-mono text-2xl font-semibold text-ink"
+          >
+            {selectedVariant ? formatPrice(selectedVariant.price) : "—"}
+          </p>
+          {discount !== null && selectedVariant?.compare_at_price && (
+            <>
+              <p className="font-mono text-base text-ink-muted line-through">
+                {formatPrice(selectedVariant.compare_at_price)}
+              </p>
+              <span className="rounded-lg bg-accent-sale px-2 py-0.5 text-xs font-semibold text-white">
+                -{discount}%
+              </span>
+            </>
+          )}
+        </div>
+        <FavoriteButton productId={productId} className="border border-ink/10" />
       </div>
 
       {axes.map((axis) => {
@@ -120,7 +124,6 @@ export function ProductPurchasePanel({
                 const swatch = asColor ? resolveSwatchColor(value) : null;
 
                 if (asColor) {
-                  const isTransparent = swatch === "transparent";
                   return (
                     <button
                       key={value}
@@ -131,16 +134,7 @@ export function ProductPurchasePanel({
                       className={`relative flex h-9 w-9 items-center justify-center rounded-full ring-1 ring-inset transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand ${
                         isSelected ? "ring-2 ring-brand ring-offset-2" : "ring-ink/15"
                       } ${!isEnabled ? "cursor-not-allowed opacity-30" : ""} ${!swatch ? "bg-surface" : ""}`}
-                      style={
-                        isTransparent
-                          ? {
-                              background:
-                                "linear-gradient(135deg, transparent 46%, #d1d5db 46%, #d1d5db 54%, transparent 54%)",
-                            }
-                          : swatch
-                            ? { backgroundColor: swatch }
-                            : undefined
-                      }
+                      style={swatchStyle(value)}
                     >
                       {!swatch && (
                         <span className="text-[10px] font-medium text-ink-muted">

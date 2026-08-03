@@ -1,3 +1,5 @@
+import type { CSSProperties } from "react";
+
 // Product "цвет" option values are free-text Russian color names entered by
 // whoever imports the catalog (see backend/app/imports/service.py's example
 // row), not a fixed enum -- this maps the common ones to a real swatch color
@@ -34,4 +36,17 @@ export function resolveSwatchColor(name: string): string | null {
 
 export function isColorFacet(key: string): boolean {
   return key.trim().toLowerCase() === "цвет";
+}
+
+// "прозрачный" (transparent) needs a diagonal-stripe fill to read as a swatch
+// at all -- a plain transparent circle is indistinguishable from an empty one.
+export function swatchStyle(value: string): CSSProperties | undefined {
+  const swatch = resolveSwatchColor(value);
+  if (swatch === "transparent") {
+    return {
+      background:
+        "linear-gradient(135deg, transparent 46%, #d1d5db 46%, #d1d5db 54%, transparent 54%)",
+    };
+  }
+  return swatch ? { backgroundColor: swatch } : undefined;
 }

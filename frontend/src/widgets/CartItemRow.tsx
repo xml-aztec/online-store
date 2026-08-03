@@ -4,13 +4,19 @@ import { Trash2 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 
+import { useAuthStore } from "@/entities/auth/store";
 import type { CartItem } from "@/entities/cart/api";
 import { useUpdateCartItemMutation } from "@/entities/cart/queries";
+import { useToggleFavoriteMutation } from "@/entities/favorites/queries";
+import { isColorFacet, swatchStyle } from "@/shared/lib/colorSwatches";
 import { formatPrice } from "@/shared/lib/formatPrice";
 
 export function CartItemRow({ item }: { item: CartItem }) {
   const updateItem = useUpdateCartItemMutation();
+  const toggleFavorite = useToggleFavoriteMutation();
+  const status = useAuthStore((state) => state.status);
 
+  const colorEntry = Object.entries(item.options).find(([key]) => isColorFacet(key));
   const optionsLabel = Object.values(item.options).map(String).join(", ");
   const exceedsStock = item.is_available && item.qty > item.available_qty;
 
@@ -43,11 +49,38 @@ export function CartItemRow({ item }: { item: CartItem }) {
         >
           {item.product_name}
         </Link>
-        {optionsLabel && <p className="text-xs text-ink-muted">{optionsLabel}</p>}
+        {optionsLabel && (
+          <p className="flex items-center gap-1.5 text-xs text-ink-muted">
+            {colorEntry && (
+              <span
+                aria-hidden="true"
+                style={swatchStyle(String(colorEntry[1]))}
+                className="h-3 w-3 shrink-0 rounded-full ring-1 ring-inset ring-ink/15"
+              />
+            )}
+            {optionsLabel}
+          </p>
+        )}
         <p className="font-mono text-sm font-medium text-ink">{formatPrice(item.price)}</p>
 
         {!item.is_available && (
-          <p className="text-xs font-medium text-accent-sale-700">Товар закончился</p>
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-xs font-medium text-accent-sale-700">
+              Товара больше нет в наличии — не входит в итог
+            </p>
+            {status === "authenticated" && (
+              <button
+                type="button"
+                onClick={() => {
+                  toggleFavorite.mutate({ productId: item.product_id, isFavorite: false });
+                  updateItem.mutate({ variantId: item.variant_id, qty: 0 });
+                }}
+                className="rounded-lg bg-surface px-2.5 py-1 text-xs font-semibold text-ink hover:bg-ink/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+              >
+                В избранное
+              </button>
+            )}
+          </div>
         )}
         {exceedsStock && (
           <p className="font-mono text-xs font-medium text-accent-sale-700">

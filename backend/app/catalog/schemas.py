@@ -14,6 +14,7 @@ class CategoryNode(BaseModel):
     name: str
     slug: str
     sort_order: int
+    product_count: int = 0
     children: list[CategoryNode] = []
 
 
@@ -52,6 +53,13 @@ class ProductListItem(BaseModel):
     price_to: Decimal
     is_available: bool
     image_url: str | None
+    # Non-personalized aggregates -- safe to bake into an SSR'd/cached response,
+    # unlike anything user-specific (e.g. is_favorite), which stays client-fetched.
+    discount_percent: int | None = None
+    compare_at_price: Decimal | None = None
+    stock_qty: int = 0
+    rating_avg: float | None = None
+    rating_count: int = 0
 
 
 class ProductDetail(BaseModel):
@@ -63,6 +71,8 @@ class ProductDetail(BaseModel):
     category: CategorySummary
     variants: list[ProductVariantPublic]
     images: list[ProductImagePublic]
+    rating_avg: float | None = None
+    rating_count: int = 0
 
 
 class FacetsResponse(BaseModel):

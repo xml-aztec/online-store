@@ -1,10 +1,11 @@
 import json
 import uuid
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any, cast
 
-from sqlalchemy import ColumnElement, func, or_, select, text, update
+from sqlalchemy import ColumnElement, case, func, or_, select, text, update
 from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -27,6 +28,32 @@ from app.core.redis import get_redis
 from app.core.storage import ensure_bucket_exists, generate_presigned_url, get_s3_client
 from app.exceptions import DomainError
 from app.orders.models import OrderItem
+from app.reviews.models import Review
+
+# Variants matching the current filters must additionally clear this to count
+# toward a product's discount_percent aggregate -- otherwise a single
+# clearance variant would badge the whole product regardless of which variant
+# a filtered view is actually showing.
+_DISCOUNT_PERCENT_EXPR = func.max(
+    case(
+        (
+            ProductVariant.compare_at_price > ProductVariant.price,
+            func.round(
+                100 * (1 - ProductVariant.price / ProductVariant.compare_at_price)
+            ),
+        ),
+        else_=None,
+    )
+)
+# The raw pre-discount price, alongside the rounded percent above -- product
+# cards show both ("349 сом" + strikethrough "435"), and back-computing the
+# original price from the rounded percent would be visibly off by a few сом.
+_COMPARE_AT_PRICE_EXPR = func.max(
+    case(
+        (ProductVariant.compare_at_price > ProductVariant.price, ProductVariant.compare_at_price),
+        else_=None,
+    )
+)
 
 _MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024
 
@@ -67,9 +94,22 @@ async def _build_category_tree(session: AsyncSession) -> list[CategoryNode]:
         )
     ).all()
 
+    count_rows = (
+        await session.execute(
+            select(Product.category_id, func.count())
+            .where(Product.is_active.is_(True), Product.deleted_at.is_(None))
+            .group_by(Product.category_id)
+        )
+    ).all()
+    own_counts: dict[uuid.UUID, int] = {row[0]: row[1] for row in count_rows}
+
     nodes: dict[uuid.UUID, CategoryNode] = {
         category.id: CategoryNode(
-            id=category.id, name=category.name, slug=category.slug, sort_order=category.sort_order
+            id=category.id,
+            name=category.name,
+            slug=category.slug,
+            sort_order=category.sort_order,
+            product_count=own_counts.get(category.id, 0),
         )
         for category in categories
     }
@@ -81,6 +121,20 @@ async def _build_category_tree(session: AsyncSession) -> list[CategoryNode]:
             nodes[category.parent_id].children.append(node)
         else:
             roots.append(node)
+
+    # product_count must include descendants (matches flatten_category_ids'
+    # subtree semantics, which is what list_products' `category` filter uses),
+    # so roll each leaf's own count up through its ancestor chain after the
+    # tree shape is known.
+    parent_by_id = {category.id: category.parent_id for category in categories}
+    for category in categories:
+        own = own_counts.get(category.id, 0)
+        if not own:
+            continue
+        ancestor_id = parent_by_id.get(category.id)
+        while ancestor_id is not None and ancestor_id in nodes:
+            nodes[ancestor_id].product_count += own
+            ancestor_id = parent_by_id.get(ancestor_id)
 
     return roots
 
@@ -110,6 +164,8 @@ async def list_products(
     price_min: Decimal | None,
     price_max: Decimal | None,
     options: dict[str, list[str]] | None,
+    in_stock: bool | None = None,
+    on_sale: bool | None = None,
     sort: ProductSort,
     page: int,
     page_size: int,
@@ -128,6 +184,10 @@ async def list_products(
         variant_conditions.append(ProductVariant.price >= price_min)
     if price_max is not None:
         variant_conditions.append(ProductVariant.price <= price_max)
+    if in_stock:
+        variant_conditions.append(ProductVariant.stock_qty > 0)
+    if on_sale:
+        variant_conditions.append(ProductVariant.compare_at_price > ProductVariant.price)
     for key, values in (options or {}).items():
         variant_conditions.append(
             or_(*(ProductVariant.options[key].astext == value for value in values))
@@ -154,17 +214,42 @@ async def list_products(
             func.min(ProductVariant.price).label("price_from"),
             func.max(ProductVariant.price).label("price_to"),
             func.bool_or(ProductVariant.stock_qty > 0).label("is_available"),
+            func.sum(ProductVariant.stock_qty).label("stock_qty"),
+            _DISCOUNT_PERCENT_EXPR.label("discount_percent"),
+            _COMPARE_AT_PRICE_EXPR.label("compare_at_price"),
         )
         .where(*variant_conditions)
         .group_by(ProductVariant.product_id)
         .subquery()
     )
 
+    # Rating is a product-level fact, not tied to which variant a filter
+    # happens to match, so it's aggregated independently of variant_conditions.
+    rating_agg = (
+        select(
+            Review.product_id.label("product_id"),
+            func.avg(Review.rating).label("rating_avg"),
+            func.count(Review.id).label("rating_count"),
+        )
+        .where(Review.status == "approved")
+        .group_by(Review.product_id)
+        .subquery()
+    )
+
     base_query = (
         select(
-            Product, variant_agg.c.price_from, variant_agg.c.price_to, variant_agg.c.is_available
+            Product,
+            variant_agg.c.price_from,
+            variant_agg.c.price_to,
+            variant_agg.c.is_available,
+            variant_agg.c.stock_qty,
+            variant_agg.c.discount_percent,
+            variant_agg.c.compare_at_price,
+            rating_agg.c.rating_avg,
+            rating_agg.c.rating_count,
         )
         .join(variant_agg, variant_agg.c.product_id == Product.id)
+        .outerjoin(rating_agg, rating_agg.c.product_id == Product.id)
         .where(*product_conditions)
     )
 
@@ -204,19 +289,7 @@ async def list_products(
     rows = (await session.execute(paginated_query)).all()
 
     images_by_product = await _load_primary_images(session, [row[0].id for row in rows])
-
-    items = [
-        ProductListItem(
-            id=product.id,
-            name=product.name,
-            slug=product.slug,
-            price_from=price_from,
-            price_to=price_to,
-            is_available=is_available,
-            image_url=images_by_product.get(product.id),
-        )
-        for product, price_from, price_to, is_available in rows
-    ]
+    items = [_row_to_list_item(row, images_by_product) for row in rows]
 
     facets = await _compute_facets(
         session,
@@ -232,6 +305,34 @@ async def list_products(
         page=page,
         page_size=page_size,
         facets=facets,
+    )
+
+
+def _row_to_list_item(row: Any, images_by_product: dict[uuid.UUID, str]) -> ProductListItem:
+    (
+        product,
+        price_from,
+        price_to,
+        is_available,
+        stock_qty,
+        discount_percent,
+        compare_at_price,
+        rating_avg,
+        rating_count,
+    ) = row
+    return ProductListItem(
+        id=product.id,
+        name=product.name,
+        slug=product.slug,
+        price_from=price_from,
+        price_to=price_to,
+        is_available=is_available,
+        image_url=images_by_product.get(product.id),
+        discount_percent=int(discount_percent) if discount_percent is not None else None,
+        compare_at_price=compare_at_price,
+        stock_qty=int(stock_qty or 0),
+        rating_avg=round(float(rating_avg), 1) if rating_avg is not None else None,
+        rating_count=int(rating_count or 0),
     )
 
 
@@ -255,6 +356,76 @@ async def _load_primary_images(
             primary_by_product[product_id] = generate_presigned_url(thumbnail_s3_key or s3_key)
 
     return primary_by_product
+
+
+async def hydrate_product_list_items(
+    session: AsyncSession, product_ids: list[uuid.UUID]
+) -> dict[uuid.UUID, ProductListItem]:
+    """Build ProductListItem rows for an explicit set of product ids, with no
+    filter context (aggregated over *all* active variants/approved reviews) --
+    for callers like favorites that show a fixed set of products rather than
+    a filtered/paginated search. Returns a dict (not a list) since callers own
+    the ordering (e.g. favorited-at order); missing/inactive product ids are
+    simply absent from the result.
+
+    Deliberately not shared with list_products' inline aggregation: that
+    query's variant_agg is filter-conditional (price/color/etc.) by design,
+    which doesn't apply here.
+    """
+    if not product_ids:
+        return {}
+
+    variant_agg = (
+        select(
+            ProductVariant.product_id.label("product_id"),
+            func.min(ProductVariant.price).label("price_from"),
+            func.max(ProductVariant.price).label("price_to"),
+            func.bool_or(ProductVariant.stock_qty > 0).label("is_available"),
+            func.sum(ProductVariant.stock_qty).label("stock_qty"),
+            _DISCOUNT_PERCENT_EXPR.label("discount_percent"),
+            _COMPARE_AT_PRICE_EXPR.label("compare_at_price"),
+        )
+        .where(ProductVariant.is_active.is_(True), ProductVariant.product_id.in_(product_ids))
+        .group_by(ProductVariant.product_id)
+        .subquery()
+    )
+    rating_agg = (
+        select(
+            Review.product_id.label("product_id"),
+            func.avg(Review.rating).label("rating_avg"),
+            func.count(Review.id).label("rating_count"),
+        )
+        .where(Review.status == "approved", Review.product_id.in_(product_ids))
+        .group_by(Review.product_id)
+        .subquery()
+    )
+
+    rows = (
+        await session.execute(
+            select(
+                Product,
+                variant_agg.c.price_from,
+                variant_agg.c.price_to,
+                variant_agg.c.is_available,
+                variant_agg.c.stock_qty,
+                variant_agg.c.discount_percent,
+                variant_agg.c.compare_at_price,
+                rating_agg.c.rating_avg,
+                rating_agg.c.rating_count,
+            )
+            .join(variant_agg, variant_agg.c.product_id == Product.id)
+            .outerjoin(rating_agg, rating_agg.c.product_id == Product.id)
+            .where(
+                Product.id.in_(product_ids),
+                Product.is_active.is_(True),
+                Product.deleted_at.is_(None),
+            )
+        )
+    ).all()
+
+    images_by_product = await _load_primary_images(session, [row[0].id for row in rows])
+    items = [_row_to_list_item(row, images_by_product) for row in rows]
+    return {item.id: item for item in items}
 
 
 async def _compute_facets(
@@ -329,6 +500,15 @@ async def get_product_detail(session: AsyncSession, *, slug: str) -> ProductDeta
 
     images = sorted(product.images, key=lambda image: image.sort_order)
 
+    rating_row = (
+        await session.execute(
+            select(func.avg(Review.rating), func.count(Review.id)).where(
+                Review.product_id == product.id, Review.status == "approved"
+            )
+        )
+    ).one()
+    rating_avg, rating_count = rating_row
+
     return ProductDetail(
         id=product.id,
         name=product.name,
@@ -338,6 +518,8 @@ async def get_product_detail(session: AsyncSession, *, slug: str) -> ProductDeta
         category=CategorySummary(
             id=product.category.id, name=product.category.name, slug=product.category.slug
         ),
+        rating_avg=round(float(rating_avg), 1) if rating_avg is not None else None,
+        rating_count=int(rating_count or 0),
         variants=[
             ProductVariantPublic(
                 id=variant.id,
@@ -544,6 +726,19 @@ async def _get_admin_product_or_404(session: AsyncSession, product_id: uuid.UUID
     return product
 
 
+@dataclass
+class AdminProductRow:
+    product: Product
+    price_from: Decimal | None
+    price_to: Decimal | None
+    total_stock_qty: int
+    variant_count: int
+    # Set only when variant_count == 1 -- the admin products list only offers
+    # inline price/stock editing for single-variant products (the common case
+    # from imports); multi-variant products link out to the full edit form.
+    single_variant_id: uuid.UUID | None
+
+
 async def list_products_admin(
     session: AsyncSession,
     *,
@@ -552,7 +747,7 @@ async def list_products_admin(
     is_active: bool | None,
     page: int,
     page_size: int,
-) -> tuple[list[Product], int]:
+) -> tuple[list[AdminProductRow], int]:
     conditions: list[ColumnElement[bool]] = [Product.deleted_at.is_(None)]
     if search:
         conditions.append(Product.name.ilike(f"%{search}%"))
@@ -564,7 +759,7 @@ async def list_products_admin(
     total = (
         await session.scalar(select(func.count()).select_from(Product).where(*conditions))
     ) or 0
-    rows = (
+    products = (
         await session.scalars(
             select(Product)
             .where(*conditions)
@@ -573,7 +768,53 @@ async def list_products_admin(
             .limit(page_size)
         )
     ).all()
-    return list(rows), total
+    if not products:
+        return [], total
+
+    product_ids = [product.id for product in products]
+    variant_agg_rows = (
+        await session.execute(
+            select(
+                ProductVariant.product_id,
+                func.min(ProductVariant.price),
+                func.max(ProductVariant.price),
+                func.sum(ProductVariant.stock_qty),
+                func.count(ProductVariant.id),
+            )
+            .where(ProductVariant.product_id.in_(product_ids))
+            .group_by(ProductVariant.product_id)
+        )
+    ).all()
+    agg_by_product = {row[0]: row[1:] for row in variant_agg_rows}
+
+    single_variant_ids = [
+        product_id for product_id, agg in agg_by_product.items() if agg[3] == 1
+    ]
+    single_variant_by_product: dict[uuid.UUID, uuid.UUID] = {}
+    if single_variant_ids:
+        rows = (
+            await session.execute(
+                select(ProductVariant.product_id, ProductVariant.id).where(
+                    ProductVariant.product_id.in_(single_variant_ids)
+                )
+            )
+        ).all()
+        single_variant_by_product = {row[0]: row[1] for row in rows}
+
+    result = []
+    for product in products:
+        agg = agg_by_product.get(product.id)
+        result.append(
+            AdminProductRow(
+                product=product,
+                price_from=agg[0] if agg else None,
+                price_to=agg[1] if agg else None,
+                total_stock_qty=int(agg[2] or 0) if agg else 0,
+                variant_count=int(agg[3]) if agg else 0,
+                single_variant_id=single_variant_by_product.get(product.id),
+            )
+        )
+    return result, total
 
 
 async def get_product_admin(session: AsyncSession, *, product_id: uuid.UUID) -> Product:
@@ -608,6 +849,7 @@ async def create_product(
     )
     session.add(product)
     await session.commit()
+    await invalidate_category_cache()
     return product
 
 
@@ -624,6 +866,10 @@ async def update_product(
         setattr(product, key, value)
 
     await session.commit()
+    # category_id/is_active changes both shift category product_count, and the
+    # cheapest correct move is to invalidate unconditionally rather than
+    # inspect `updates` for exactly which keys matter.
+    await invalidate_category_cache()
     return product
 
 
@@ -632,6 +878,7 @@ async def soft_delete_product(session: AsyncSession, *, product_id: uuid.UUID) -
     product.deleted_at = datetime.now(UTC)
     product.is_active = False
     await session.commit()
+    await invalidate_category_cache()
 
 
 async def duplicate_product(session: AsyncSession, *, product_id: uuid.UUID) -> Product:
@@ -669,6 +916,7 @@ async def duplicate_product(session: AsyncSession, *, product_id: uuid.UUID) -> 
         )
 
     await session.commit()
+    await invalidate_category_cache()
     return duplicate
 
 
@@ -684,6 +932,7 @@ async def bulk_set_products_active(
         ),
     )
     await session.commit()
+    await invalidate_category_cache()
     return result.rowcount
 
 

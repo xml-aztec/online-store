@@ -11,10 +11,124 @@ import {
   bulkSetAdminProductsActive,
   duplicateAdminProduct,
   listAdminProducts,
+  updateAdminProduct,
+  updateAdminVariant,
 } from "@/entities/product/adminApi";
+import type { AdminProductListItem } from "@/entities/product/adminApi";
 import { ApiError } from "@/shared/api/client";
+import { Toggle } from "@/shared/ui/Toggle";
 
 const QUERY_KEY = "admin-products";
+
+interface EditableCellProps {
+  value: string;
+  onSave: (next: string) => void;
+  align?: "left" | "right";
+}
+
+// Click-to-edit price/stock cell: click enters edit mode, Enter saves, Esc
+// cancels -- only offered for single-variant products (see PriceStockCell),
+// so there's never ambiguity about which variant is being edited.
+function EditableCell({ value, onSave, align = "right" }: EditableCellProps) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value);
+
+  if (!editing) {
+    return (
+      <button
+        type="button"
+        title="Нажмите, чтобы изменить"
+        onClick={() => {
+          setDraft(value);
+          setEditing(true);
+        }}
+        className={`w-full rounded px-1.5 py-1 font-mono hover:bg-surface ${
+          align === "right" ? "text-right" : "text-left"
+        }`}
+      >
+        {value}
+      </button>
+    );
+  }
+
+  return (
+    <input
+      autoFocus
+      value={draft}
+      onChange={(event) => setDraft(event.target.value)}
+      onBlur={() => setEditing(false)}
+      onKeyDown={(event) => {
+        if (event.key === "Enter") {
+          setEditing(false);
+          if (draft !== value) onSave(draft);
+        } else if (event.key === "Escape") {
+          setEditing(false);
+        }
+      }}
+      className={`w-24 rounded-lg border border-brand px-2 py-1 font-mono text-sm shadow-[0_0_0_3px_var(--color-brand)/0.15] focus:outline-none ${
+        align === "right" ? "text-right" : "text-left"
+      }`}
+    />
+  );
+}
+
+function PriceStockCells({ product }: { product: AdminProductListItem }) {
+  const queryClient = useQueryClient();
+  const mutation = useMutation({
+    mutationFn: ({ field, value }: { field: "price" | "stock_qty"; value: string }) =>
+      updateAdminVariant(product.id, product.single_variant_id!, {
+        [field]: field === "price" ? value : Number(value),
+      }),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: [QUERY_KEY] }),
+  });
+
+  if (product.variant_count !== 1 || !product.single_variant_id) {
+    return (
+      <td className="px-3 py-2 text-center" colSpan={2}>
+        <Link
+          href={`/admin/products/${product.id}`}
+          className="text-ink-muted underline hover:text-ink"
+        >
+          {product.variant_count} вариантов
+        </Link>
+      </td>
+    );
+  }
+
+  return (
+    <>
+      <td className="px-3 py-2">
+        <EditableCell
+          value={product.price_from ?? "0"}
+          onSave={(value) => mutation.mutate({ field: "price", value })}
+        />
+      </td>
+      <td className="px-3 py-2">
+        <EditableCell
+          value={String(product.total_stock_qty)}
+          onSave={(value) => mutation.mutate({ field: "stock_qty", value })}
+        />
+      </td>
+    </>
+  );
+}
+
+function ActiveToggle({ product }: { product: AdminProductListItem }) {
+  const queryClient = useQueryClient();
+  const mutation = useMutation({
+    mutationFn: (isActive: boolean) => updateAdminProduct(product.id, { is_active: isActive }),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: [QUERY_KEY] }),
+  });
+
+  return (
+    <Toggle
+      checked={product.is_active}
+      disabled={mutation.isPending}
+      onChange={(checked) => mutation.mutate(checked)}
+      label={`Товар ${product.is_active ? "активен" : "скрыт"}: ${product.name}`}
+    />
+  );
+}
 
 export default function AdminProductsPage() {
   const role = useAuthStore((state) => state.role);
@@ -163,7 +277,9 @@ export default function AdminProductsPage() {
               <tr className="border-b border-ink/10 bg-surface text-left text-ink-muted">
                 <th className="px-3 py-2" />
                 <th className="px-3 py-2">Название</th>
-                <th className="px-3 py-2">Статус</th>
+                <th className="px-3 py-2 text-right">Цена, сом</th>
+                <th className="px-3 py-2 text-right">Остаток</th>
+                <th className="px-3 py-2 text-center">Активен</th>
                 <th className="px-3 py-2" />
               </tr>
             </thead>
@@ -188,16 +304,11 @@ export default function AdminProductsPage() {
                       {product.name}
                     </Link>
                   </td>
+                  <PriceStockCells product={product} />
                   <td className="px-3 py-2">
-                    <span
-                      className={`rounded-full border px-2 py-0.5 text-xs font-medium ${
-                        product.is_active
-                          ? "border-success/30 bg-success/10 text-success-700"
-                          : "border-ink/15 text-ink-muted"
-                      }`}
-                    >
-                      {product.is_active ? "активен" : "скрыт"}
-                    </span>
+                    <div className="flex justify-center">
+                      <ActiveToggle product={product} />
+                    </div>
                   </td>
                   <td className="px-3 py-2 text-right">
                     <button

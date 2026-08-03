@@ -3,9 +3,10 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { findCategoryByPath, getCategoryTree, type CategoryNode } from "@/entities/category/api";
-import { listProducts, type ProductSort } from "@/entities/product/api";
+import { listProducts, type ListProductsParams, type ProductSort } from "@/entities/product/api";
 import { CategorySidebar } from "@/widgets/CategorySidebar";
 import { FiltersForm } from "@/widgets/FiltersForm";
+import { LoadMoreProducts } from "@/widgets/LoadMoreProducts";
 import { MobileFiltersSheet } from "@/widgets/MobileFiltersSheet";
 import { Pagination } from "@/widgets/Pagination";
 import { ProductCard } from "@/widgets/ProductCard";
@@ -87,16 +88,18 @@ export default async function CatalogPage({ params, searchParams }: CatalogPageP
   const view: CatalogView = firstValue(sp.view) === "list" ? "list" : "grid";
   const page = Math.max(1, Number(firstValue(sp.page)) || 1);
 
-  const { items, total, facets } = await listProducts({
+  const queryParams: ListProductsParams = {
     category: category?.slug,
     q: firstValue(sp.q),
     price_min: firstValue(sp.price_min),
     price_max: firstValue(sp.price_max),
+    in_stock: firstValue(sp.in_stock) === "true",
+    on_sale: firstValue(sp.on_sale) === "true",
     options: parseOptions(sp),
     sort,
-    page,
     page_size: PAGE_SIZE,
-  });
+  };
+  const { items, total, facets } = await listProducts({ ...queryParams, page });
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const basePath = slug.length > 0 ? `/catalog/${slug.join("/")}` : "/catalog";
@@ -169,7 +172,7 @@ export default async function CatalogPage({ params, searchParams }: CatalogPageP
           ) : view === "grid" ? (
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 xl:grid-cols-4">
               {items.map((product) => (
-                <ProductCard key={product.id} product={product} />
+                <ProductCard key={product.id} product={product} showFavorite />
               ))}
             </div>
           ) : (
@@ -178,6 +181,15 @@ export default async function CatalogPage({ params, searchParams }: CatalogPageP
                 <ProductCard key={product.id} product={product} layout="list" />
               ))}
             </div>
+          )}
+
+          {items.length > 0 && (
+            <LoadMoreProducts
+              params={queryParams}
+              initialPage={page}
+              totalPages={totalPages}
+              view={view}
+            />
           )}
 
           <Pagination basePath={basePath} searchParams={sp} page={page} totalPages={totalPages} />

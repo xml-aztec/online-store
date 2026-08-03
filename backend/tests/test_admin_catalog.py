@@ -406,3 +406,43 @@ async def test_can_delete_variant_when_others_remain(
     )
 
     assert response.status_code == 204
+
+
+@pytest.mark.asyncio
+async def test_product_list_reports_variant_aggregates(
+    client: AsyncClient, db_session: AsyncSession
+) -> None:
+    headers = await _admin_headers(db_session)
+    category = await _make_category(db_session)
+
+    single = await _make_product(db_session, category)
+    single_variant = await _make_variant(
+        db_session, single, price=Decimal("349.00"), stock_qty=12
+    )
+
+    multi = await _make_product(db_session, category)
+    await _make_variant(
+        db_session, multi, price=Decimal("200.00"), stock_qty=3, options={"color": "red"}
+    )
+    await _make_variant(
+        db_session, multi, price=Decimal("250.00"), stock_qty=4, options={"color": "blue"}
+    )
+    await db_session.commit()
+
+    response = await client.get(
+        "/v1/admin/products", params={"category_id": str(category.id)}, headers=headers
+    )
+
+    items = {item["id"]: item for item in response.json()["items"]}
+    single_item = items[str(single.id)]
+    assert single_item["variant_count"] == 1
+    assert single_item["single_variant_id"] == str(single_variant.id)
+    assert Decimal(single_item["price_from"]) == Decimal("349.00")
+    assert single_item["total_stock_qty"] == 12
+
+    multi_item = items[str(multi.id)]
+    assert multi_item["variant_count"] == 2
+    assert multi_item["single_variant_id"] is None
+    assert Decimal(multi_item["price_from"]) == Decimal("200.00")
+    assert Decimal(multi_item["price_to"]) == Decimal("250.00")
+    assert multi_item["total_stock_qty"] == 7

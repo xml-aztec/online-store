@@ -21,13 +21,14 @@ function CategoryList({ nodes, activeSlugPath, depth, parentPath }: CategoryList
           <li key={node.id}>
             <Link
               href={`/catalog/${path.join("/")}`}
-              className={
+              className={`flex items-center justify-between gap-2 ${
                 isActive
                   ? "font-semibold text-brand"
                   : "text-ink-muted hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
-              }
+              }`}
             >
-              {node.name}
+              <span>{node.name}</span>
+              <span className="font-mono text-xs text-ink-muted">{node.product_count}</span>
             </Link>
             {isAncestorOrSelf && node.children.length > 0 && (
               <CategoryList

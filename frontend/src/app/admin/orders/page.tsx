@@ -5,25 +5,46 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 
-import { ORDER_STATUS_LABELS } from "@/entities/orders/api";
-import { listAdminOrders } from "@/entities/orders/adminApi";
+import { getOrderStatusCounts, listAdminOrders } from "@/entities/orders/adminApi";
 import { formatPrice } from "@/shared/lib/formatPrice";
-import { orderStatusPillClass } from "@/shared/lib/orderStatusStyles";
+import { StatusPill } from "@/shared/ui/StatusPill";
 
-const STATUS_OPTIONS = Object.keys(ORDER_STATUS_LABELS);
+// Maps the mockup's 6 tabs onto the 8 real order statuses -- some tabs
+// intentionally bucket more than one status (e.g. "В сборке" covers both
+// processing and shipped).
+const STATUS_BUCKETS: { key: string; label: string; statuses: string[] }[] = [
+  { key: "all", label: "Все", statuses: [] },
+  { key: "new", label: "Новые", statuses: ["pending", "awaiting_payment"] },
+  { key: "paid", label: "Оплачены", statuses: ["paid"] },
+  { key: "packing", label: "В сборке", statuses: ["processing", "shipped"] },
+  { key: "delivered", label: "Доставлены", statuses: ["delivered"] },
+  { key: "cancelled", label: "Отменены", statuses: ["cancelled", "refunded"] },
+];
+
+function bucketCount(counts: Record<string, number> | undefined, statuses: string[]): number {
+  if (!counts) return 0;
+  if (statuses.length === 0) return Object.values(counts).reduce((sum, n) => sum + n, 0);
+  return statuses.reduce((sum, status) => sum + (counts[status] ?? 0), 0);
+}
 
 function OrdersTable() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const status = searchParams.get("status") ?? "";
+  const bucketKey = searchParams.get("bucket") ?? "all";
   const search = searchParams.get("search") ?? "";
   const page = Number(searchParams.get("page") ?? "1");
+  const bucket = STATUS_BUCKETS.find((b) => b.key === bucketKey) ?? STATUS_BUCKETS[0];
+
+  const { data: statusCounts } = useQuery({
+    queryKey: ["admin-order-status-counts"],
+    queryFn: getOrderStatusCounts,
+  });
 
   const { data, isLoading } = useQuery({
-    queryKey: ["admin-orders", status, search, page],
+    queryKey: ["admin-orders", bucketKey, search, page],
     queryFn: () =>
       listAdminOrders({
-        status: status || undefined,
+        status: bucket.statuses.length > 0 ? bucket.statuses : undefined,
         search: search || undefined,
         page,
         pageSize: 20,
@@ -43,19 +64,28 @@ function OrdersTable() {
 
   return (
     <div>
-      <div className="mb-4 flex flex-wrap gap-3">
-        <select
-          value={status}
-          onChange={(event) => updateParam("status", event.target.value)}
-          className="rounded-lg border border-ink/15 px-2 py-1 text-sm bg-bg"
-        >
-          <option value="">Все статусы</option>
-          {STATUS_OPTIONS.map((value) => (
-            <option key={value} value={value}>
-              {ORDER_STATUS_LABELS[value]}
-            </option>
-          ))}
-        </select>
+      <div className="mb-4 flex flex-wrap gap-2">
+        {STATUS_BUCKETS.map((b) => {
+          const active = b.key === bucketKey;
+          const count = bucketCount(statusCounts?.counts, b.statuses);
+          return (
+            <button
+              key={b.key}
+              type="button"
+              onClick={() => updateParam("bucket", b.key === "all" ? "" : b.key)}
+              className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${
+                active
+                  ? "bg-brand text-white"
+                  : "border border-ink/15 text-ink hover:border-brand/40"
+              }`}
+            >
+              {b.label} <span className="font-mono">{count}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="mb-4">
         <input
           type="search"
           placeholder="Номер или email"
@@ -100,11 +130,7 @@ function OrdersTable() {
                     </Link>
                   </td>
                   <td className="px-3 py-2">
-                    <span
-                      className={`rounded-full border px-2 py-0.5 text-xs font-medium ${orderStatusPillClass(order.status)}`}
-                    >
-                      {ORDER_STATUS_LABELS[order.status] ?? order.status}
-                    </span>
+                    <StatusPill status={order.status} />
                   </td>
                   <td className="px-3 py-2">
                     {order.full_name}

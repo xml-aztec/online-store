@@ -1,8 +1,10 @@
 import { ChevronDown } from "lucide-react";
 import Form from "next/form";
+import Link from "next/link";
 
 import type { FacetsResponse } from "@/entities/product/api";
-import { isColorFacet, resolveSwatchColor } from "@/shared/lib/colorSwatches";
+import { isColorFacet, resolveSwatchColor, swatchStyle } from "@/shared/lib/colorSwatches";
+import { PriceRangeSlider } from "@/shared/ui/PriceRangeSlider";
 
 type SearchParamsRecord = Record<string, string | string[] | undefined>;
 
@@ -40,11 +42,20 @@ function FilterSection({ title, children }: { title: string; children: React.Rea
   );
 }
 
+const ACTIVE_FILTER_KEYS = ["price_min", "price_max", "in_stock", "on_sale"];
+
+function hasActiveFilters(searchParams: SearchParamsRecord): boolean {
+  if (ACTIVE_FILTER_KEYS.some((key) => searchParams[key])) return true;
+  return Object.keys(searchParams).some((key) => key.startsWith("options["));
+}
+
 export function FiltersForm({ basePath, searchParams, facets }: FiltersFormProps) {
   const optionEntries = Object.entries(facets.options);
   const q = firstValue(searchParams.q);
   const sort = firstValue(searchParams.sort);
   const view = firstValue(searchParams.view);
+  const priceMin = facets.price_min != null ? Number(facets.price_min) : null;
+  const priceMax = facets.price_max != null ? Number(facets.price_max) : null;
 
   return (
     <Form action={basePath} className="text-sm">
@@ -53,34 +64,48 @@ export function FiltersForm({ basePath, searchParams, facets }: FiltersFormProps
       {view && <input type="hidden" name="view" value={view} />}
 
       <FilterSection title="Цена, сом">
-        <div className="flex items-center gap-2">
-          <label className="sr-only" htmlFor="price_min">
-            Цена от
-          </label>
-          <input
-            id="price_min"
-            type="number"
-            name="price_min"
-            min={0}
-            placeholder={facets.price_min ?? "от"}
-            defaultValue={firstValue(searchParams.price_min)}
-            className="w-full rounded-lg border border-ink/15 bg-bg px-2.5 py-1.5 text-ink focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/30"
+        {priceMin != null && priceMax != null ? (
+          <PriceRangeSlider
+            min={priceMin}
+            max={priceMax}
+            defaultMin={
+              firstValue(searchParams.price_min)
+                ? Number(firstValue(searchParams.price_min))
+                : priceMin
+            }
+            defaultMax={
+              firstValue(searchParams.price_max)
+                ? Number(firstValue(searchParams.price_max))
+                : priceMax
+            }
           />
-          <span className="text-ink-muted" aria-hidden="true">
-            –
-          </span>
-          <label className="sr-only" htmlFor="price_max">
-            Цена до
+        ) : (
+          <p className="text-ink-muted">Нет товаров для фильтрации по цене</p>
+        )}
+      </FilterSection>
+
+      <FilterSection title="Наличие">
+        <div className="flex flex-col gap-2.5">
+          <label className="flex cursor-pointer items-center gap-2.5">
+            <input
+              type="checkbox"
+              name="in_stock"
+              value="true"
+              defaultChecked={firstValue(searchParams.in_stock) === "true"}
+              className="h-[18px] w-[18px] rounded border-ink/25 text-brand focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+            />
+            Только в наличии
           </label>
-          <input
-            id="price_max"
-            type="number"
-            name="price_max"
-            min={0}
-            placeholder={facets.price_max ?? "до"}
-            defaultValue={firstValue(searchParams.price_max)}
-            className="w-full rounded-lg border border-ink/15 bg-bg px-2.5 py-1.5 text-ink focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/30"
-          />
+          <label className="flex cursor-pointer items-center gap-2.5">
+            <input
+              type="checkbox"
+              name="on_sale"
+              value="true"
+              defaultChecked={firstValue(searchParams.on_sale) === "true"}
+              className="h-[18px] w-[18px] rounded border-ink/25 text-brand focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+            />
+            Со скидкой
+          </label>
         </div>
       </FilterSection>
 
@@ -96,16 +121,6 @@ export function FiltersForm({ basePath, searchParams, facets }: FiltersFormProps
                 const swatch = asColor ? resolveSwatchColor(value) : null;
 
                 if (asColor) {
-                  const isTransparent = swatch === "transparent";
-                  const swatchStyle: React.CSSProperties | undefined = isTransparent
-                    ? {
-                        background:
-                          "linear-gradient(135deg, transparent 46%, #d1d5db 46%, #d1d5db 54%, transparent 54%)",
-                      }
-                    : swatch
-                      ? { backgroundColor: swatch }
-                      : undefined;
-
                   return (
                     <label
                       key={value}
@@ -120,7 +135,7 @@ export function FiltersForm({ basePath, searchParams, facets }: FiltersFormProps
                         className="peer sr-only"
                       />
                       <span
-                        style={swatchStyle}
+                        style={swatchStyle(value)}
                         className={`flex h-8 w-8 items-center justify-center rounded-full ring-1 ring-inset ring-ink/15 peer-checked:ring-2 peer-checked:ring-brand peer-checked:ring-offset-2 peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-brand ${
                           !swatch ? "bg-surface" : ""
                         }`}
@@ -162,6 +177,15 @@ export function FiltersForm({ basePath, searchParams, facets }: FiltersFormProps
       >
         Применить
       </button>
+
+      {hasActiveFilters(searchParams) && (
+        <Link
+          href={q ? `${basePath}?q=${encodeURIComponent(q)}` : basePath}
+          className="mt-3 block text-center font-medium text-brand hover:text-brand/80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+        >
+          Сбросить фильтры
+        </Link>
+      )}
     </Form>
   );
 }

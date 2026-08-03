@@ -7,7 +7,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { cancelMyOrder, getMyOrder, ORDER_STATUS_LABELS } from "@/entities/orders/api";
 import { ApiError } from "@/shared/api/client";
 import { formatPrice } from "@/shared/lib/formatPrice";
-import { orderStatusPillClass } from "@/shared/lib/orderStatusStyles";
+import { StatusPill } from "@/shared/ui/StatusPill";
+import { Timeline } from "@/shared/ui/Timeline";
 
 const CANCELLABLE_STATUSES = new Set(["pending", "awaiting_payment"]);
 
@@ -40,9 +41,12 @@ export default function AccountOrderDetailPage() {
 
   return (
     <div>
-      <h1 className="mb-2 font-display text-xl font-bold text-ink">
-        Заказ <span className="font-mono">{order.number}</span>
-      </h1>
+      <div className="mb-2 flex flex-wrap items-center gap-3">
+        <h1 className="font-display text-xl font-bold text-ink">
+          Заказ <span className="font-mono">{order.number}</span>
+        </h1>
+        <StatusPill status={order.status} size="md" />
+      </div>
       <p className="mb-6 text-sm text-ink-muted">
         {new Date(order.created_at).toLocaleString("ru-RU")}
       </p>
@@ -89,23 +93,13 @@ export default function AccountOrderDetailPage() {
       </section>
 
       <section className="mb-6 rounded-lg border border-ink/10 p-4">
-        <h2 className="mb-3 text-sm font-semibold text-ink">
-          История статуса
-        </h2>
-        <ol className="space-y-3 text-sm">
-          {order.status_history.map((entry, index) => (
-            <li key={index} className="flex items-center gap-3">
-              <span
-                className={`rounded-full border px-2 py-0.5 text-xs font-medium ${orderStatusPillClass(entry.to_status)}`}
-              >
-                {ORDER_STATUS_LABELS[entry.to_status] ?? entry.to_status}
-              </span>
-              <span className="text-ink-muted">
-                {new Date(entry.created_at).toLocaleString("ru-RU")}
-              </span>
-            </li>
-          ))}
-        </ol>
+        <h2 className="mb-3 text-sm font-semibold text-ink">История статуса</h2>
+        <Timeline
+          items={order.status_history.map((entry) => ({
+            label: ORDER_STATUS_LABELS[entry.to_status] ?? entry.to_status,
+            timestamp: new Date(entry.created_at).toLocaleString("ru-RU"),
+          }))}
+        />
       </section>
 
       {CANCELLABLE_STATUSES.has(order.status) && (

@@ -99,6 +99,11 @@ class AdminProductListItem(BaseModel):
     name: str
     slug: str
     is_active: bool
+    price_from: Decimal | None
+    price_to: Decimal | None
+    total_stock_qty: int
+    variant_count: int
+    single_variant_id: uuid.UUID | None
 
 
 class AdminProductListResponse(BaseModel):
@@ -269,4 +274,32 @@ class TopProductResponse(BaseModel):
 class StatsSummaryResponse(BaseModel):
     last_7_days: StatsPeriodResponse
     last_30_days: StatsPeriodResponse
+    prev_7_days: StatsPeriodResponse
+    prev_30_days: StatsPeriodResponse
     top_products: list[TopProductResponse]
+
+
+class AdminOrderStatusCountsResponse(BaseModel):
+    counts: dict[str, int]
+
+
+class AdminReviewPublic(BaseModel):
+    id: uuid.UUID
+    product_id: uuid.UUID
+    product_name: str
+    author_label: str
+    rating: int
+    comment: str | None
+    status: str
+    created_at: datetime
+
+
+class AdminReviewListResponse(BaseModel):
+    items: list[AdminReviewPublic]
+    total: int
+    page: int
+    page_size: int
+
+
+class AdminReviewModerateRequest(BaseModel):
+    status: str = Field(pattern="^(approved|rejected)$")

@@ -627,6 +627,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/orders/status-counts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Order Status Counts */
+        get: operations["get_order_status_counts_v1_admin_orders_status_counts_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/orders": {
         parameters: {
             query?: never;
@@ -849,6 +866,129 @@ export interface paths {
         head?: never;
         /** Update User */
         patch: operations["update_user_v1_admin_users__user_id__patch"];
+        trace?: never;
+    };
+    "/v1/admin/reviews": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Reviews */
+        get: operations["list_reviews_v1_admin_reviews_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/reviews/{review_id}/moderate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Moderate Review */
+        post: operations["moderate_review_v1_admin_reviews__review_id__moderate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/favorites": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Favorites */
+        get: operations["list_favorites_v1_me_favorites_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/favorites/ids": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Favorite Ids */
+        get: operations["list_favorite_ids_v1_me_favorites_ids_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/favorites/{product_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add Favorite */
+        post: operations["add_favorite_v1_me_favorites__product_id__post"];
+        /** Remove Favorite */
+        delete: operations["remove_favorite_v1_me_favorites__product_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/products/{slug}/reviews": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Reviews */
+        get: operations["list_reviews_v1_products__slug__reviews_get"];
+        put?: never;
+        /** Create Review */
+        post: operations["create_review_v1_products__slug__reviews_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/products/{slug}/reviews/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get My Review */
+        get: operations["get_my_review_v1_products__slug__reviews_me_get"];
+        put?: never;
+        post?: never;
+        /** Delete My Review */
+        delete: operations["delete_my_review_v1_products__slug__reviews_me_delete"];
+        options?: never;
+        head?: never;
+        /** Update My Review */
+        patch: operations["update_my_review_v1_products__slug__reviews_me_patch"];
         trace?: never;
     };
     "/health": {
@@ -1117,6 +1257,13 @@ export interface components {
             /** Page Size */
             page_size: number;
         };
+        /** AdminOrderStatusCountsResponse */
+        AdminOrderStatusCountsResponse: {
+            /** Counts */
+            counts: {
+                [key: string]: number;
+            };
+        };
         /** AdminOrderStatusHistoryPublic */
         AdminOrderStatusHistoryPublic: {
             /** From Status */
@@ -1221,6 +1368,16 @@ export interface components {
             slug: string;
             /** Is Active */
             is_active: boolean;
+            /** Price From */
+            price_from: string | null;
+            /** Price To */
+            price_to: string | null;
+            /** Total Stock Qty */
+            total_stock_qty: number;
+            /** Variant Count */
+            variant_count: number;
+            /** Single Variant Id */
+            single_variant_id: string | null;
         };
         /** AdminProductListResponse */
         AdminProductListResponse: {
@@ -1390,6 +1547,50 @@ export interface components {
             /** Is Active */
             is_active?: boolean | null;
         };
+        /** AdminReviewListResponse */
+        AdminReviewListResponse: {
+            /** Items */
+            items: components["schemas"]["AdminReviewPublic"][];
+            /** Total */
+            total: number;
+            /** Page */
+            page: number;
+            /** Page Size */
+            page_size: number;
+        };
+        /** AdminReviewModerateRequest */
+        AdminReviewModerateRequest: {
+            /** Status */
+            status: string;
+        };
+        /** AdminReviewPublic */
+        AdminReviewPublic: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Product Id
+             * Format: uuid
+             */
+            product_id: string;
+            /** Product Name */
+            product_name: string;
+            /** Author Label */
+            author_label: string;
+            /** Rating */
+            rating: number;
+            /** Comment */
+            comment: string | null;
+            /** Status */
+            status: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
         /** AdminUserListResponse */
         AdminUserListResponse: {
             /** Items */
@@ -1520,6 +1721,11 @@ export interface components {
             /** Sort Order */
             sort_order: number;
             /**
+             * Product Count
+             * @default 0
+             */
+            product_count: number;
+            /**
              * Children
              * @default []
              */
@@ -1588,6 +1794,17 @@ export interface components {
             options: {
                 [key: string]: string[];
             };
+        };
+        /** FavoriteListResponse */
+        FavoriteListResponse: {
+            /** Items */
+            items: components["schemas"]["ProductListItem"][];
+            /** Total */
+            total: number;
+            /** Page */
+            page: number;
+            /** Page Size */
+            page_size: number;
         };
         /** ForgotPasswordRequest */
         ForgotPasswordRequest: {
@@ -1663,6 +1880,12 @@ export interface components {
         MessageResponse: {
             /** Message */
             message: string;
+        };
+        /** MyReviewResponse */
+        MyReviewResponse: {
+            /** Eligible */
+            eligible: boolean;
+            review: components["schemas"]["ReviewPublic"] | null;
         };
         /** OrderItemPublic */
         OrderItemPublic: {
@@ -1778,6 +2001,13 @@ export interface components {
             variants: components["schemas"]["ProductVariantPublic"][];
             /** Images */
             images: components["schemas"]["ProductImagePublic"][];
+            /** Rating Avg */
+            rating_avg?: number | null;
+            /**
+             * Rating Count
+             * @default 0
+             */
+            rating_count: number;
         };
         /** ProductImagePublic */
         ProductImagePublic: {
@@ -1809,6 +2039,22 @@ export interface components {
             is_available: boolean;
             /** Image Url */
             image_url: string | null;
+            /** Discount Percent */
+            discount_percent?: number | null;
+            /** Compare At Price */
+            compare_at_price?: string | null;
+            /**
+             * Stock Qty
+             * @default 0
+             */
+            stock_qty: number;
+            /** Rating Avg */
+            rating_avg?: number | null;
+            /**
+             * Rating Count
+             * @default 0
+             */
+            rating_count: number;
         };
         /** ProductListResponse */
         ProductListResponse: {
@@ -1865,6 +2111,52 @@ export interface components {
             /** New Password */
             new_password: string;
         };
+        /** ReviewCreate */
+        ReviewCreate: {
+            /** Rating */
+            rating: number;
+            /** Comment */
+            comment?: string | null;
+        };
+        /** ReviewListResponse */
+        ReviewListResponse: {
+            /** Items */
+            items: components["schemas"]["ReviewPublic"][];
+            /** Total */
+            total: number;
+            /** Page */
+            page: number;
+            /** Page Size */
+            page_size: number;
+        };
+        /** ReviewPublic */
+        ReviewPublic: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Author Label */
+            author_label: string;
+            /** Rating */
+            rating: number;
+            /** Comment */
+            comment: string | null;
+            /** Status */
+            status: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** ReviewUpdate */
+        ReviewUpdate: {
+            /** Rating */
+            rating?: number | null;
+            /** Comment */
+            comment?: string | null;
+        };
         /** StatsPeriodResponse */
         StatsPeriodResponse: {
             /** Orders Count */
@@ -1876,6 +2168,8 @@ export interface components {
         StatsSummaryResponse: {
             last_7_days: components["schemas"]["StatsPeriodResponse"];
             last_30_days: components["schemas"]["StatsPeriodResponse"];
+            prev_7_days: components["schemas"]["StatsPeriodResponse"];
+            prev_30_days: components["schemas"]["StatsPeriodResponse"];
             /** Top Products */
             top_products: components["schemas"]["TopProductResponse"][];
         };
@@ -2761,6 +3055,8 @@ export interface operations {
                 q?: string | null;
                 price_min?: number | string | null;
                 price_max?: number | string | null;
+                in_stock?: boolean | null;
+                on_sale?: boolean | null;
                 sort?: "price_asc" | "price_desc" | "newest" | "popular";
                 page?: number;
                 page_size?: number;
@@ -3410,10 +3706,30 @@ export interface operations {
             };
         };
     };
+    get_order_status_counts_v1_admin_orders_status_counts_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminOrderStatusCountsResponse"];
+                };
+            };
+        };
+    };
     list_orders_v1_admin_orders_get: {
         parameters: {
             query?: {
-                status?: string | null;
+                status?: string[] | null;
                 date_from?: string | null;
                 date_to?: string | null;
                 search?: string | null;
@@ -3893,6 +4209,348 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AdminUserPublic"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_reviews_v1_admin_reviews_get: {
+        parameters: {
+            query?: {
+                status?: string | null;
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminReviewListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    moderate_review_v1_admin_reviews__review_id__moderate_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                review_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminReviewModerateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminReviewPublic"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_favorites_v1_me_favorites_get: {
+        parameters: {
+            query?: {
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FavoriteListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_favorite_ids_v1_me_favorites_ids_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": string[];
+                };
+            };
+        };
+    };
+    add_favorite_v1_me_favorites__product_id__post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                product_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_favorite_v1_me_favorites__product_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                product_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_reviews_v1_products__slug__reviews_get: {
+        parameters: {
+            query?: {
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_review_v1_products__slug__reviews_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReviewCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewPublic"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_my_review_v1_products__slug__reviews_me_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyReviewResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_my_review_v1_products__slug__reviews_me_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_my_review_v1_products__slug__reviews_me_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReviewUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewPublic"];
                 };
             };
             /** @description Validation Error */

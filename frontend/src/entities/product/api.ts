@@ -14,6 +14,8 @@ export interface ListProductsParams {
   q?: string;
   price_min?: string;
   price_max?: string;
+  in_stock?: boolean;
+  on_sale?: boolean;
   options?: Record<string, string[]>;
   sort?: ProductSort;
   page?: number;
@@ -26,6 +28,8 @@ function buildProductsQuery(params: ListProductsParams): string {
   if (params.q) search.set("q", params.q);
   if (params.price_min) search.set("price_min", params.price_min);
   if (params.price_max) search.set("price_max", params.price_max);
+  if (params.in_stock) search.set("in_stock", "true");
+  if (params.on_sale) search.set("on_sale", "true");
   if (params.sort) search.set("sort", params.sort);
   if (params.page) search.set("page", String(params.page));
   if (params.page_size) search.set("page_size", String(params.page_size));

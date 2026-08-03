@@ -8,16 +8,30 @@ import { useRef, useState } from "react";
 
 import { useAddCartItemMutation } from "@/entities/cart/queries";
 import { getProductBySlug, type ProductListItem } from "@/entities/product/api";
-import { formatPrice } from "@/shared/lib/formatPrice";
+import { Badge } from "@/shared/ui/Badge";
+import { FavoriteButton } from "@/shared/ui/FavoriteButton";
+import { PriceBlock } from "@/shared/ui/PriceBlock";
+import { RatingRow } from "@/shared/ui/RatingRow";
+import { StockLabel } from "@/shared/ui/StockLabel";
 
 type QuickAddState = "idle" | "loading" | "done";
 
 interface ProductCardProps {
   product: ProductListItem;
   layout?: "grid" | "list";
+  /** Shows the favorite heart -- omitted wherever a product card is used in a
+   * context where favoriting doesn't make sense (there currently is none,
+   * but keeping this explicit rather than always-on avoids surprises if one
+   * shows up). */
+  showFavorite?: boolean;
+  /** "Новinka"/"Хит" have no generic backend flag (unlike the sale badge,
+   * which is data-driven from discount_percent) -- callers whose section
+   * *is* that semantic by construction (e.g. a "Новинки" rail) pass it
+   * explicitly instead. */
+  badges?: ("new" | "hit")[];
 }
 
-export function ProductCard({ product, layout = "grid" }: ProductCardProps) {
+export function ProductCard({ product, layout = "grid", showFavorite, badges }: ProductCardProps) {
   const router = useRouter();
   const addItem = useAddCartItemMutation();
   const [quickAddState, setQuickAddState] = useState<QuickAddState>("idle");
@@ -26,11 +40,6 @@ export function ProductCard({ product, layout = "grid" }: ProductCardProps) {
   // since it only takes effect after a commit) -- checked and set
   // synchronously, unlike state.
   const quickAddInFlightRef = useRef(false);
-
-  const priceLabel =
-    product.price_from === product.price_to
-      ? formatPrice(product.price_from)
-      : `от ${formatPrice(product.price_from)}`;
 
   async function handleQuickAdd() {
     if (quickAddInFlightRef.current) return;
@@ -83,12 +92,12 @@ export function ProductCard({ product, layout = "grid" }: ProductCardProps) {
   return (
     <div
       className={`group relative rounded-xl border border-ink/10 bg-bg shadow-sm transition duration-200 hover:-translate-y-0.5 hover:shadow-md ${
-        isList ? "flex items-center gap-4 p-3" : "flex flex-col overflow-hidden"
+        isList ? "flex items-center gap-4 p-3" : "flex flex-col overflow-hidden p-2.5"
       }`}
     >
       <div
-        className={`relative shrink-0 overflow-hidden bg-surface ${
-          isList ? "h-24 w-24 rounded-lg sm:h-28 sm:w-28" : "aspect-square w-full"
+        className={`relative shrink-0 overflow-hidden rounded-lg bg-surface ${
+          isList ? "h-24 w-24 sm:h-28 sm:w-28" : "aspect-square w-full"
         }`}
       >
         {product.image_url ? (
@@ -109,10 +118,24 @@ export function ProductCard({ product, layout = "grid" }: ProductCardProps) {
           </div>
         )}
 
+        {!isList && (
+          <div className="pointer-events-none absolute left-2 top-2 flex flex-wrap gap-1.5">
+            {product.discount_percent != null && (
+              <Badge variant="sale">-{product.discount_percent}%</Badge>
+            )}
+            {badges?.includes("new") && <Badge variant="new">Новинка</Badge>}
+            {badges?.includes("hit") && <Badge variant="hit">Хит</Badge>}
+          </div>
+        )}
+
         {!product.is_available && (
           <span className="absolute left-2 top-2 rounded-lg bg-ink/85 px-2 py-1 text-xs font-medium text-white">
             Нет в наличии
           </span>
+        )}
+
+        {showFavorite && !isList && (
+          <FavoriteButton productId={product.id} className="absolute right-2 top-2 z-10" />
         )}
 
         {product.is_available && !isList && (
@@ -121,7 +144,7 @@ export function ProductCard({ product, layout = "grid" }: ProductCardProps) {
             onClick={handleQuickAdd}
             disabled={quickAddState === "loading"}
             aria-label="Быстро добавить в корзину"
-            className={`absolute right-2 top-2 z-10 flex h-9 w-9 items-center justify-center rounded-lg bg-bg/90 text-ink shadow-sm backdrop-blur transition duration-150 hover:bg-brand hover:text-white focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand sm:opacity-0 sm:group-hover:opacity-100 ${
+            className={`absolute bottom-2 right-2 z-10 hidden h-9 w-9 items-center justify-center rounded-lg bg-brand text-white shadow-md transition duration-150 hover:bg-brand/90 focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand sm:flex sm:opacity-0 sm:group-hover:opacity-100 ${
               quickAddState !== "idle" ? "sm:opacity-100" : ""
             }`}
           >
@@ -133,8 +156,23 @@ export function ProductCard({ product, layout = "grid" }: ProductCardProps) {
       </div>
 
       <div
-        className={`flex flex-1 flex-col gap-1 ${isList ? "min-w-0 justify-center" : "p-3"}`}
+        className={`flex flex-1 flex-col gap-1.5 ${isList ? "min-w-0 justify-center" : "pt-2.5"}`}
       >
+        {!isList && (
+          <PriceBlock
+            price={product.price_from}
+            compareAtPrice={product.compare_at_price ?? null}
+            size="sm"
+          />
+        )}
+        {isList && (
+          <p className="relative font-mono text-base font-medium text-ink">
+            {product.price_from === product.price_to
+              ? product.price_from
+              : `от ${product.price_from}`}
+          </p>
+        )}
+
         <h3 className={`text-sm text-ink ${isList ? "line-clamp-1" : "line-clamp-2"}`}>
           <Link
             href={`/product/${product.slug}`}
@@ -143,11 +181,24 @@ export function ProductCard({ product, layout = "grid" }: ProductCardProps) {
             {product.name}
           </Link>
         </h3>
-        <p
-          className={`relative font-mono text-base font-medium text-ink ${isList ? "" : "mt-auto"}`}
-        >
-          {priceLabel}
-        </p>
+
+        {!isList && (
+          <>
+            <RatingRow ratingAvg={product.rating_avg ?? null} ratingCount={product.rating_count} />
+            <StockLabel stockQty={product.stock_qty} isAvailable={product.is_available} />
+          </>
+        )}
+
+        {product.is_available && !isList && (
+          <button
+            type="button"
+            onClick={handleQuickAdd}
+            disabled={quickAddState === "loading"}
+            className="relative mt-1 w-full rounded-lg bg-brand py-2 text-xs font-bold text-white transition hover:bg-brand/90 disabled:opacity-60 sm:hidden"
+          >
+            {quickAddState === "loading" ? "Добавляем…" : "В корзину"}
+          </button>
+        )}
       </div>
     </div>
   );

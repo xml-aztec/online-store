@@ -176,7 +176,7 @@ export default function AccountAddressesPage() {
 
   return (
     <div>
-      <h1 className="mb-6 font-display text-xl font-bold text-ink">Мои адреса</h1>
+      <h2 className="mb-4 font-display text-lg font-extrabold text-ink">Адреса</h2>
       <CreateAddressForm />
       {isLoading && <p className="text-ink-muted">Загрузка…</p>}
       {addresses && addresses.length === 0 && <p className="text-ink-muted">Адресов пока нет</p>}
