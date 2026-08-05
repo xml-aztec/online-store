@@ -29,7 +29,7 @@ export default function FavoritesPage() {
   }
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-6 sm:py-8">
+    <div className="mx-auto max-w-[1440px] px-4 py-6 sm:py-8">
       <h1 className="mb-6 font-display text-xl font-bold text-ink sm:text-2xl">Избранное</h1>
       <FavoritesView />
     </div>

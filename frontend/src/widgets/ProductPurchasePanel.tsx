@@ -63,6 +63,9 @@ interface ProductPurchasePanelProps {
   productName: string;
   productSlug: string;
   imageUrl: string | null;
+  /** The quick view modal shows the heart up top next to the close button
+   * instead, so it passes false here to avoid a second one by the price. */
+  showFavorite?: boolean;
 }
 
 export function ProductPurchasePanel({
@@ -71,6 +74,7 @@ export function ProductPurchasePanel({
   productName,
   productSlug,
   imageUrl,
+  showFavorite = true,
 }: ProductPurchasePanelProps) {
   const axes = useMemo(() => getAxes(variants), [variants]);
   const [selection, setSelection] = useState<Record<string, string>>(() =>
@@ -110,7 +114,7 @@ export function ProductPurchasePanel({
             </>
           )}
         </div>
-        <FavoriteButton productId={productId} className="border border-ink/10" />
+        {showFavorite && <FavoriteButton productId={productId} className="border border-ink/10" />}
       </div>
 
       {axes.map((axis) => {

@@ -1,6 +1,6 @@
 export default function CatalogLoading() {
   return (
-    <div className="mx-auto max-w-6xl px-4 py-6 sm:py-8" aria-busy="true" aria-label="Загрузка каталога">
+    <div className="mx-auto max-w-[1440px] px-4 py-6 sm:py-8" aria-busy="true" aria-label="Загрузка каталога">
       <div className="h-4 w-40 animate-pulse rounded bg-surface" />
       <div className="mt-3 h-7 w-56 animate-pulse rounded bg-surface" />
 
@@ -12,8 +12,8 @@ export default function CatalogLoading() {
 
         <div>
           <div className="mb-4 h-6 w-32 animate-pulse rounded bg-surface" />
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 xl:grid-cols-4">
-            {Array.from({ length: 8 }, (_, i) => (
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
+            {Array.from({ length: 12 }, (_, i) => (
               <div key={i} className="overflow-hidden rounded-xl border border-ink/10">
                 <div className="aspect-square animate-pulse bg-surface" />
                 <div className="space-y-2 p-3">

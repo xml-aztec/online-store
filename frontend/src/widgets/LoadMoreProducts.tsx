@@ -40,7 +40,7 @@ export function LoadMoreProducts({ params, initialPage, totalPages, view }: Load
         <div
           className={
             view === "grid"
-              ? "mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 xl:grid-cols-4"
+              ? "mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6"
               : "mt-3 flex flex-col gap-3"
           }
         >

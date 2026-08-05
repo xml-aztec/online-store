@@ -7,6 +7,7 @@ import { useEffect } from "react";
 import { createPortal } from "react-dom";
 
 import { getProductBySlug } from "@/entities/product/api";
+import { FavoriteButton } from "@/shared/ui/FavoriteButton";
 import { RatingRow } from "@/shared/ui/RatingRow";
 import { ProductGallery } from "@/widgets/ProductGallery";
 import { ProductPurchasePanel } from "@/widgets/ProductPurchasePanel";
@@ -44,43 +45,50 @@ export function QuickViewModal({ slug, open, onClose }: QuickViewModalProps) {
   if (!open || typeof document === "undefined") return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div
-        aria-hidden="true"
-        className="absolute inset-0 bg-ink/50"
-        onClick={onClose}
-      />
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6">
+      <div aria-hidden="true" className="absolute inset-0 bg-ink/50" onClick={onClose} />
 
+      {/* Near-fullscreen on sm+ (fixed height, image pane and info rail
+          split the width) so the photo can bleed edge to edge like a real
+          product page instead of sitting in a small boxed-in thumbnail.
+          Mobile keeps the original stacked, content-sized sheet -- there's
+          no spare width there to split into two panes. */}
       <div
         role="dialog"
         aria-modal="true"
         aria-label={product ? product.name : "Быстрый просмотр товара"}
-        className="relative max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-bg p-5 shadow-md sm:p-6"
+        className="relative flex max-h-[92vh] w-full max-w-[1220px] flex-col overflow-hidden rounded-2xl bg-bg shadow-xl sm:h-[82vh] sm:max-h-[820px] sm:flex-row"
       >
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="Закрыть"
-          className="absolute right-4 top-4 z-10 rounded-lg p-1.5 text-ink-muted hover:bg-surface hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
-        >
-          <X className="h-5 w-5" aria-hidden="true" />
-        </button>
+        <div className="absolute right-3 top-3 z-20 flex items-center gap-2 sm:right-4 sm:top-4">
+          {product && <FavoriteButton productId={product.id} />}
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Закрыть"
+            className="flex h-9 w-9 items-center justify-center rounded-lg bg-bg/90 shadow-sm backdrop-blur transition hover:bg-bg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+          >
+            <X className="h-5 w-5 text-ink" aria-hidden="true" />
+          </button>
+        </div>
 
         {isLoading || !product ? (
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2" aria-busy="true">
-            <div className="aspect-square animate-pulse rounded-xl bg-surface" />
-            <div className="space-y-3">
+          <div className="flex h-full w-full flex-col overflow-y-auto sm:flex-row" aria-busy="true">
+            <div className="aspect-square w-full shrink-0 animate-pulse bg-surface sm:aspect-auto sm:h-full sm:w-auto sm:flex-1" />
+            <div className="flex-1 space-y-3 p-5 pt-16 sm:w-[440px] sm:shrink-0 sm:p-8 sm:pt-16">
               <div className="h-6 w-3/4 animate-pulse rounded bg-surface" />
-              <div className="h-8 w-1/3 animate-pulse rounded bg-surface" />
+              <div className="h-4 w-1/3 animate-pulse rounded bg-surface" />
+              <div className="h-8 w-1/2 animate-pulse rounded bg-surface" />
               <div className="h-10 w-full animate-pulse rounded bg-surface" />
             </div>
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-6 pt-2 sm:grid-cols-2 sm:pt-0">
-            <ProductGallery images={product.images} alt={product.name} />
+          <>
+            <div className="relative aspect-square w-full shrink-0 bg-surface sm:aspect-auto sm:h-full sm:w-auto sm:flex-1">
+              <ProductGallery images={product.images} alt={product.name} fill />
+            </div>
 
-            <div className="min-w-0">
-              <h2 className="pr-8 font-display text-lg font-bold text-ink sm:text-xl">
+            <div className="flex min-w-0 flex-1 flex-col overflow-y-auto p-5 pt-16 sm:w-[440px] sm:shrink-0 sm:p-8 sm:pt-16">
+              <h2 className="font-display text-lg font-bold text-ink sm:text-xl">
                 {product.name}
               </h2>
               <div className="mt-1.5">
@@ -91,13 +99,14 @@ export function QuickViewModal({ slug, open, onClose }: QuickViewModalProps) {
                 />
               </div>
 
-              <div className="mt-4">
+              <div className="mt-5">
                 <ProductPurchasePanel
                   variants={product.variants}
                   productId={product.id}
                   productName={product.name}
                   productSlug={product.slug}
                   imageUrl={product.images[0]?.url ?? null}
+                  showFavorite={false}
                 />
               </div>
 
@@ -109,7 +118,7 @@ export function QuickViewModal({ slug, open, onClose }: QuickViewModalProps) {
                 Все детали товара →
               </Link>
             </div>
-          </div>
+          </>
         )}
       </div>
     </div>,

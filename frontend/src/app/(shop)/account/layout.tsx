@@ -51,7 +51,7 @@ export default function AccountLayout({ children }: { children: ReactNode }) {
     .join("");
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-6 sm:py-8">
+    <div className="mx-auto max-w-[1440px] px-4 py-6 sm:py-8">
       <h1 className="mb-5 font-display text-xl font-bold text-ink sm:text-2xl">Личный кабинет</h1>
 
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-[240px_1fr] lg:items-start">

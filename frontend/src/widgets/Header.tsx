@@ -187,7 +187,7 @@ export function Header() {
       }`}
     >
       <div
-        className={`mx-auto flex max-w-6xl flex-wrap items-center gap-3 px-4 transition-[padding] duration-200 sm:gap-4 ${
+        className={`mx-auto flex max-w-[1440px] flex-wrap items-center gap-3 px-4 transition-[padding] duration-200 sm:gap-4 ${
           scrolled ? "py-2" : "py-3"
         }`}
       >

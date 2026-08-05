@@ -115,7 +115,7 @@ export default async function CatalogPage({ params, searchParams }: CatalogPageP
   );
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-6 sm:py-8">
+    <div className="mx-auto max-w-[1440px] px-4 py-6 sm:py-8">
       <nav aria-label="Хлебные крошки" className="mb-3 flex flex-wrap items-center gap-1 text-sm text-ink-muted">
         {breadcrumb.length === 0 ? (
           <span className="text-ink">Каталог</span>
@@ -170,7 +170,7 @@ export default async function CatalogPage({ params, searchParams }: CatalogPageP
           {items.length === 0 ? (
             <p className="py-12 text-center text-ink-muted">Ничего не найдено</p>
           ) : view === "grid" ? (
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 xl:grid-cols-4">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
               {items.map((product) => (
                 <ProductCard key={product.id} product={product} showFavorite />
               ))}

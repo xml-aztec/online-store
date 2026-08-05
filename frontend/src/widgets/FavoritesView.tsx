@@ -12,11 +12,11 @@ export function FavoritesView() {
   if (isLoading) {
     return (
       <div
-        className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 xl:grid-cols-4"
+        className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6"
         aria-busy="true"
         aria-label="Загрузка избранного"
       >
-        {Array.from({ length: 8 }, (_, i) => (
+        {Array.from({ length: 12 }, (_, i) => (
           <div key={i} className="aspect-[3/4] animate-pulse rounded-xl bg-surface" />
         ))}
       </div>
@@ -46,7 +46,7 @@ export function FavoritesView() {
   }
 
   return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 xl:grid-cols-4">
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
       {data.items.map((product) => (
         <ProductCard key={product.id} product={product} showFavorite />
       ))}
