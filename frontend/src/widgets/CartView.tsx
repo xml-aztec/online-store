@@ -83,7 +83,7 @@ export function CartView() {
 
         <Link
           href="/catalog"
-          className="mt-1 inline-block font-display text-sm font-bold text-ink hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+          className="mt-5 inline-block font-display text-sm font-bold text-ink hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
         >
           ← Продолжить покупки
         </Link>
