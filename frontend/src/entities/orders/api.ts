@@ -38,6 +38,11 @@ export async function cancelMyOrder(number: string): Promise<OrderPublic> {
   });
 }
 
+export const DELIVERY_METHOD_LABELS: Record<string, string> = {
+  pickup: "самовывоз",
+  courier: "доставка курьером",
+};
+
 export const ORDER_STATUS_LABELS: Record<string, string> = {
   pending: "Ожидает подтверждения",
   awaiting_payment: "Ожидает оплаты",

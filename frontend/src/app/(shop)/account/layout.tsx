@@ -57,7 +57,7 @@ export default function AccountLayout({ children }: { children: ReactNode }) {
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-[240px_1fr] lg:items-start">
         <aside className="flex flex-col gap-1">
           <div className="mb-2 flex items-center gap-3 p-3">
-            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-brand/10 font-display text-base font-extrabold text-brand">
+            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-brand-soft font-display text-base font-extrabold text-brand-text">
               {initials || "?"}
             </span>
             <div className="min-w-0">
@@ -76,10 +76,10 @@ export default function AccountLayout({ children }: { children: ReactNode }) {
                 key={link.href}
                 href={link.href}
                 aria-current={active ? "page" : undefined}
-                className={`flex h-11 items-center gap-2.5 rounded-xl px-3.5 font-display text-sm font-bold transition ${
+                className={`flex h-11 items-center gap-2.5 rounded-xl px-3.5 font-display text-sm transition ${
                   active
-                    ? "bg-surface text-ink"
-                    : "text-ink-muted hover:bg-surface hover:text-ink"
+                    ? "bg-surface font-bold text-ink"
+                    : "font-semibold text-ink-muted hover:bg-surface hover:text-ink"
                 }`}
               >
                 <Icon className="h-[18px] w-[18px] shrink-0" aria-hidden="true" />

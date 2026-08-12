@@ -9,6 +9,7 @@ class UpdateMeRequest(BaseModel):
 
 
 class AddressCreate(BaseModel):
+    label: str | None = None
     city: str
     street: str
     building: str
@@ -19,6 +20,7 @@ class AddressCreate(BaseModel):
 
 
 class AddressUpdate(BaseModel):
+    label: str | None = None
     city: str | None = None
     street: str | None = None
     building: str | None = None
@@ -30,6 +32,7 @@ class AddressUpdate(BaseModel):
 
 class AddressPublic(BaseModel):
     id: uuid.UUID
+    label: str | None
     city: str
     street: str
     building: str

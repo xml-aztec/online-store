@@ -1,10 +1,12 @@
 "use client";
 
-import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
+import { ChevronRight } from "lucide-react";
+import Link from "next/link";
 
-import { listMyOrders } from "@/entities/orders/api";
+import { DELIVERY_METHOD_LABELS, listMyOrders } from "@/entities/orders/api";
 import { formatPrice } from "@/shared/lib/formatPrice";
+import { pluralizeRu } from "@/shared/lib/pluralizeRu";
 import { StatusPill } from "@/shared/ui/StatusPill";
 
 export default function AccountOrdersPage() {
@@ -19,45 +21,35 @@ export default function AccountOrdersPage() {
       {isLoading && <p className="text-ink-muted">Загрузка…</p>}
       {data && data.items.length === 0 && <p className="text-ink-muted">Заказов пока нет</p>}
       {data && data.items.length > 0 && (
-        <div className="overflow-x-auto rounded-lg border border-ink/10">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-ink/10 bg-surface text-left text-ink-muted">
-                <th className="px-3 py-2">Номер</th>
-                <th className="px-3 py-2">Статус</th>
-                <th className="px-3 py-2">Сумма</th>
-                <th className="px-3 py-2">Дата</th>
-                <th className="px-3 py-2" />
-              </tr>
-            </thead>
-            <tbody>
-              {data.items.map((order) => (
-                <tr
-                  key={order.number}
-                  className="border-b border-ink/10 last:border-0"
-                >
-                  <td className="px-3 py-2 font-mono font-medium text-ink">
-                    {order.number}
-                  </td>
-                  <td className="px-3 py-2">
-                    <StatusPill status={order.status} />
-                  </td>
-                  <td className="px-3 py-2 font-mono">{formatPrice(order.total)}</td>
-                  <td className="px-3 py-2 text-ink-muted">
-                    {new Date(order.created_at).toLocaleDateString("ru-RU")}
-                  </td>
-                  <td className="px-3 py-2 text-right">
-                    <Link
-                      href={`/account/orders/${order.number}`}
-                      className="text-ink-muted underline hover:text-ink"
-                    >
-                      Подробнее
-                    </Link>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="flex flex-col gap-2.5">
+          {data.items.map((order) => (
+            <Link
+              key={order.number}
+              href={`/account/orders/${order.number}`}
+              className="flex flex-wrap items-center gap-3 rounded-xl border border-ink/10 bg-bg px-5 py-4 transition hover:shadow-md sm:gap-5 sm:flex-nowrap focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+            >
+              <div className="flex w-[150px] shrink-0 flex-col gap-0.5">
+                <span className="font-mono text-[15px] font-bold text-ink">
+                  № {order.number}
+                </span>
+                <span className="text-xs text-ink-muted">
+                  {new Date(order.created_at).toLocaleDateString("ru-RU")}
+                </span>
+              </div>
+              <StatusPill status={order.status} />
+              <span className="min-w-0 flex-1 basis-full text-[13px] text-ink-muted sm:basis-auto">
+                {order.item_count} {pluralizeRu(order.item_count, ["товар", "товара", "товаров"])} ·{" "}
+                {DELIVERY_METHOD_LABELS[order.delivery_method] ?? order.delivery_method}
+              </span>
+              <span className="shrink-0 whitespace-nowrap font-mono text-base font-bold text-ink">
+                {formatPrice(order.total)}
+              </span>
+              <ChevronRight
+                className="hidden h-[18px] w-[18px] shrink-0 text-ink-muted sm:block"
+                aria-hidden="true"
+              />
+            </Link>
+          ))}
         </div>
       )}
     </div>

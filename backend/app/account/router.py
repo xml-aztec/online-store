@@ -17,6 +17,7 @@ router = APIRouter(tags=["account"])
 def _address_to_public(address: Address) -> AddressPublic:
     return AddressPublic(
         id=address.id,
+        label=address.label,
         city=address.city,
         street=address.street,
         building=address.building,

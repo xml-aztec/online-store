@@ -33,49 +33,61 @@ function AddressCard({ address }: { address: AddressPublic }) {
   });
 
   return (
-    <div className="rounded-lg border border-ink/10 p-4">
-      <div className="flex items-start justify-between gap-3">
-        <div className="text-sm">
-          <p className="font-medium text-ink">
-            {address.city}, {address.street} {address.building}
-            {address.apartment ? `, кв. ${address.apartment}` : ""}
-          </p>
-          {address.postal_code && <p className="text-ink-muted">Индекс: {address.postal_code}</p>}
-          {address.comment && <p className="text-ink-muted">{address.comment}</p>}
-          {address.is_default && (
-            <span className="mt-1 inline-block rounded-full bg-brand/10 px-2 py-0.5 text-xs font-medium text-brand">
-              По умолчанию
-            </span>
-          )}
-        </div>
-        <div className="flex shrink-0 gap-2">
-          {!address.is_default && (
-            <button
-              type="button"
-              onClick={() => setDefaultMutation.mutate()}
-              disabled={setDefaultMutation.isPending}
-              className="rounded-lg border border-ink/15 px-2 py-1 text-xs hover:border-brand/40 disabled:opacity-50"
-            >
-              Сделать основным
-            </button>
-          )}
+    <div className="flex flex-col gap-2 rounded-xl border border-ink/10 bg-bg p-[18px]">
+      <div className="flex items-center justify-between gap-3">
+        <span className="font-display text-sm font-bold text-ink">
+          {address.label || "Адрес"}
+        </span>
+        {address.is_default && (
+          <span className="whitespace-nowrap rounded-lg bg-success/10 px-2 py-1 font-display text-[11px] font-semibold text-success-700">
+            По умолчанию
+          </span>
+        )}
+      </div>
+      <p className="text-[13px] leading-relaxed text-ink-muted">
+        {address.city}, {address.street} {address.building}
+        {address.apartment ? `, кв. ${address.apartment}` : ""}
+        {address.postal_code && (
+          <>
+            <br />
+            Индекс: {address.postal_code}
+          </>
+        )}
+        {address.comment && (
+          <>
+            <br />
+            {address.comment}
+          </>
+        )}
+      </p>
+      <div className="mt-0.5 flex gap-3.5">
+        {!address.is_default && (
           <button
             type="button"
-            onClick={() => deleteMutation.mutate()}
-            disabled={deleteMutation.isPending}
-            className="rounded-lg border border-accent-sale/40 px-2 py-1 text-xs text-accent-sale-700 hover:border-accent-sale/60 disabled:opacity-50"
+            onClick={() => setDefaultMutation.mutate()}
+            disabled={setDefaultMutation.isPending}
+            className="text-[13px] font-semibold text-ink hover:underline disabled:opacity-50"
           >
-            Удалить
+            Сделать основным
           </button>
-        </div>
+        )}
+        <button
+          type="button"
+          onClick={() => deleteMutation.mutate()}
+          disabled={deleteMutation.isPending}
+          className="text-[13px] text-ink-muted hover:text-accent-sale-700 disabled:opacity-50"
+        >
+          Удалить
+        </button>
       </div>
-      {error && <p className="mt-2 text-xs text-accent-sale-700">{error}</p>}
+      {error && <p className="text-xs text-accent-sale-700">{error}</p>}
     </div>
   );
 }
 
 function CreateAddressForm() {
   const queryClient = useQueryClient();
+  const [label, setLabel] = useState("");
   const [city, setCity] = useState("");
   const [street, setStreet] = useState("");
   const [building, setBuilding] = useState("");
@@ -85,6 +97,7 @@ function CreateAddressForm() {
   const mutation = useMutation({
     mutationFn: () =>
       createAddress({
+        label: label || null,
         city,
         street,
         building,
@@ -93,6 +106,7 @@ function CreateAddressForm() {
         is_default: false,
       }),
     onSuccess: () => {
+      setLabel("");
       setCity("");
       setStreet("");
       setBuilding("");
@@ -107,18 +121,30 @@ function CreateAddressForm() {
     mutation.mutate();
   }
 
+  const inputClass =
+    "rounded-lg border border-ink/15 bg-bg px-2.5 py-1.5 text-sm text-ink focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/30";
+
   return (
     <form
       onSubmit={handleSubmit}
-      className="mb-6 flex flex-wrap items-end gap-3 rounded-lg border border-ink/10 p-4"
+      className="mb-4 flex flex-wrap items-end gap-3 rounded-xl border border-ink/10 bg-surface p-4"
     >
+      <div>
+        <label className="mb-1 block text-xs text-ink-muted">Метка</label>
+        <input
+          value={label}
+          onChange={(event) => setLabel(event.target.value)}
+          placeholder="Дом, Работа…"
+          className={`w-28 ${inputClass}`}
+        />
+      </div>
       <div>
         <label className="mb-1 block text-xs text-ink-muted">Город</label>
         <input
           value={city}
           onChange={(event) => setCity(event.target.value)}
           required
-          className="w-32 rounded-lg border border-ink/15 px-2 py-1 text-sm bg-bg focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/30"
+          className={`w-32 ${inputClass}`}
         />
       </div>
       <div>
@@ -127,7 +153,7 @@ function CreateAddressForm() {
           value={street}
           onChange={(event) => setStreet(event.target.value)}
           required
-          className="w-40 rounded-lg border border-ink/15 px-2 py-1 text-sm bg-bg focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/30"
+          className={`w-40 ${inputClass}`}
         />
       </div>
       <div>
@@ -136,7 +162,7 @@ function CreateAddressForm() {
           value={building}
           onChange={(event) => setBuilding(event.target.value)}
           required
-          className="w-20 rounded-lg border border-ink/15 px-2 py-1 text-sm bg-bg focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/30"
+          className={`w-20 ${inputClass}`}
         />
       </div>
       <div>
@@ -144,7 +170,7 @@ function CreateAddressForm() {
         <input
           value={apartment}
           onChange={(event) => setApartment(event.target.value)}
-          className="w-20 rounded-lg border border-ink/15 px-2 py-1 text-sm bg-bg focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/30"
+          className={`w-20 ${inputClass}`}
         />
       </div>
       <div>
@@ -152,15 +178,15 @@ function CreateAddressForm() {
         <input
           value={comment}
           onChange={(event) => setComment(event.target.value)}
-          className="w-40 rounded-lg border border-ink/15 px-2 py-1 text-sm bg-bg focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/30"
+          className={`w-40 ${inputClass}`}
         />
       </div>
       <button
         type="submit"
         disabled={mutation.isPending}
-        className="rounded-lg bg-brand hover:bg-brand/90 px-4 py-1.5 text-sm font-medium text-white disabled:opacity-50"
+        className="rounded-lg bg-brand px-4 py-2 font-display text-sm font-bold text-white hover:bg-brand/90 disabled:opacity-50"
       >
-        {mutation.isPending ? "Добавляем…" : "Добавить адрес"}
+        {mutation.isPending ? "Добавляем…" : "+ Добавить адрес"}
       </button>
       {mutation.isError && (
         <p className="w-full text-sm text-accent-sale-700">
@@ -180,7 +206,7 @@ export default function AccountAddressesPage() {
       <CreateAddressForm />
       {isLoading && <p className="text-ink-muted">Загрузка…</p>}
       {addresses && addresses.length === 0 && <p className="text-ink-muted">Адресов пока нет</p>}
-      <div className="space-y-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         {addresses?.map((address) => <AddressCard key={address.id} address={address} />)}
       </div>
     </div>

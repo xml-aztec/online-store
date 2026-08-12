@@ -126,6 +126,8 @@ async def list_my_orders(
                 status=order.status,
                 total=order.total,
                 created_at=order.created_at,
+                item_count=len(order.items),
+                delivery_method=order.delivery_method,
             )
             for order in orders
         ],

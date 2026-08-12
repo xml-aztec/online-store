@@ -54,6 +54,7 @@ class Address(TimestampedBase):
     user_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
     )
+    label: Mapped[str | None] = mapped_column(nullable=True)
     city: Mapped[str] = mapped_column(nullable=False)
     street: Mapped[str] = mapped_column(nullable=False)
     building: Mapped[str] = mapped_column(nullable=False)

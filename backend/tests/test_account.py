@@ -89,6 +89,39 @@ async def test_address_crud_lifecycle(
 
 
 @pytest.mark.asyncio
+async def test_address_label_create_update_and_defaults_to_null(
+    client: httpx.AsyncClient, db_session: AsyncSession
+) -> None:
+    user = await _make_user(db_session)
+    headers = _headers(user)
+
+    # Old addresses (created before this field existed) have no label -- must
+    # come back as null, not an empty string or a missing key.
+    no_label_response = await client.post(
+        "/v1/me/addresses",
+        json={"city": "Бишкек", "street": "Чуй", "building": "10"},
+        headers=headers,
+    )
+    assert no_label_response.status_code == 201
+    assert no_label_response.json()["label"] is None
+
+    labeled_response = await client.post(
+        "/v1/me/addresses",
+        json={"city": "Бишкек", "street": "Токтогула", "building": "98", "label": "Работа"},
+        headers=headers,
+    )
+    assert labeled_response.status_code == 201
+    address_id = labeled_response.json()["id"]
+    assert labeled_response.json()["label"] == "Работа"
+
+    update_response = await client.patch(
+        f"/v1/me/addresses/{address_id}", json={"label": "Дом"}, headers=headers
+    )
+    assert update_response.status_code == 200
+    assert update_response.json()["label"] == "Дом"
+
+
+@pytest.mark.asyncio
 async def test_setting_new_default_address_unsets_previous_default(
     client: httpx.AsyncClient, db_session: AsyncSession
 ) -> None:

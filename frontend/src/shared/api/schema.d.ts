@@ -1145,6 +1145,8 @@ export interface components {
         };
         /** AddressCreate */
         AddressCreate: {
+            /** Label */
+            label?: string | null;
             /** City */
             city: string;
             /** Street */
@@ -1185,6 +1187,8 @@ export interface components {
              * Format: uuid
              */
             id: string;
+            /** Label */
+            label: string | null;
             /** City */
             city: string;
             /** Street */
@@ -1202,6 +1206,8 @@ export interface components {
         };
         /** AddressUpdate */
         AddressUpdate: {
+            /** Label */
+            label?: string | null;
             /** City */
             city?: string | null;
             /** Street */
@@ -2128,6 +2134,10 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+            /** Item Count */
+            item_count: number;
+            /** Delivery Method */
+            delivery_method: string;
         };
         /** OrderListResponse */
         OrderListResponse: {

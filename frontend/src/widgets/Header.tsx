@@ -121,6 +121,10 @@ export function Header() {
   const scrolled = useScrolled();
   const pathname = usePathname();
   const [previewClosedForPathname, setPreviewClosedForPathname] = useState(pathname);
+  const favoritesActive = pathname.startsWith("/favorites");
+  const cartActive = pathname.startsWith("/cart");
+  const profileActive =
+    pathname.startsWith("/account") || pathname.startsWith("/admin") || pathname.startsWith("/login");
 
   useEffect(() => {
     const trimmed = query.trim();
@@ -256,45 +260,65 @@ export function Header() {
           )}
         </div>
 
-        {status === "authenticated" ? (
-          <Link
-            href={role === "manager" || role === "admin" ? "/admin" : "/account"}
-            className="hidden shrink-0 items-center gap-1.5 text-sm font-medium text-ink-muted hover:text-ink sm:flex focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
-          >
-            <User className="h-4 w-4" aria-hidden="true" />
-            {role === "manager" || role === "admin" ? "Админка" : "Профиль"}
-          </Link>
-        ) : (
-          <Link
-            href="/login"
-            className="hidden shrink-0 items-center gap-1.5 text-sm font-medium text-ink-muted hover:text-ink sm:flex focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
-          >
-            <User className="h-4 w-4" aria-hidden="true" />
-            Войти
-          </Link>
-        )}
-
         <Link
           href="/favorites"
-          className="relative hidden shrink-0 items-center gap-1.5 text-sm font-medium text-ink-muted hover:text-ink sm:flex focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+          className="hidden shrink-0 flex-col items-center gap-[3px] text-ink sm:flex focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
           aria-label={`Избранное, товаров: ${favoriteCount}`}
+          aria-current={favoritesActive ? "page" : undefined}
         >
-          <Heart className="h-4 w-4" aria-hidden="true" />
-          Избранное
+          <Heart
+            className={favoritesActive ? "h-[22px] w-[22px] fill-ink" : "h-[22px] w-[22px]"}
+            strokeWidth={2}
+            aria-hidden="true"
+          />
+          <span className={`text-[11px] ${favoritesActive ? "font-semibold text-ink" : "text-ink-muted"}`}>
+            Избранное
+          </span>
         </Link>
 
         <Link
           href="/cart"
-          className="relative flex shrink-0 items-center gap-2 rounded-lg bg-brand px-3.5 py-2 text-sm font-medium text-white hover:bg-brand/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+          className="relative hidden shrink-0 flex-col items-center gap-[3px] text-ink sm:flex focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
           aria-label={`Корзина, товаров: ${itemCount}`}
+          aria-current={cartActive ? "page" : undefined}
         >
-          <ShoppingCart className="h-4 w-4" aria-hidden="true" />
-          <span
-            className={`font-mono tabular-nums ${cartPulsing ? "animate-cart-pulse" : ""}`}
-          >
-            {itemCount}
+          <ShoppingCart
+            className="h-[22px] w-[22px]"
+            strokeWidth={cartActive ? 2.4 : 2}
+            aria-hidden="true"
+          />
+          {itemCount > 0 && (
+            <span
+              className={`absolute -top-1.5 right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-ink px-1 font-mono text-[10px] font-bold text-white ${cartPulsing ? "animate-cart-pulse" : ""}`}
+            >
+              {itemCount}
+            </span>
+          )}
+          <span className={`text-[11px] ${cartActive ? "font-semibold text-ink" : "text-ink-muted"}`}>
+            Корзина
           </span>
         </Link>
+
+        {status === "authenticated" ? (
+          <Link
+            href={role === "manager" || role === "admin" ? "/admin" : "/account"}
+            className="hidden shrink-0 flex-col items-center gap-[3px] text-ink sm:flex focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+            aria-current={profileActive ? "page" : undefined}
+          >
+            <User className="h-[22px] w-[22px]" strokeWidth={profileActive ? 2.4 : 2} aria-hidden="true" />
+            <span className={`text-[11px] ${profileActive ? "font-semibold text-ink" : "text-ink-muted"}`}>
+              {role === "manager" || role === "admin" ? "Админка" : "Профиль"}
+            </span>
+          </Link>
+        ) : (
+          <Link
+            href="/login"
+            className="hidden shrink-0 flex-col items-center gap-[3px] text-ink sm:flex focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+          >
+            <User className="h-[22px] w-[22px]" strokeWidth={2} aria-hidden="true" />
+            <span className="text-[11px] text-ink-muted">Войти</span>
+          </Link>
+        )}
       </div>
     </header>
   );

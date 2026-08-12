@@ -73,6 +73,8 @@ class OrderListItem(BaseModel):
     status: str
     total: Decimal
     created_at: datetime
+    item_count: int
+    delivery_method: str
 
 
 class OrderListResponse(BaseModel):

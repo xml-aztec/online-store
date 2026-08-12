@@ -298,7 +298,10 @@ async def test_me_orders_list_and_detail_and_cancel(
     list_response = await client.get("/v1/me/orders", headers=headers)
     assert list_response.status_code == 200
     assert list_response.json()["total"] == 1
-    assert list_response.json()["items"][0]["number"] == order.number
+    listed = list_response.json()["items"][0]
+    assert listed["number"] == order.number
+    assert listed["item_count"] == 1
+    assert listed["delivery_method"] == "pickup"
 
     detail_response = await client.get(f"/v1/me/orders/{order.number}", headers=headers)
     assert detail_response.status_code == 200

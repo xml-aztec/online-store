@@ -72,12 +72,16 @@ export function BottomNav() {
               href={href}
               aria-current={active ? "page" : undefined}
               aria-label={hasBadge ? `${label}, товаров: ${badgeCount}` : undefined}
-              className={`relative flex flex-col items-center gap-0.5 py-2 text-[11px] font-medium focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-brand ${
-                active ? "text-brand" : "text-ink-muted"
+              className={`relative flex flex-col items-center gap-0.5 py-2 text-[11px] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-brand ${
+                active ? "font-bold text-ink" : "font-medium text-ink-muted"
               }`}
             >
               <span className="relative">
-                <Icon className="h-5 w-5" aria-hidden="true" />
+                <Icon
+                  className={`h-5 w-5 ${active && Icon === Heart ? "fill-ink" : ""}`}
+                  strokeWidth={active ? 2.4 : 2}
+                  aria-hidden="true"
+                />
                 {hasBadge && (
                   <span
                     aria-hidden="true"

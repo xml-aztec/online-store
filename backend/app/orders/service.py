@@ -351,6 +351,7 @@ async def list_my_orders(
     rows = (
         await session.scalars(
             select(Order)
+            .options(selectinload(Order.items))
             .where(Order.user_id == user_id)
             .order_by(Order.created_at.desc())
             .offset((page - 1) * page_size)
