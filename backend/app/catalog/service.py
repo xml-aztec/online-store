@@ -1181,6 +1181,11 @@ async def reorder_product_images(
 
 # --- Banners ---
 
+# Arbitrary constant key for pg_advisory_xact_lock: serializes the
+# read-MAX-then-insert in create_banner below so two admins creating banners
+# at the same moment can't both read the same MAX(sort_order) and collide.
+_BANNER_CREATE_LOCK_KEY = 87_234_501
+
 
 async def list_banners(session: AsyncSession) -> list[Banner]:
     rows = (
@@ -1224,6 +1229,8 @@ async def create_banner(
         Bucket=settings.s3_bucket, Key=original_key, Body=contents, ContentType=content_type
     )
 
+    # Held until this transaction commits/rolls back -- see constant comment above.
+    await session.execute(select(func.pg_advisory_xact_lock(_BANNER_CREATE_LOCK_KEY)))
     next_sort_order = await session.scalar(
         select(func.coalesce(func.max(Banner.sort_order) + 1, 0))
     )

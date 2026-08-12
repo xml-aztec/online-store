@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { Calendar, ChevronRight, Search } from "lucide-react";
+import { Calendar, ChevronLeft, ChevronRight, Search } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
@@ -11,6 +11,7 @@ import { formatPrice } from "@/shared/lib/formatPrice";
 import { StatusPill } from "@/shared/ui/StatusPill";
 
 const ROW_COLUMNS = "100px 1fr 140px 150px 130px 40px";
+const PAGE_SIZE = 50;
 
 // Maps the mockup's 6 tabs onto the 8 real order statuses -- some tabs
 // intentionally bucket more than one status (e.g. "В сборке" covers both
@@ -109,6 +110,7 @@ function OrdersTable() {
   const search = searchParams.get("search") ?? "";
   const dateFrom = searchParams.get("from") ?? "";
   const dateTo = searchParams.get("to") ?? "";
+  const page = Math.max(1, Number(searchParams.get("page") ?? "1") || 1);
   const bucket = STATUS_BUCKETS.find((b) => b.key === bucketKey) ?? STATUS_BUCKETS[0];
 
   const { data: statusCounts } = useQuery({
@@ -117,15 +119,15 @@ function OrdersTable() {
   });
 
   const { data, isLoading } = useQuery({
-    queryKey: ["admin-orders", bucketKey, search, dateFrom, dateTo],
+    queryKey: ["admin-orders", bucketKey, search, dateFrom, dateTo, page],
     queryFn: () =>
       listAdminOrders({
         status: bucket.statuses.length > 0 ? bucket.statuses : undefined,
         search: search || undefined,
         dateFrom: dateFrom || undefined,
         dateTo: dateTo ? `${dateTo}T23:59:59` : undefined,
-        page: 1,
-        pageSize: 50,
+        page,
+        pageSize: PAGE_SIZE,
       }),
   });
 
@@ -135,6 +137,9 @@ function OrdersTable() {
       if (value) params.set(key, value);
       else params.delete(key);
     }
+    // Any filter change other than paging itself goes back to page 1 --
+    // otherwise a narrower filter can land on a now-empty page.
+    if (!("page" in updates)) params.delete("page");
     router.push(`/admin/orders?${params.toString()}`);
   }
 
@@ -235,6 +240,38 @@ function OrdersTable() {
               </span>
             </Link>
           ))}
+        </div>
+      )}
+
+      {data && data.total > data.page_size && (
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-xs text-ink-muted">
+            {(page - 1) * data.page_size + 1}–{Math.min(page * data.page_size, data.total)} из{" "}
+            {data.total}
+          </p>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              disabled={page <= 1}
+              onClick={() => updateParam({ page: String(page - 1) })}
+              className="flex h-8 w-8 items-center justify-center rounded-lg border border-ink/15 text-ink disabled:cursor-not-allowed disabled:opacity-40"
+              aria-label="Предыдущая страница"
+            >
+              <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+            </button>
+            <span className="font-mono text-xs text-ink-muted">
+              {page} / {Math.max(1, Math.ceil(data.total / data.page_size))}
+            </span>
+            <button
+              type="button"
+              disabled={page * data.page_size >= data.total}
+              onClick={() => updateParam({ page: String(page + 1) })}
+              className="flex h-8 w-8 items-center justify-center rounded-lg border border-ink/15 text-ink disabled:cursor-not-allowed disabled:opacity-40"
+              aria-label="Следующая страница"
+            >
+              <ChevronRight className="h-4 w-4" aria-hidden="true" />
+            </button>
+          </div>
         </div>
       )}
     </div>

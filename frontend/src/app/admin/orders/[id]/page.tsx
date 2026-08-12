@@ -28,7 +28,19 @@ const PAYMENT_METHOD_LABELS: Record<string, string> = {
   online: "Онлайн",
 };
 
-const PAID_STATUSES = new Set(["paid", "processing", "shipped", "delivered"]);
+// Only "online" orders actually pass through the "paid" status (set by the
+// payment webhook, ТЗ 5.1/5.4) before "processing" -- for those, reaching
+// "processing" or later means the money is confirmed in. "cash_on_delivery"
+// orders skip awaiting_payment/paid entirely (ТЗ 5.4: pending -> processing
+// straight away), so the system has no signal that cash actually changed
+// hands until the courier hands the order over -- "delivered" is the only
+// point that can honestly be called paid for that method.
+const ONLINE_PAID_STATUSES = new Set(["paid", "processing", "shipped", "delivered"]);
+
+function isOrderPaid(order: { payment_method: string; status: string }): boolean {
+  if (order.payment_method === "online") return ONLINE_PAID_STATUSES.has(order.status);
+  return order.status === "delivered";
+}
 
 function formatAddress(address: Record<string, unknown> | null): string {
   if (!address) return "—";
@@ -260,7 +272,7 @@ export default function AdminOrderDetailPage({ params }: PageProps) {
                 <span className="font-medium text-ink">
                   {PAYMENT_METHOD_LABELS[order.payment_method] ?? order.payment_method}
                   {" · "}
-                  {PAID_STATUSES.has(order.status) ? "оплачено" : "не оплачено"}
+                  {isOrderPaid(order) ? "оплачено" : "не оплачено"}
                 </span>
               </span>
               <span className="flex justify-between">

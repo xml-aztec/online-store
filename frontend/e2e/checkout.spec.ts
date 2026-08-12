@@ -14,19 +14,6 @@ interface ProductDetail {
   variants: ProductVariant[];
 }
 
-async function registerThroughCheckoutGate(
-  page: import("@playwright/test").Page,
-  email: string
-): Promise<void> {
-  await page.getByRole("link", { name: "Зарегистрироваться" }).click();
-  await page.waitForURL("**/register**");
-  await page.fill("#fullName", "E2E Buyer");
-  await page.fill("#email", email);
-  await page.fill("#password", "TestPass123");
-  await page.getByRole("button", { name: "Зарегистрироваться" }).click();
-  await page.waitForURL("**/checkout");
-}
-
 test("catalog -> cart -> checkout (cash on delivery) -> success page with order number", async ({
   page,
 }) => {
@@ -43,12 +30,11 @@ test("catalog -> cart -> checkout (cash on delivery) -> success page with order 
   await page.getByRole("link", { name: "Оформить заказ" }).click();
   await page.waitForURL("**/checkout");
 
-  // Checkout now requires an account -- register through the login gate. The
-  // guest cart merges into the new account on login, so the item added above
-  // is still there once the checkout form appears.
-  await registerThroughCheckoutGate(page, `e2e-${Date.now()}@example.com`);
-
+  // ТЗ 1.1/5.5: checkout must not require an account -- a guest fills
+  // contact fields directly, no login/register gate in between.
+  await page.fill("#email", `e2e-${Date.now()}@example.com`);
   await page.fill("#phone", "+996700000000");
+  await page.fill("#full_name", "E2E Buyer");
   await page.getByRole("button", { name: "Оплатить" }).click();
 
   await page.waitForURL("**/checkout/success/**", { timeout: 15000 });
@@ -77,44 +63,27 @@ test("a competing checkout draining stock shows a readable 409 on checkout", asy
   });
   expect(addResponse.ok()).toBeTruthy();
 
-  // A competing buyer (a genuinely separate session/cart, authenticated via
-  // its own account since checkout requires login) buys the exact same stock
-  // first, simulating a race that the browser's checkout must lose.
-  const competitorEmail = `competitor-${Date.now()}@example.com`;
-  const competitorRegister = await request.post("/api/v1/auth/register", {
-    data: { email: competitorEmail, password: "TestPass123", full_name: "Конкурент" },
-  });
-  expect(competitorRegister.ok()).toBeTruthy();
-  const competitorLogin = await request.post("/api/v1/auth/login", {
-    data: { email: competitorEmail, password: "TestPass123" },
-  });
-  expect(competitorLogin.ok()).toBeTruthy();
-  const { access_token: competitorToken } = (await competitorLogin.json()) as {
-    access_token: string;
-  };
-  const competitorHeaders = { Authorization: `Bearer ${competitorToken}` };
-
+  // A competing buyer (a genuinely separate session/cart) buys the exact same
+  // stock first, simulating a race that the browser's checkout must lose.
   const competitorAdd = await request.post("/api/v1/cart/items", {
     data: { variant_id: variant.id, qty: stockQty },
-    headers: competitorHeaders,
   });
   expect(competitorAdd.ok()).toBeTruthy();
   const competitorCheckout = await request.post("/api/v1/orders", {
     data: {
-      email: competitorEmail,
+      email: `competitor-${Date.now()}@example.com`,
       phone: "+996700000001",
       full_name: "Конкурент",
       delivery_method: "pickup",
       payment_method: "cash_on_delivery",
     },
-    headers: competitorHeaders,
   });
   expect(competitorCheckout.ok()).toBeTruthy();
 
   await page.goto("/checkout");
-  await registerThroughCheckoutGate(page, `e2e-conflict-${Date.now()}@example.com`);
-
+  await page.fill("#email", `e2e-conflict-${Date.now()}@example.com`);
   await page.fill("#phone", "+996700000002");
+  await page.fill("#full_name", "E2E Buyer");
   await page.getByRole("button", { name: "Оплатить" }).click();
 
   await expect(

@@ -8,10 +8,8 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from app.auth.models import User
 from app.catalog.models import Category, Product, ProductVariant
 from app.config import settings
-from app.core.security import create_access_token, hash_password
 from app.orders.models import Order
 from app.payments.models import Payment
 from app.payments.service import refund_payment
@@ -53,30 +51,13 @@ async def _make_variant(
     return variant
 
 
-async def _make_user(db_session: AsyncSession, *, password: str = "TestPass123") -> User:
-    user = User(
-        email=f"buyer-{uuid.uuid4().hex[:10]}@example.com", password_hash=hash_password(password)
-    )
-    db_session.add(user)
-    await db_session.commit()
-    return user
-
-
-def _auth_headers(user: User) -> dict[str, str]:
-    return {"Authorization": f"Bearer {create_access_token(user.id, user.role)}"}
-
-
 async def _create_online_order(
     client: httpx.AsyncClient, db_session: AsyncSession
 ) -> tuple[Order, Payment]:
-    user = await _make_user(db_session)
-    headers = _auth_headers(user)
     variant = await _make_variant(db_session, price=Decimal("500.00"), stock_qty=10)
-    await client.post(
-        "/v1/cart/items", json={"variant_id": str(variant.id), "qty": 1}, headers=headers
-    )
+    await client.post("/v1/cart/items", json={"variant_id": str(variant.id), "qty": 1})
 
-    response = await client.post("/v1/orders", json=CHECKOUT_BASE, headers=headers)
+    response = await client.post("/v1/orders", json=CHECKOUT_BASE)
     assert response.status_code == 201
     number = response.json()["number"]
 

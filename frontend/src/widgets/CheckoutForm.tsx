@@ -1,8 +1,7 @@
 "use client";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { z } from "zod";
 
@@ -361,7 +360,8 @@ function CheckoutFields({ initialForm }: { initialForm: FormState }) {
 }
 
 export function CheckoutForm() {
-  const pathname = usePathname();
+  // ТЗ 1.1/5.5: checkout must work for a guest, email-only, no account
+  // required -- this must never gate the form behind login/register.
   const { status: authStatus } = useAuthStore();
   const isAuthorized = authStatus === "authenticated";
 
@@ -372,40 +372,20 @@ export function CheckoutForm() {
     enabled: isAuthorized,
   });
 
+  // Guests get the empty-state form immediately. A logged-in visitor waits --
+  // first for the auth check to settle, then for profile/address data -- so
+  // the form mounts already pre-filled instead of flashing empty and
+  // refilling a moment later.
   if (authStatus === "loading") {
     return <p className="py-16 text-center text-ink-muted">Загрузка…</p>;
   }
-
-  if (!isAuthorized) {
-    return (
-      <div className="py-16 text-center">
-        <p className="text-ink-muted">
-          Чтобы оформить заказ, нужно войти в аккаунт или зарегистрироваться.
-        </p>
-        <div className="mt-4 flex items-center justify-center gap-3">
-          <Link
-            href={`/login?redirect=${encodeURIComponent(pathname)}`}
-            className="rounded-lg bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand/90"
-          >
-            Войти
-          </Link>
-          <Link
-            href={`/register?redirect=${encodeURIComponent(pathname)}`}
-            className="rounded-lg border border-ink/15 px-4 py-2 text-sm font-medium text-ink hover:border-brand/40"
-          >
-            Зарегистрироваться
-          </Link>
-        </div>
-      </div>
-    );
-  }
-
-  // Wait for profile + saved-address data to settle so the form mounts with
-  // real initial values already in place (see CheckoutFields) rather than
-  // flashing empty and refilling a moment later.
-  if (meQuery.isLoading || addressesQuery.isLoading) {
+  if (isAuthorized && (meQuery.isLoading || addressesQuery.isLoading)) {
     return <p className="py-16 text-center text-ink-muted">Загрузка…</p>;
   }
 
-  return <CheckoutFields initialForm={buildInitialState(meQuery.data, addressesQuery.data)} />;
+  return (
+    <CheckoutFields
+      initialForm={isAuthorized ? buildInitialState(meQuery.data, addressesQuery.data) : EMPTY_STATE}
+    />
+  );
 }
