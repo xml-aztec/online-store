@@ -1,21 +1,31 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
-import { Calendar, ChevronLeft, ChevronRight, Search } from "lucide-react";
-import Link from "next/link";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Calendar, ChevronLeft, ChevronRight, Download, MoreHorizontal, Search } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 
-import { getOrderStatusCounts, listAdminOrders } from "@/entities/orders/adminApi";
+import { ORDER_STATUS_LABELS } from "@/entities/orders/api";
+import {
+  getOrderStatusCounts,
+  listAdminOrders,
+  updateAdminOrderStatus,
+} from "@/entities/orders/adminApi";
+import { useToastStore } from "@/entities/toast/store";
 import { formatPrice } from "@/shared/lib/formatPrice";
+import { formatRelativeTime } from "@/shared/lib/formatRelativeTime";
 import { StatusPill } from "@/shared/ui/StatusPill";
+import { OrderDrawer } from "@/widgets/OrderDrawer";
 
-const ROW_COLUMNS = "100px 1fr 140px 150px 130px 40px";
+const ROW_COLUMNS = "32px 160px 1fr 110px 150px 90px 32px";
 const PAGE_SIZE = 50;
 
-// Maps the mockup's 6 tabs onto the 8 real order statuses -- some tabs
-// intentionally bucket more than one status (e.g. "В сборке" covers both
-// processing and shipped).
+// Maps the mockup's status presets onto the 8 real order statuses -- some
+// intentionally bucket more than one (e.g. "В сборке" covers both processing
+// and shipped). "Проблемные" (stuck-order / unpaid-too-long) from the design
+// is deliberately not included -- computing it honestly needs a server-side
+// query across the *whole* filtered set, not just the current page; see
+// docs/CHANGELOG.md.
 const STATUS_BUCKETS: { key: string; label: string; statuses: string[] }[] = [
   { key: "all", label: "Все", statuses: [] },
   { key: "new", label: "Новые", statuses: ["pending", "awaiting_payment"] },
@@ -25,10 +35,40 @@ const STATUS_BUCKETS: { key: string; label: string; statuses: string[] }[] = [
   { key: "cancelled", label: "Отменены", statuses: ["cancelled", "refunded"] },
 ];
 
+// Targets a manager would plausibly bulk-apply. "paid" is included because
+// the single-order REST endpoint itself doesn't forbid it (see backend
+// review), so this mirrors what's already possible one-at-a-time.
+const BULK_STATUS_TARGETS = ["paid", "processing", "shipped", "delivered", "cancelled"];
+
 function bucketCount(counts: Record<string, number> | undefined, statuses: string[]): number {
   if (!counts) return 0;
   if (statuses.length === 0) return Object.values(counts).reduce((sum, n) => sum + n, 0);
   return statuses.reduce((sum, status) => sum + (counts[status] ?? 0), 0);
+}
+
+function csvEscape(value: string): string {
+  return /[",\n]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value;
+}
+
+function downloadOrdersCsv(items: { number: string; full_name: string; email: string; total: string; status: string; created_at: string }[]) {
+  const header = ["Номер", "Клиент", "Email", "Сумма", "Статус", "Дата"];
+  const rows = items.map((o) => [
+    o.number,
+    o.full_name,
+    o.email,
+    o.total,
+    ORDER_STATUS_LABELS[o.status] ?? o.status,
+    new Date(o.created_at).toLocaleString("ru-RU"),
+  ]);
+  const csv = [header, ...rows].map((row) => row.map(csvEscape).join(",")).join("\n");
+  // ﻿: Excel on Windows won't guess UTF-8 without a BOM and mangles cyrillic.
+  const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `orders-${new Date().toISOString().slice(0, 10)}.csv`;
+  link.click();
+  URL.revokeObjectURL(url);
 }
 
 function formatShortDate(iso: string): string {
@@ -58,25 +98,24 @@ function PeriodPicker({
         if (!event.currentTarget.contains(event.relatedTarget as Node)) setOpen(false);
       }}
     >
-      <span className="text-xs text-ink-muted">Период:</span>
       <button
         type="button"
         onClick={() => setOpen((prev) => !prev)}
         aria-expanded={open}
-        className="flex h-9 items-center gap-2 rounded-lg border border-ink/15 bg-bg px-3 font-mono text-xs font-medium text-ink"
+        className="flex h-9 items-center gap-2 rounded-lg border border-border bg-bg px-3 font-mono text-xs font-medium text-ink"
       >
-        {label}
         <Calendar className="h-[13px] w-[13px] text-ink-muted" aria-hidden="true" strokeWidth={2} />
+        {label}
       </button>
       {open && (
-        <div className="absolute right-0 top-full z-10 mt-1 flex flex-col gap-2 rounded-lg border border-ink/10 bg-bg p-3 shadow-lg">
+        <div className="absolute right-0 top-full z-10 mt-1 flex flex-col gap-2 rounded-lg border border-border bg-bg p-3 shadow-lg">
           <label className="flex flex-col gap-1 text-xs text-ink-muted">
             От
             <input
               type="date"
               value={dateFrom}
               onChange={(event) => onChange(event.target.value, dateTo)}
-              className="rounded-lg border border-ink/15 px-2 py-1 font-mono text-xs"
+              className="rounded-lg border border-border bg-bg px-2 py-1 font-mono text-xs text-ink"
             />
           </label>
           <label className="flex flex-col gap-1 text-xs text-ink-muted">
@@ -85,7 +124,7 @@ function PeriodPicker({
               type="date"
               value={dateTo}
               onChange={(event) => onChange(dateFrom, event.target.value)}
-              className="rounded-lg border border-ink/15 px-2 py-1 font-mono text-xs"
+              className="rounded-lg border border-border bg-bg px-2 py-1 font-mono text-xs text-ink"
             />
           </label>
           {(dateFrom || dateTo) && (
@@ -103,6 +142,86 @@ function PeriodPicker({
   );
 }
 
+function BulkBar({
+  selectedIds,
+  items,
+  onClear,
+}: {
+  selectedIds: Set<string>;
+  items: { id: string; number: string; total: string; status: string; email: string; full_name: string; created_at: string }[];
+  onClear: () => void;
+}) {
+  const queryClient = useQueryClient();
+  const pushToast = useToastStore((state) => state.push);
+  const [target, setTarget] = useState(BULK_STATUS_TARGETS[1]); // "processing"
+  const [pending, setPending] = useState(false);
+
+  async function applyBulkStatus() {
+    setPending(true);
+    const ids = [...selectedIds];
+    const results = await Promise.allSettled(ids.map((id) => updateAdminOrderStatus(id, target)));
+    const succeeded = results.filter((r) => r.status === "fulfilled").length;
+    const failed = results.length - succeeded;
+    setPending(false);
+    void queryClient.invalidateQueries({ queryKey: ["admin-orders"] });
+    void queryClient.invalidateQueries({ queryKey: ["admin-order-status-counts"] });
+    if (failed === 0) {
+      pushToast(`Статус «${ORDER_STATUS_LABELS[target] ?? target}» применён к ${succeeded} заказам`);
+    } else {
+      pushToast(
+        `Обновлено ${succeeded} из ${ids.length} — ${failed} заказ(ов) не поддерживают этот переход`,
+        "error"
+      );
+    }
+    onClear();
+  }
+
+  return (
+    <div className="sticky bottom-4 z-10 flex justify-center">
+      <div className="flex flex-wrap items-center gap-3 rounded-xl bg-ink px-4 py-2.5 text-white shadow-[0_12px_32px_rgba(20,22,26,0.3)]">
+        <span className="text-[13px] font-medium">
+          Выбрано <span className="font-mono font-bold">{selectedIds.size}</span>
+        </span>
+        <span className="h-5 w-px bg-white/20" />
+        <select
+          value={target}
+          onChange={(event) => setTarget(event.target.value)}
+          className="h-[34px] rounded-lg border border-white/20 bg-transparent px-2.5 font-display text-[13px] font-semibold text-white"
+        >
+          {BULK_STATUS_TARGETS.map((status) => (
+            <option key={status} value={status} className="text-ink">
+              {ORDER_STATUS_LABELS[status] ?? status}
+            </option>
+          ))}
+        </select>
+        <button
+          type="button"
+          disabled={pending}
+          onClick={() => void applyBulkStatus()}
+          className="h-[34px] rounded-lg bg-brand px-3.5 font-display text-[13px] font-bold text-white hover:bg-brand/90 disabled:opacity-50"
+        >
+          {pending ? "Применяем…" : "Сменить статус"}
+        </button>
+        <button
+          type="button"
+          onClick={() => downloadOrdersCsv(items.filter((o) => selectedIds.has(o.id)))}
+          className="flex h-[34px] items-center gap-1.5 rounded-lg bg-[#2C3038] px-3.5 font-display text-[13px] font-semibold text-white hover:bg-[#3A3F48]"
+        >
+          <Download className="h-3.5 w-3.5" aria-hidden="true" />
+          Экспорт CSV
+        </button>
+        <button
+          type="button"
+          onClick={onClear}
+          className="text-xs text-white/70 hover:text-white"
+        >
+          Снять выбор
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function OrdersTable() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -111,7 +230,10 @@ function OrdersTable() {
   const dateFrom = searchParams.get("from") ?? "";
   const dateTo = searchParams.get("to") ?? "";
   const page = Math.max(1, Number(searchParams.get("page") ?? "1") || 1);
+  const openOrderId = searchParams.get("order");
   const bucket = STATUS_BUCKETS.find((b) => b.key === bucketKey) ?? STATUS_BUCKETS[0];
+
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const { data: statusCounts } = useQuery({
     queryKey: ["admin-order-status-counts"],
@@ -137,11 +259,32 @@ function OrdersTable() {
       if (value) params.set(key, value);
       else params.delete(key);
     }
-    // Any filter change other than paging itself goes back to page 1 --
-    // otherwise a narrower filter can land on a now-empty page.
     if (!("page" in updates)) params.delete("page");
     router.push(`/admin/orders?${params.toString()}`);
   }
+
+  function openOrder(id: string) {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("order", id);
+    router.push(`/admin/orders?${params.toString()}`);
+  }
+
+  function closeOrder() {
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("order");
+    router.push(`/admin/orders?${params.toString()}`);
+  }
+
+  function toggleSelected(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  const allSelected = Boolean(data?.items.length) && data!.items.every((o) => selectedIds.has(o.id));
 
   return (
     <div className="flex flex-col gap-4">
@@ -157,13 +300,13 @@ function OrdersTable() {
             <input
               type="search"
               defaultValue={search}
-              placeholder="Номер или email"
+              placeholder="№ заказа, клиент, email…"
               onKeyDown={(event) => {
                 if (event.key === "Enter") {
                   updateParam({ search: (event.target as HTMLInputElement).value });
                 }
               }}
-              className="h-9 rounded-lg border border-ink/15 bg-bg pl-8 pr-3 text-xs outline-none focus:border-brand"
+              className="h-9 w-[240px] rounded-lg border border-border bg-bg pl-8 pr-3 text-xs text-ink outline-none focus:border-brand"
             />
           </div>
           <PeriodPicker
@@ -174,7 +317,7 @@ function OrdersTable() {
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-1 border-b border-border">
         {STATUS_BUCKETS.map((b) => {
           const active = b.key === bucketKey;
           const count = bucketCount(statusCounts?.counts, b.statuses);
@@ -183,13 +326,13 @@ function OrdersTable() {
               key={b.key}
               type="button"
               onClick={() => updateParam({ bucket: b.key === "all" ? "" : b.key })}
-              className={`whitespace-nowrap rounded-lg font-display text-[13px] font-bold transition ${
+              className={`whitespace-nowrap border-b-2 px-3 py-2 font-display text-[13px] transition ${
                 active
-                  ? "bg-brand px-3.5 py-2 text-white"
-                  : "border border-ink/15 bg-bg px-[13px] py-[7px] text-ink hover:border-ink/30"
+                  ? "border-brand font-bold text-brand-text"
+                  : "border-transparent font-semibold text-ink-muted hover:text-ink"
               }`}
             >
-              {b.label} <span className="font-mono">{count}</span>
+              {b.label} <span className="font-mono text-xs">{count}</span>
             </button>
           );
         })}
@@ -200,45 +343,70 @@ function OrdersTable() {
       {data && data.items.length === 0 && <p className="text-ink-muted">Заказы не найдены</p>}
 
       {data && data.items.length > 0 && (
-        <div className="overflow-hidden rounded-xl border border-ink/10 bg-bg">
+        <div className="overflow-hidden rounded-xl border border-border bg-bg">
           <div
-            className="grid items-center gap-2 border-b border-ink/10 px-[18px] py-2.5 text-[11px] font-semibold uppercase tracking-wide text-ink-muted"
+            className="grid items-center gap-2 border-b border-border px-[18px] py-2.5 text-[11px] font-semibold uppercase tracking-wide text-ink-muted"
             style={{ gridTemplateColumns: ROW_COLUMNS }}
           >
+            <RowCheckbox
+              checked={allSelected}
+              onChange={() =>
+                setSelectedIds(allSelected ? new Set() : new Set(data.items.map((o) => o.id)))
+              }
+            />
             <span>№</span>
             <span>Клиент</span>
-            <span className="text-right">Сумма, сом</span>
-            <span className="pl-4">Статус</span>
-            <span className="text-right">Дата</span>
+            <span className="text-right">Сумма</span>
+            <span className="pl-3">Статус</span>
+            <span className="text-right">Поступил</span>
             <span />
           </div>
           {data.items.map((order) => (
-            <Link
+            <div
               key={order.id}
-              href={`/admin/orders/${order.id}`}
-              className="grid items-center gap-2 border-b border-surface px-[18px] py-2.5 text-[13px] last:border-0 hover:bg-[#FAFBFC]"
+              className="group grid items-center gap-2 border-b border-surface px-[18px] py-2.5 text-[13px] last:border-0 hover:bg-surface"
               style={{ gridTemplateColumns: ROW_COLUMNS }}
             >
-              <span className="font-mono font-semibold text-ink">{order.number}</span>
-              <span className="flex min-w-0 flex-col gap-px">
+              <RowCheckbox checked={selectedIds.has(order.id)} onChange={() => toggleSelected(order.id)} />
+              <button
+                type="button"
+                onClick={() => openOrder(order.id)}
+                className="truncate text-left font-mono font-semibold text-ink hover:underline"
+              >
+                {order.number}
+              </button>
+              <button type="button" onClick={() => openOrder(order.id)} className="flex min-w-0 flex-col gap-px text-left">
                 <span className="truncate font-medium text-ink">{order.full_name}</span>
-                <span className="truncate font-mono text-[11px] text-ink-muted">
-                  {order.email}
-                </span>
-              </span>
-              <span className="text-right font-mono font-semibold text-ink">
+                <span className="truncate font-mono text-[11px] text-ink-muted">{order.email}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => openOrder(order.id)}
+                className="text-right font-mono font-semibold text-ink"
+              >
                 {formatPrice(order.total)}
-              </span>
-              <span className="pl-4">
+              </button>
+              <button type="button" onClick={() => openOrder(order.id)} className="pl-3 text-left">
                 <StatusPill status={order.status} />
+              </button>
+              <button
+                type="button"
+                onClick={() => openOrder(order.id)}
+                className="text-right font-mono text-xs text-ink-muted"
+              >
+                {formatRelativeTime(order.created_at)}
+              </button>
+              <span className="flex justify-center opacity-0 group-hover:opacity-100">
+                <button
+                  type="button"
+                  title="Открыть (↵)"
+                  onClick={() => openOrder(order.id)}
+                  className="flex h-[26px] w-[26px] items-center justify-center rounded-md text-ink-muted hover:bg-border/60 hover:text-ink"
+                >
+                  <MoreHorizontal className="h-3.5 w-3.5" aria-hidden="true" />
+                </button>
               </span>
-              <span className="text-right font-mono text-xs text-ink-muted">
-                {formatShortDate(order.created_at)}
-              </span>
-              <span className="flex justify-center text-ink-muted">
-                <ChevronRight className="h-4 w-4" aria-hidden="true" />
-              </span>
-            </Link>
+            </div>
           ))}
         </div>
       )}
@@ -254,7 +422,7 @@ function OrdersTable() {
               type="button"
               disabled={page <= 1}
               onClick={() => updateParam({ page: String(page - 1) })}
-              className="flex h-8 w-8 items-center justify-center rounded-lg border border-ink/15 text-ink disabled:cursor-not-allowed disabled:opacity-40"
+              className="flex h-8 w-8 items-center justify-center rounded-lg border border-border text-ink disabled:cursor-not-allowed disabled:opacity-40"
               aria-label="Предыдущая страница"
             >
               <ChevronLeft className="h-4 w-4" aria-hidden="true" />
@@ -266,7 +434,7 @@ function OrdersTable() {
               type="button"
               disabled={page * data.page_size >= data.total}
               onClick={() => updateParam({ page: String(page + 1) })}
-              className="flex h-8 w-8 items-center justify-center rounded-lg border border-ink/15 text-ink disabled:cursor-not-allowed disabled:opacity-40"
+              className="flex h-8 w-8 items-center justify-center rounded-lg border border-border text-ink disabled:cursor-not-allowed disabled:opacity-40"
               aria-label="Следующая страница"
             >
               <ChevronRight className="h-4 w-4" aria-hidden="true" />
@@ -274,7 +442,41 @@ function OrdersTable() {
           </div>
         </div>
       )}
+
+      {selectedIds.size > 0 && data && (
+        <BulkBar selectedIds={selectedIds} items={data.items} onClear={() => setSelectedIds(new Set())} />
+      )}
+
+      <OrderDrawer
+        orderId={openOrderId}
+        orderIds={data?.items.map((o) => o.id) ?? []}
+        onClose={closeOrder}
+        onNavigate={openOrder}
+      />
     </div>
+  );
+}
+
+function RowCheckbox({ checked, onChange }: { checked: boolean; onChange: () => void }) {
+  return (
+    <button
+      type="button"
+      role="checkbox"
+      aria-checked={checked}
+      onClick={(event) => {
+        event.stopPropagation();
+        onChange();
+      }}
+      className={`flex h-[15px] w-[15px] items-center justify-center rounded ${
+        checked ? "bg-brand" : "border-[1.5px] border-ink/25"
+      }`}
+    >
+      {checked && (
+        <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth={3.5} strokeLinecap="round" strokeLinejoin="round">
+          <path d="M20 6L9 17l-5-5" />
+        </svg>
+      )}
+    </button>
   );
 }
 

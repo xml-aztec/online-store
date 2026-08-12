@@ -15,7 +15,7 @@ export function MetricCard({ label, value, deltaPercent, caption }: MetricCardPr
   const isDown = hasDelta && deltaPercent < 0;
 
   return (
-    <div className="rounded-xl border border-ink/10 bg-bg p-4">
+    <div className="rounded-xl border border-border bg-bg p-4">
       <p className="text-sm text-ink-muted">{label}</p>
       <p className="mt-1 font-mono text-2xl font-bold text-ink">{value}</p>
       <div className="mt-1 flex items-center gap-2">

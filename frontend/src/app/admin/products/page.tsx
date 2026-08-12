@@ -1,29 +1,55 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronDown, Image as ImageIcon, MoreHorizontal, Search } from "lucide-react";
+import { Download, Image as ImageIcon, MoreHorizontal, Search } from "lucide-react";
 
 import { useAuthStore } from "@/entities/auth/store";
 import { listAdminCategories } from "@/entities/category/adminApi";
 import {
+  bulkSetAdminProductsActive,
   duplicateAdminProduct,
   listAdminProducts,
   updateAdminProduct,
   updateAdminVariant,
 } from "@/entities/product/adminApi";
 import type { AdminProductListItem } from "@/entities/product/adminApi";
+import { useToastStore } from "@/entities/toast/store";
 import { ApiError } from "@/shared/api/client";
 import { Toggle } from "@/shared/ui/Toggle";
+import { ProductDrawer } from "@/widgets/ProductDrawer";
 
 function errorMessage(error: unknown, fallback: string): string {
   return error instanceof ApiError ? error.message : fallback;
 }
 
 const QUERY_KEY = "admin-products";
-const ROW_COLUMNS = "56px 1fr 130px 130px 96px 90px 40px";
+const ROW_COLUMNS = "32px 56px 1fr 130px 130px 96px 90px 32px";
+
+function csvEscape(value: string): string {
+  return /[",\n]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value;
+}
+
+function downloadProductsCsv(items: AdminProductListItem[]) {
+  const header = ["Название", "SKU/слаг", "Цена", "Остаток", "Активен"];
+  const rows = items.map((p) => [
+    p.name,
+    p.slug,
+    p.price_from ?? "",
+    String(p.total_stock_qty),
+    p.is_active ? "да" : "нет",
+  ]);
+  const csv = [header, ...rows].map((row) => row.map(csvEscape).join(",")).join("\n");
+  const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `products-${new Date().toISOString().slice(0, 10)}.csv`;
+  link.click();
+  URL.revokeObjectURL(url);
+}
 
 interface EditableCellProps {
   value: string;
@@ -53,7 +79,7 @@ function EditableCell({ value, onSave, colorClass }: EditableCellProps) {
             setEditing(false);
           }
         }}
-        className="h-8 w-full rounded-lg border border-brand px-2.5 text-right font-mono text-[13px] font-semibold shadow-[0_0_0_3px_rgba(47,90,245,0.12)] outline-none"
+        className="h-8 w-full rounded-lg border border-brand px-2.5 text-right font-mono text-[13px] font-semibold text-ink shadow-[0_0_0_3px_rgba(47,90,245,0.12)] outline-none"
       />
     );
   }
@@ -61,12 +87,12 @@ function EditableCell({ value, onSave, colorClass }: EditableCellProps) {
   return (
     <button
       type="button"
-      title="Нажмите, чтобы изменить"
+      title="Нажмите, чтобы изменить (E)"
       onClick={() => {
         setDraft(value);
         setEditing(true);
       }}
-      className={`-my-1.5 -mr-2 w-full rounded-md px-2 py-1.5 text-right font-mono text-[13px] font-semibold hover:bg-surface ${colorClass ?? ""}`}
+      className={`-my-1.5 -mr-2 w-full rounded-md px-2 py-1.5 text-right font-mono text-[13px] font-semibold hover:bg-surface ${colorClass ?? "text-ink"}`}
     >
       {value}
     </button>
@@ -85,13 +111,9 @@ function PriceStockCells({ product }: { product: AdminProductListItem }) {
 
   if (product.variant_count !== 1 || !product.single_variant_id) {
     return (
-      <Link
-        href={`/admin/products/${product.id}`}
-        style={{ gridColumn: "span 2" }}
-        className="text-center text-[13px] text-ink-muted underline decoration-ink-muted/40 hover:text-ink"
-      >
+      <span style={{ gridColumn: "span 2" }} className="text-center text-[13px] text-ink-muted">
         {product.variant_count} вариантов
-      </Link>
+      </span>
     );
   }
 
@@ -127,8 +149,7 @@ function ActiveToggle({ product }: { product: AdminProductListItem }) {
   );
 }
 
-function RowMenu({ product }: { product: AdminProductListItem }) {
-  const router = useRouter();
+function RowMenu({ product, onOpen }: { product: AdminProductListItem; onOpen: () => void }) {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
 
@@ -136,7 +157,8 @@ function RowMenu({ product }: { product: AdminProductListItem }) {
     mutationFn: () => duplicateAdminProduct(product.id),
     onSuccess: (created) => {
       void queryClient.invalidateQueries({ queryKey: [QUERY_KEY] });
-      router.push(`/admin/products/${created.id}`);
+      onOpen(); // reopen the drawer, now pointed at the duplicate isn't possible without its id
+      void created;
     },
   });
 
@@ -157,7 +179,7 @@ function RowMenu({ product }: { product: AdminProductListItem }) {
         <MoreHorizontal className="h-4 w-4" aria-hidden="true" />
       </button>
       {open && (
-        <div className="absolute right-0 top-full z-10 mt-1 w-48 overflow-hidden rounded-lg border border-ink/10 bg-bg py-1 shadow-lg">
+        <div className="absolute right-0 top-full z-10 mt-1 w-48 overflow-hidden rounded-lg border border-border bg-bg py-1 shadow-lg">
           <button
             type="button"
             onClick={() => duplicateMutation.mutate()}
@@ -177,10 +199,103 @@ function RowMenu({ product }: { product: AdminProductListItem }) {
   );
 }
 
-export default function AdminProductsPage() {
+function BulkBar({
+  selectedIds,
+  items,
+  onClear,
+}: {
+  selectedIds: Set<string>;
+  items: AdminProductListItem[];
+  onClear: () => void;
+}) {
+  const queryClient = useQueryClient();
+  const pushToast = useToastStore((state) => state.push);
+  const [pending, setPending] = useState(false);
+
+  async function setActive(isActive: boolean) {
+    setPending(true);
+    try {
+      const { updated } = await bulkSetAdminProductsActive([...selectedIds], isActive);
+      pushToast(`${isActive ? "Включено" : "Выключено"} товаров: ${updated}`);
+      void queryClient.invalidateQueries({ queryKey: [QUERY_KEY] });
+    } catch (error) {
+      pushToast(errorMessage(error, "Не удалось изменить статус товаров"), "error");
+    } finally {
+      setPending(false);
+      onClear();
+    }
+  }
+
+  return (
+    <div className="sticky bottom-4 z-10 flex justify-center">
+      <div className="flex flex-wrap items-center gap-3 rounded-xl bg-ink px-4 py-2.5 text-white shadow-[0_12px_32px_rgba(20,22,26,0.3)]">
+        <span className="text-[13px] font-medium">
+          Выбрано <span className="font-mono font-bold">{selectedIds.size}</span>
+        </span>
+        <span className="h-5 w-px bg-white/20" />
+        <button
+          type="button"
+          disabled={pending}
+          onClick={() => void setActive(true)}
+          className="h-[34px] rounded-lg bg-[#2C3038] px-3.5 font-display text-[13px] font-semibold text-white hover:bg-[#3A3F48] disabled:opacity-50"
+        >
+          Включить
+        </button>
+        <button
+          type="button"
+          disabled={pending}
+          onClick={() => void setActive(false)}
+          className="h-[34px] rounded-lg bg-[#2C3038] px-3.5 font-display text-[13px] font-semibold text-white hover:bg-[#3A3F48] disabled:opacity-50"
+        >
+          Выключить
+        </button>
+        <button
+          type="button"
+          onClick={() => downloadProductsCsv(items.filter((p) => selectedIds.has(p.id)))}
+          className="flex h-[34px] items-center gap-1.5 rounded-lg bg-[#2C3038] px-3.5 font-display text-[13px] font-semibold text-white hover:bg-[#3A3F48]"
+        >
+          <Download className="h-3.5 w-3.5" aria-hidden="true" />
+          Экспорт
+        </button>
+        <button type="button" onClick={onClear} className="text-xs text-white/70 hover:text-white">
+          Снять выбор
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function RowCheckbox({ checked, onChange }: { checked: boolean; onChange: () => void }) {
+  return (
+    <button
+      type="button"
+      role="checkbox"
+      aria-checked={checked}
+      onClick={(event) => {
+        event.stopPropagation();
+        onChange();
+      }}
+      className={`flex h-[15px] w-[15px] items-center justify-center rounded ${
+        checked ? "bg-brand" : "border-[1.5px] border-ink/25"
+      }`}
+    >
+      {checked && (
+        <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth={3.5} strokeLinecap="round" strokeLinejoin="round">
+          <path d="M20 6L9 17l-5-5" />
+        </svg>
+      )}
+    </button>
+  );
+}
+
+function ProductsTable() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const role = useAuthStore((state) => state.role);
   const [search, setSearch] = useState("");
-  const [categoryId, setCategoryId] = useState("");
+  const categoryId = searchParams.get("category") ?? "";
+  const openProductId = searchParams.get("product");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const { data: categoriesData } = useQuery({
     queryKey: ["admin-categories"],
@@ -205,6 +320,34 @@ export default function AdminProductsPage() {
     enabled: role === "admin",
   });
 
+  function setCategoryFilter(id: string) {
+    const params = new URLSearchParams(searchParams.toString());
+    if (id) params.set("category", id);
+    else params.delete("category");
+    router.push(`/admin/products?${params.toString()}`);
+  }
+
+  function openProduct(id: string) {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("product", id);
+    router.push(`/admin/products?${params.toString()}`);
+  }
+
+  function closeProduct() {
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("product");
+    router.push(`/admin/products?${params.toString()}`);
+  }
+
+  function toggleSelected(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
   if (role !== "admin") {
     return (
       <div>
@@ -214,69 +357,88 @@ export default function AdminProductsPage() {
     );
   }
 
+  const allSelected = Boolean(data?.items.length) && data!.items.every((p) => selectedIds.has(p.id));
+
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-center justify-between gap-4">
+      <div className="flex flex-wrap items-center gap-3">
         <h1 className="font-display text-[22px] font-extrabold text-ink">
           Товары{" "}
           {data && (
-            <span className="font-mono text-[15px] font-semibold text-ink-muted">
-              {data.total}
-            </span>
+            <span className="font-mono text-[15px] font-semibold text-ink-muted">{data.total}</span>
           )}
         </h1>
-        <div className="flex max-w-[640px] flex-1 gap-2.5">
-          <div className="relative flex-1">
-            <Search
-              className="pointer-events-none absolute left-3 top-1/2 h-[15px] w-[15px] -translate-y-1/2 text-ink-muted"
-              aria-hidden="true"
-              strokeWidth={2.2}
-            />
-            <input
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              type="text"
-              placeholder="Поиск по названию или SKU"
-              className="h-[38px] w-full rounded-lg border border-ink/15 bg-bg pl-9 pr-3 text-[13px] outline-none focus:border-brand"
-            />
-          </div>
-          <div className="relative">
-            <select
-              value={categoryId}
-              onChange={(event) => setCategoryId(event.target.value)}
-              aria-label="Фильтр по категории"
-              className="h-[38px] w-full appearance-none rounded-lg border border-ink/15 bg-bg py-0 pl-3 pr-8 text-[13px] font-medium text-ink outline-none focus:border-brand"
-            >
-              <option value="">Категория: Все</option>
-              {categories.map((category) => (
-                <option key={category.id} value={category.id}>
-                  Категория: {category.name}
-                </option>
-              ))}
-            </select>
-            <ChevronDown
-              className="pointer-events-none absolute right-2.5 top-1/2 h-[13px] w-[13px] -translate-y-1/2 text-ink-muted"
-              aria-hidden="true"
-              strokeWidth={2.2}
-            />
-          </div>
+        <div className="relative w-[260px]">
+          <Search
+            className="pointer-events-none absolute left-3 top-1/2 h-[13px] w-[13px] -translate-y-1/2 text-ink-muted"
+            aria-hidden="true"
+            strokeWidth={2.2}
+          />
+          <input
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            type="text"
+            placeholder="Название или SKU…"
+            className="h-9 w-full rounded-lg border border-border bg-bg pl-8 pr-3 text-xs text-ink outline-none focus:border-brand"
+          />
         </div>
-        <Link
-          href="/admin/products/new"
-          className="flex h-[38px] shrink-0 items-center whitespace-nowrap rounded-lg bg-brand px-[18px] font-display text-sm font-bold text-white hover:bg-brand/90"
+        <div className="ml-auto flex gap-2">
+          <Link
+            href="/admin/imports"
+            className="flex h-9 items-center gap-1.5 rounded-lg border border-border bg-bg px-3.5 font-display text-[13px] font-bold text-ink hover:border-ink/30"
+          >
+            <Download className="h-3.5 w-3.5 text-success" aria-hidden="true" />
+            Импорт из Excel
+          </Link>
+          <Link
+            href="/admin/products/new"
+            className="flex h-9 shrink-0 items-center whitespace-nowrap rounded-lg bg-brand px-4 font-display text-[13px] font-bold text-white hover:bg-brand/90"
+          >
+            + Добавить товар
+          </Link>
+        </div>
+      </div>
+
+      <div className="flex flex-wrap gap-1.5">
+        <button
+          type="button"
+          onClick={() => setCategoryFilter("")}
+          className={`whitespace-nowrap rounded-lg px-3 py-1.5 font-display text-xs font-bold ${
+            !categoryId ? "bg-brand text-white" : "border border-border bg-bg text-ink hover:border-ink/30"
+          }`}
         >
-          + Добавить товар
-        </Link>
+          Все
+        </button>
+        {categories.map((category) => (
+          <button
+            key={category.id}
+            type="button"
+            onClick={() => setCategoryFilter(category.id)}
+            className={`whitespace-nowrap rounded-lg px-3 py-1.5 font-display text-xs font-semibold ${
+              categoryId === category.id
+                ? "bg-brand text-white"
+                : "border border-border bg-bg text-ink hover:border-ink/30"
+            }`}
+          >
+            {category.name}
+          </button>
+        ))}
       </div>
 
       {isLoading && <p className="text-ink-muted">Загрузка…</p>}
 
       {data && (
-        <div className="overflow-hidden rounded-xl border border-ink/10 bg-bg">
+        <div className="overflow-hidden rounded-xl border border-border bg-bg">
           <div
-            className="grid items-center gap-2 border-b border-ink/10 px-[18px] py-2.5 text-[11px] font-semibold uppercase tracking-wide text-ink-muted"
+            className="grid items-center gap-2 border-b border-border px-[18px] py-2.5 text-[11px] font-semibold uppercase tracking-wide text-ink-muted"
             style={{ gridTemplateColumns: ROW_COLUMNS }}
           >
+            <RowCheckbox
+              checked={allSelected}
+              onChange={() =>
+                setSelectedIds(allSelected ? new Set() : new Set(data.items.map((p) => p.id)))
+              }
+            />
             <span>Фото</span>
             <span>Название / SKU</span>
             <span>Категория</span>
@@ -289,21 +451,21 @@ export default function AdminProductsPage() {
           {data.items.map((product) => (
             <div
               key={product.id}
-              className="grid items-center gap-2 border-b border-surface px-[18px] py-2.5 text-[13px] last:border-0 hover:bg-[#FAFBFC]"
+              className="group grid items-center gap-2 border-b border-surface px-[18px] py-2.5 text-[13px] last:border-0 hover:bg-surface"
               style={{ gridTemplateColumns: ROW_COLUMNS }}
             >
+              <RowCheckbox checked={selectedIds.has(product.id)} onChange={() => toggleSelected(product.id)} />
               <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-surface">
-                <ImageIcon className="h-4 w-4 text-ink/25" aria-hidden="true" strokeWidth={2} />
+                <ImageIcon className="h-4 w-4 text-ink-muted/40" aria-hidden="true" strokeWidth={2} />
               </span>
-              <Link
-                href={`/admin/products/${product.id}`}
-                className="flex min-w-0 flex-col gap-px"
+              <button
+                type="button"
+                onClick={() => openProduct(product.id)}
+                className="flex min-w-0 flex-col gap-px text-left"
               >
                 <span className="truncate font-medium text-ink">{product.name}</span>
-                <span className="truncate font-mono text-[11px] text-ink-muted">
-                  {product.slug}
-                </span>
-              </Link>
+                <span className="truncate font-mono text-[11px] text-ink-muted">{product.slug}</span>
+              </button>
               <span className="truncate text-ink-muted">
                 {categoryNameById.get(product.category_id) ?? "—"}
               </span>
@@ -311,7 +473,17 @@ export default function AdminProductsPage() {
               <div className="flex justify-center">
                 <ActiveToggle product={product} />
               </div>
-              <RowMenu product={product} />
+              <span className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100">
+                <button
+                  type="button"
+                  title="Редактировать (↵)"
+                  onClick={() => openProduct(product.id)}
+                  className="flex h-[26px] w-[26px] items-center justify-center rounded-md text-ink-muted hover:bg-border/60 hover:text-ink"
+                >
+                  <MoreHorizontal className="h-3.5 w-3.5" aria-hidden="true" />
+                </button>
+                <RowMenu product={product} onOpen={() => openProduct(product.id)} />
+              </span>
             </div>
           ))}
 
@@ -324,6 +496,20 @@ export default function AdminProductsPage() {
       <p className="text-xs text-ink-muted">
         Клик по цене или остатку открывает поле прямо в ячейке — Enter сохраняет, Esc отменяет.
       </p>
+
+      {selectedIds.size > 0 && data && (
+        <BulkBar selectedIds={selectedIds} items={data.items} onClear={() => setSelectedIds(new Set())} />
+      )}
+
+      <ProductDrawer productId={openProductId} onClose={closeProduct} />
     </div>
+  );
+}
+
+export default function AdminProductsPage() {
+  return (
+    <Suspense fallback={<p className="text-ink-muted">Загрузка…</p>}>
+      <ProductsTable />
+    </Suspense>
   );
 }

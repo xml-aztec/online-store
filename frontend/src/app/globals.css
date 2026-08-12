@@ -3,9 +3,19 @@
 @theme {
   --color-bg: #ffffff;
   --color-surface: #f4f5f7;
+  --color-border: #e5e7eb;
   --color-ink: #14161a;
   --color-ink-muted: #6b7280;
   --color-brand: #2f5af5;
+  /* Text/icon-only variant of --color-brand -- buttons keep the same blue in
+     both themes, but blue *text* on the admin v2 dark surfaces (#16181D/
+     #1D2026) needs the lighter #7D9AFA to stay readable; see
+     admin/layout.tsx's dark-mode token block below. */
+  --color-brand-text: #2f5af5;
+  /* Tinted background for "selected/active" affordances (active nav item,
+     active table row, focused command-palette row) -- a soft wash, not the
+     solid button blue. */
+  --color-brand-soft: #eaeefe;
   --color-accent-sale: #ff6a4d;
   --color-success: #1aa35a;
   /* Darker text-safe variants of the two brand accents: at full brightness
@@ -28,6 +38,26 @@ html {
 body {
   background: var(--color-bg);
   color: var(--color-ink);
+}
+
+/* Admin v2 dark theme (ТЗ plan-razrabotki 4.3+ design import, "Каркас" doc).
+   Scoped to [data-theme="dark"] rather than :root so it only ever applies
+   inside the admin layout's own themed wrapper (see admin/layout.tsx) --
+   never the public storefront, which shares these same token names. Portals
+   (Drawer/CommandPalette/Toast/cheatsheet) render into #admin-portal-root,
+   a DOM descendant of that wrapper, so the override still reaches them via
+   normal custom-property inheritance despite living outside the React tree.
+   Coral/green accents are deliberately unlisted -- the source design calls
+   them out as working unchanged in both themes. */
+[data-theme="dark"] {
+  color-scheme: dark;
+  --color-bg: #16181d;
+  --color-surface: #1d2026;
+  --color-border: #23262d;
+  --color-ink: #e7e9ee;
+  --color-ink-muted: #8b919c;
+  --color-brand-text: #7d9afa;
+  --color-brand-soft: #1b2440;
 }
 
 /* Safety net so every focusable element gets a visible ring even where a

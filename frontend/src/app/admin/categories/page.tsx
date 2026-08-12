@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { GripVertical, Pencil, Plus, X } from "lucide-react";
+import { useState } from "react";
 
 import { useAuthStore } from "@/entities/auth/store";
 import {
@@ -11,8 +12,10 @@ import {
   updateAdminCategory,
   type AdminCategory,
 } from "@/entities/category/adminApi";
+import { useToastStore } from "@/entities/toast/store";
 import { ApiError } from "@/shared/api/client";
 import { slugify } from "@/shared/lib/slugify";
+import { ConfirmDialog } from "@/shared/ui/ConfirmDialog";
 import { Toggle } from "@/shared/ui/Toggle";
 
 const QUERY_KEY = ["admin-categories"];
@@ -63,76 +66,151 @@ function CategoryRow({
   isDragging: boolean;
 }) {
   const queryClient = useQueryClient();
-  const [error, setError] = useState<string | null>(null);
+  const pushToast = useToastStore((state) => state.push);
+  const [editing, setEditing] = useState(false);
+  const [draftName, setDraftName] = useState(category.name);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const updateMutation = useMutation({
     mutationFn: (payload: Parameters<typeof updateAdminCategory>[1]) =>
       updateAdminCategory(category.id, payload),
     onSuccess: () => {
-      setError(null);
       void queryClient.invalidateQueries({ queryKey: QUERY_KEY });
     },
     onError: (err: unknown) =>
-      setError(err instanceof ApiError ? err.message : "Не удалось сохранить"),
+      pushToast(err instanceof ApiError ? err.message : "Не удалось сохранить", "error"),
   });
 
   const deleteMutation = useMutation({
     mutationFn: () => deleteAdminCategory(category.id),
     onSuccess: () => {
-      setError(null);
+      setConfirmDelete(false);
+      pushToast(`Категория «${category.name}» удалена`);
       void queryClient.invalidateQueries({ queryKey: QUERY_KEY });
     },
-    onError: (err: unknown) =>
-      setError(err instanceof ApiError ? err.message : "Не удалось удалить"),
+    onError: (err: unknown) => {
+      setConfirmDelete(false);
+      pushToast(err instanceof ApiError ? err.message : "Не удалось удалить", "error");
+    },
   });
 
-  const productCount = categories.filter((c) => c.parent_id === category.id).length;
+  const childCount = categories.filter((c) => c.parent_id === category.id).length;
+
+  function startEditing() {
+    setDraftName(category.name);
+    setEditing(true);
+  }
+
+  function commitRename() {
+    const trimmed = draftName.trim();
+    setEditing(false);
+    if (!trimmed || trimmed === category.name) return;
+    updateMutation.mutate({ name: trimmed });
+  }
 
   return (
-    <tr
-      draggable
-      onDragStart={onDragStart}
-      onDragOver={onDragOver}
-      onDrop={onDrop}
-      className={`cursor-move border-b border-ink/10 align-top last:border-0 ${
-        isDragging ? "bg-brand/5" : ""
-      } ${category.is_active ? "" : "opacity-55"}`}
-    >
-      <td className="px-3 py-2" style={{ paddingLeft: `${12 + category.depth * 24}px` }}>
-        <span className="mr-2 text-ink-muted" aria-hidden="true">
-          ⠿
-        </span>
-        {category.name}
-      </td>
-      <td className="px-3 py-2 font-mono text-xs text-ink-muted">{category.slug}</td>
-      <td className="px-3 py-2 font-mono text-xs text-ink-muted">
-        {productCount > 0 ? `${productCount} подкат.` : "—"}
-      </td>
-      <td className="px-3 py-2">
-        <Toggle
-          checked={category.is_active}
-          disabled={updateMutation.isPending}
-          onChange={(checked) => updateMutation.mutate({ is_active: checked })}
-          label={`Категория ${category.is_active ? "активна" : "скрыта"}: ${category.name}`}
-        />
-      </td>
-      <td className="px-3 py-2 text-right">
-        <button
-          type="button"
-          onClick={() => deleteMutation.mutate()}
-          disabled={deleteMutation.isPending}
-          className="rounded-lg border border-accent-sale/40 px-2 py-1 text-xs text-accent-sale-700 hover:border-accent-sale/60 disabled:opacity-50"
+    <>
+      <tr
+        draggable={!editing}
+        onDragStart={onDragStart}
+        onDragOver={onDragOver}
+        onDrop={onDrop}
+        className={`group border-b border-border/60 align-top text-sm last:border-0 ${
+          isDragging ? "bg-brand-soft/40" : "hover:bg-surface"
+        } ${category.is_active ? "" : "opacity-55"}`}
+      >
+        <td
+          className={`px-3 py-2.5 ${editing ? "cursor-default" : "cursor-move"}`}
+          style={{ paddingLeft: `${12 + category.depth * 24}px` }}
         >
-          Удалить
-        </button>
-        {error && <p className="mt-1 text-xs text-accent-sale-700">{error}</p>}
-      </td>
-    </tr>
+          <div className="flex items-center gap-2">
+            <GripVertical
+              className="h-3.5 w-3.5 shrink-0 text-ink-muted/60"
+              aria-hidden="true"
+            />
+            {editing ? (
+              <input
+                autoFocus
+                value={draftName}
+                onChange={(event) => setDraftName(event.target.value)}
+                onBlur={commitRename}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") commitRename();
+                  if (event.key === "Escape") {
+                    setDraftName(category.name);
+                    setEditing(false);
+                  }
+                }}
+                className="w-full min-w-0 rounded-md border border-brand bg-bg px-1.5 py-0.5 text-sm text-ink outline-none"
+              />
+            ) : (
+              <button
+                type="button"
+                onDoubleClick={startEditing}
+                title="Двойной клик — переименовать"
+                className="truncate text-left text-ink"
+              >
+                {category.name}
+              </button>
+            )}
+            {!editing && (
+              <button
+                type="button"
+                onClick={startEditing}
+                aria-label={`Переименовать «${category.name}»`}
+                className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-ink-muted opacity-0 hover:bg-border/60 hover:text-ink group-hover:opacity-100"
+              >
+                <Pencil className="h-3 w-3" aria-hidden="true" />
+              </button>
+            )}
+          </div>
+        </td>
+        <td className="px-3 py-2.5 font-mono text-xs text-ink-muted">{category.slug}</td>
+        <td className="px-3 py-2.5 font-mono text-xs text-ink-muted">
+          {childCount > 0 ? `${childCount} подкат.` : "—"}
+        </td>
+        <td className="px-3 py-2.5">
+          <Toggle
+            checked={category.is_active}
+            disabled={updateMutation.isPending}
+            onChange={(checked) => updateMutation.mutate({ is_active: checked })}
+            label={`Категория ${category.is_active ? "активна" : "скрыта"}: ${category.name}`}
+          />
+        </td>
+        <td className="px-3 py-2.5 text-right">
+          <button
+            type="button"
+            onClick={() => setConfirmDelete(true)}
+            disabled={deleteMutation.isPending}
+            aria-label={`Удалить «${category.name}»`}
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-ink-muted opacity-0 hover:bg-accent-sale/10 hover:text-accent-sale-700 disabled:opacity-50 group-hover:opacity-100"
+          >
+            <X className="h-3.5 w-3.5" aria-hidden="true" />
+          </button>
+        </td>
+      </tr>
+      <ConfirmDialog
+        open={confirmDelete}
+        title="Удалить категорию?"
+        description={
+          <>
+            Категория «{category.name}» будет удалена без возможности восстановления. Если в ней
+            остались товары или подкатегории, удаление будет отклонено сервером.
+          </>
+        }
+        confirmLabel={deleteMutation.isPending ? "Удаление…" : "Удалить"}
+        pending={deleteMutation.isPending}
+        onConfirm={() => deleteMutation.mutate()}
+        onClose={() => setConfirmDelete(false)}
+      />
+    </>
   );
 }
 
 function CreateCategoryForm({ categories }: { categories: AdminCategory[] }) {
   const queryClient = useQueryClient();
+  const pushToast = useToastStore((state) => state.push);
+  const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
   const [slugTouched, setSlugTouched] = useState(false);
@@ -151,8 +229,12 @@ function CreateCategoryForm({ categories }: { categories: AdminCategory[] }) {
       setSlug("");
       setSlugTouched(false);
       setParentId("");
+      setOpen(false);
+      pushToast("Категория создана");
       void queryClient.invalidateQueries({ queryKey: QUERY_KEY });
     },
+    onError: (err: unknown) =>
+      pushToast(err instanceof ApiError ? err.message : "Не удалось создать", "error"),
   });
 
   function handleSubmit(event: React.FormEvent) {
@@ -160,21 +242,35 @@ function CreateCategoryForm({ categories }: { categories: AdminCategory[] }) {
     mutation.mutate();
   }
 
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="mb-4 flex items-center gap-1.5 rounded-lg border border-border bg-bg px-3.5 py-2 font-display text-[13px] font-semibold text-ink hover:border-brand/40"
+      >
+        <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+        Добавить категорию
+      </button>
+    );
+  }
+
   return (
     <form
       onSubmit={handleSubmit}
-      className="mb-6 flex flex-wrap items-end gap-3 rounded-lg border border-ink/10 p-4"
+      className="mb-4 flex flex-wrap items-end gap-3 rounded-xl border border-border bg-surface p-4"
     >
       <div>
         <label className="mb-1 block text-xs text-ink-muted">Название</label>
         <input
+          autoFocus
           value={name}
           onChange={(event) => {
             setName(event.target.value);
             if (!slugTouched) setSlug(slugify(event.target.value));
           }}
           required
-          className="w-48 rounded-lg border border-ink/15 px-2 py-1 text-sm bg-bg"
+          className="w-48 rounded-lg border border-border bg-bg px-2 py-1.5 text-sm text-ink outline-none focus:border-brand"
         />
       </div>
       <div>
@@ -186,7 +282,7 @@ function CreateCategoryForm({ categories }: { categories: AdminCategory[] }) {
             setSlugTouched(true);
           }}
           required
-          className="w-40 rounded-lg border border-ink/15 px-2 py-1 text-sm font-mono bg-bg"
+          className="w-40 rounded-lg border border-border bg-bg px-2 py-1.5 font-mono text-sm text-ink outline-none focus:border-brand"
         />
       </div>
       <div>
@@ -194,7 +290,7 @@ function CreateCategoryForm({ categories }: { categories: AdminCategory[] }) {
         <select
           value={parentId}
           onChange={(event) => setParentId(event.target.value)}
-          className="rounded-lg border border-ink/15 px-2 py-1 text-sm bg-bg"
+          className="rounded-lg border border-border bg-bg px-2 py-1.5 text-sm text-ink outline-none focus:border-brand"
         >
           <option value="">— нет —</option>
           {categories.map((category) => (
@@ -207,15 +303,17 @@ function CreateCategoryForm({ categories }: { categories: AdminCategory[] }) {
       <button
         type="submit"
         disabled={mutation.isPending}
-        className="rounded-lg bg-brand px-4 py-1.5 text-sm font-medium text-white disabled:opacity-50"
+        className="rounded-lg bg-brand px-4 py-2 font-display text-[13px] font-bold text-white hover:bg-brand/90 disabled:opacity-50"
       >
-        {mutation.isPending ? "Создание…" : "Создать категорию"}
+        {mutation.isPending ? "Создание…" : "Создать"}
       </button>
-      {mutation.isError && (
-        <p className="w-full text-sm text-accent-sale-700">
-          {mutation.error instanceof ApiError ? mutation.error.message : "Не удалось создать"}
-        </p>
-      )}
+      <button
+        type="button"
+        onClick={() => setOpen(false)}
+        className="rounded-lg px-3 py-2 font-display text-[13px] font-semibold text-ink-muted hover:text-ink"
+      >
+        Отмена
+      </button>
     </form>
   );
 }
@@ -223,6 +321,7 @@ function CreateCategoryForm({ categories }: { categories: AdminCategory[] }) {
 export default function AdminCategoriesPage() {
   const role = useAuthStore((state) => state.role);
   const queryClient = useQueryClient();
+  const pushToast = useToastStore((state) => state.push);
   const [dragId, setDragId] = useState<string | null>(null);
   const { data, isLoading } = useQuery({
     queryKey: QUERY_KEY,
@@ -240,12 +339,14 @@ export default function AdminCategoriesPage() {
       }
     },
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: QUERY_KEY }),
+    onError: (err: unknown) =>
+      pushToast(err instanceof ApiError ? err.message : "Не удалось сохранить порядок", "error"),
   });
 
   if (role !== "admin") {
     return (
       <div>
-        <h1 className="mb-6 text-xl font-semibold text-ink">Категории</h1>
+        <h1 className="mb-6 font-display text-[22px] font-extrabold text-ink">Категории</h1>
         <p className="text-ink-muted">
           Управление категориями доступно только роли «admin» (ТЗ 6.4).
         </p>
@@ -282,19 +383,24 @@ export default function AdminCategoriesPage() {
   }
 
   return (
-    <div>
-      <h1 className="mb-6 text-xl font-semibold text-ink">Категории</h1>
+    <div className="flex flex-col gap-4">
+      <div className="flex items-center justify-between">
+        <h1 className="font-display text-[22px] font-extrabold text-ink">
+          Категории <span className="font-mono text-base font-normal text-ink-muted">{categories.length}</span>
+        </h1>
+      </div>
       <CreateCategoryForm categories={categories} />
-      <p className="mb-3 text-xs text-ink-muted">
-        Перетаскивание за ⠿ меняет порядок среди категорий одного уровня; выключенная категория
-        скрывается из каталога, товары остаются.
+      <p className="-mt-2 text-xs text-ink-muted">
+        Перетаскивание за <GripVertical className="inline h-3 w-3 -translate-y-px" aria-hidden="true" /> меняет
+        порядок среди категорий одного уровня; двойной клик по названию — переименовать; выключенная
+        категория скрывается из каталога, товары остаются.
       </p>
       {isLoading && <p className="text-ink-muted">Загрузка…</p>}
       {data && (
-        <div className="overflow-x-auto rounded-lg border border-ink/10">
+        <div className="overflow-hidden rounded-xl border border-border bg-bg">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-ink/10 bg-surface text-left text-ink-muted">
+              <tr className="border-b border-border bg-surface text-left text-[11px] font-semibold uppercase tracking-wide text-ink-muted">
                 <th className="px-3 py-2">Название</th>
                 <th className="px-3 py-2">Слаг</th>
                 <th className="px-3 py-2">Подкатегории</th>
