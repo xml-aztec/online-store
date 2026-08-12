@@ -103,6 +103,9 @@ async def create_order(
     # locking on the UPDATE means only one concurrent transaction's WHERE clause
     # still matches by the time it runs.
     unavailable: list[dict[str, Any]] = []
+    # ТЗ 5.6: fed to a post-commit low-stock check below -- RETURNING avoids a
+    # second round trip per line just to read back what we ourselves just set.
+    new_stock_by_variant: dict[uuid.UUID, int] = {}
     for variant_id, qty in items_qty.items():
         variant = variants.get(variant_id)
         if variant is None:
@@ -119,15 +122,19 @@ async def create_order(
                     ProductVariant.stock_qty >= qty,
                 )
                 .values(stock_qty=ProductVariant.stock_qty - qty)
+                .returning(ProductVariant.stock_qty)
             ),
         )
-        if result.rowcount == 0:
+        row = result.first()
+        if row is None:
             current_stock = await session.scalar(
                 select(ProductVariant.stock_qty).where(ProductVariant.id == variant_id)
             )
             unavailable.append(
                 {"variant_id": str(variant_id), "available_qty": current_stock or 0}
             )
+        else:
+            new_stock_by_variant[variant_id] = row[0]
 
     if unavailable:
         raise DomainError(
@@ -223,6 +230,16 @@ async def create_order(
     await session.commit()
     await cart_service.clear_cart(cart_key)
 
+    # ТЗ 5.6: push a "new order" notification to managers/admins, plus a
+    # low-stock alert for any line that just crossed the threshold. Enqueued
+    # (not called directly) so a slow/unreachable Telegram API can never add
+    # latency to checkout itself -- same reasoning as send_order_status_email.
+    pool = await get_arq_pool()
+    await pool.enqueue_job("send_telegram_new_order", order_id=str(order.id))
+    for variant_id, stock_qty in new_stock_by_variant.items():
+        if stock_qty <= settings.telegram_low_stock_threshold:
+            await pool.enqueue_job("send_telegram_low_stock", variant_id=str(variant_id))
+
     return order, payment_url
 
 
@@ -279,11 +296,16 @@ async def transition_status(
         changed_by=str(changed_by) if changed_by is not None else None,
     )
 
+    pool = await get_arq_pool()
     if to_status in _NOTIFY_STATUSES:
-        pool = await get_arq_pool()
         await pool.enqueue_job(
             "send_order_status_email", order_id=str(order.id), status=to_status
         )
+    # ТЗ 5.6: every transition (admin panel, Telegram button, payment webhook,
+    # expiry cron alike) edits the same Telegram message for every recipient --
+    # unconditional, unlike the customer email above, which only fires for a
+    # subset of statuses.
+    await pool.enqueue_job("send_telegram_status_change", order_id=str(order.id))
 
     return order
 
@@ -603,6 +625,52 @@ async def get_stats_summary(session: AsyncSession) -> StatsSummary:
         prev_30_days=await _period_stats(
             session, since=now - timedelta(days=60), until=now - timedelta(days=30)
         ),
+        top_products=[
+            TopProductStats(
+                product_name=row.product_name,
+                quantity_sold=row.quantity_sold,
+                revenue=Decimal(row.revenue),
+            )
+            for row in top_rows
+        ],
+    )
+
+
+@dataclass
+class DailyDigestStats:
+    orders_count: int
+    revenue: Decimal
+    top_products: list[TopProductStats]
+
+
+async def get_daily_digest_stats(
+    session: AsyncSession, *, since: datetime, until: datetime
+) -> DailyDigestStats:
+    """Same query shape as get_stats_summary above (ТЗ 5.6: "тот же запрос,
+    что и /admin/stats/summary"), just a single [since, until) window and
+    top-3 instead of top-5."""
+    period = await _period_stats(session, since=since, until=until)
+    top_rows = (
+        await session.execute(
+            select(
+                OrderItem.product_name,
+                func.sum(OrderItem.quantity).label("quantity_sold"),
+                func.sum(OrderItem.line_total).label("revenue"),
+            )
+            .join(Order, Order.id == OrderItem.order_id)
+            .where(
+                Order.status != "cancelled",
+                Order.created_at >= since,
+                Order.created_at < until,
+            )
+            .group_by(OrderItem.product_name)
+            .order_by(func.sum(OrderItem.quantity).desc())
+            .limit(3)
+        )
+    ).all()
+    return DailyDigestStats(
+        orders_count=period.orders_count,
+        revenue=period.revenue,
         top_products=[
             TopProductStats(
                 product_name=row.product_name,

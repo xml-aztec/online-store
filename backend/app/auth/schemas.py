@@ -48,6 +48,7 @@ class UserPublic(BaseModel):
     role: str
     is_active: bool
     email_verified: bool
+    telegram_linked: bool
 
     @classmethod
     def from_model(cls, user: "User") -> "UserPublic":
@@ -59,4 +60,5 @@ class UserPublic(BaseModel):
             role=user.role,
             is_active=user.is_active,
             email_verified=user.email_verified_at is not None,
+            telegram_linked=user.telegram_chat_id is not None,
         )

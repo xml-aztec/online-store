@@ -23,6 +23,9 @@ class User(TimestampedBase):
     email_verified_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+    # ТЗ 5.6: bound via a one-time /admin/telegram/link token, not settable
+    # directly by the user -- see app/telegram/service.py::handle_start.
+    telegram_chat_id: Mapped[str | None] = mapped_column(unique=True, nullable=True)
 
     refresh_tokens: Mapped[list["RefreshToken"]] = relationship(
         back_populates="user", cascade="all, delete-orphan"

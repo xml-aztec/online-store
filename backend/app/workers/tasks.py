@@ -6,9 +6,10 @@ from typing import TYPE_CHECKING, Any
 
 from PIL import Image
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 
 from app.auth.models import User
-from app.catalog.models import Banner, ProductImage
+from app.catalog.models import Banner, ProductImage, ProductVariant
 from app.config import settings
 from app.core.email import send_email
 from app.core.storage import get_s3_client
@@ -17,6 +18,7 @@ from app.imports import service as imports_service
 from app.orders import service as orders_service
 from app.orders.models import Order
 from app.payments.models import Payment
+from app.telegram import service as telegram_service
 
 if TYPE_CHECKING:
     from mypy_boto3_s3 import S3Client
@@ -194,3 +196,44 @@ async def cancel_expired_orders(ctx: dict[str, Any]) -> None:
 async def apply_import_job(ctx: dict[str, Any], *, import_job_id: str) -> None:
     async with async_session_factory() as session:
         await imports_service.apply_import(session, import_job_id=uuid.UUID(import_job_id))
+
+
+async def send_telegram_new_order(ctx: dict[str, Any], *, order_id: str) -> None:
+    async with async_session_factory() as session:
+        order = await session.scalar(
+            select(Order)
+            .options(selectinload(Order.items))
+            .where(Order.id == uuid.UUID(order_id))
+        )
+        if order is None:
+            return
+        await telegram_service.notify_new_order(session, order)
+
+
+async def send_telegram_status_change(ctx: dict[str, Any], *, order_id: str) -> None:
+    async with async_session_factory() as session:
+        order = await session.scalar(
+            select(Order)
+            .options(selectinload(Order.items))
+            .where(Order.id == uuid.UUID(order_id))
+        )
+        if order is None:
+            return
+        await telegram_service.notify_status_change(session, order)
+
+
+async def send_telegram_low_stock(ctx: dict[str, Any], *, variant_id: str) -> None:
+    async with async_session_factory() as session:
+        variant = await session.scalar(
+            select(ProductVariant)
+            .options(selectinload(ProductVariant.product))
+            .where(ProductVariant.id == uuid.UUID(variant_id))
+        )
+        if variant is None:
+            return
+        await telegram_service.notify_low_stock(session, variant)
+
+
+async def send_telegram_daily_digest(ctx: dict[str, Any]) -> None:
+    async with async_session_factory() as session:
+        await telegram_service.send_daily_digest(session)

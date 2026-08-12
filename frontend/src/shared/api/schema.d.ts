@@ -1078,6 +1078,40 @@ export interface paths {
         patch: operations["update_my_review_v1_products__slug__reviews_me_patch"];
         trace?: never;
     };
+    "/v1/webhooks/telegram": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Telegram Webhook */
+        post: operations["telegram_webhook_v1_webhooks_telegram_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/telegram/link": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Telegram Link */
+        post: operations["create_telegram_link_v1_admin_telegram_link_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/health": {
         parameters: {
             query?: never;
@@ -1719,6 +1753,11 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+        };
+        /** AdminTelegramLinkResponse */
+        AdminTelegramLinkResponse: {
+            /** Link Url */
+            link_url: string;
         };
         /** AdminUserListResponse */
         AdminUserListResponse: {
@@ -2396,6 +2435,8 @@ export interface components {
             is_active: boolean;
             /** Email Verified */
             email_verified: boolean;
+            /** Telegram Linked */
+            telegram_linked: boolean;
         };
         /** ValidationError */
         ValidationError: {
@@ -4937,6 +4978,46 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    telegram_webhook_v1_webhooks_telegram_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    create_telegram_link_v1_admin_telegram_link_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminTelegramLinkResponse"];
                 };
             };
         };

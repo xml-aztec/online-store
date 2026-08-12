@@ -19,6 +19,7 @@ from app.middleware import RequestIDMiddleware
 from app.orders.router import router as orders_router
 from app.payments.router import router as payments_router
 from app.reviews.router import router as reviews_router
+from app.telegram.router import router as telegram_router
 
 configure_logging()
 
@@ -51,6 +52,7 @@ app.include_router(admin_users_router, prefix="/v1")
 app.include_router(admin_reviews_router, prefix="/v1")
 app.include_router(favorites_router, prefix="/v1")
 app.include_router(reviews_router, prefix="/v1")
+app.include_router(telegram_router, prefix="/v1")
 
 
 @app.get("/health")

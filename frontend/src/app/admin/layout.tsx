@@ -12,6 +12,7 @@ import {
   Star,
   Tag,
   Upload,
+  UserCircle,
   Users,
 } from "lucide-react";
 import Link from "next/link";
@@ -62,6 +63,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     { href: "/admin/imports", label: "Импорт", icon: Upload, adminOnly: true },
     { href: "/admin/promo-codes", label: "Промокоды", icon: Tag, adminOnly: true },
     { href: "/admin/users", label: "Пользователи", icon: Users, adminOnly: true },
+    { href: "/admin/profile", label: "Профиль", icon: UserCircle },
   ];
 
   useEffect(() => {
