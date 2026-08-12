@@ -112,6 +112,41 @@ async def test_category_crud(client: AsyncClient, db_session: AsyncSession) -> N
 
 
 @pytest.mark.asyncio
+async def test_category_list_product_count_rolls_up_through_ancestors(
+    client: AsyncClient, db_session: AsyncSession
+) -> None:
+    headers = await _admin_headers(db_session)
+    root = await _make_category(db_session)
+    child = await _make_category(db_session, parent_id=root.id)
+    grandchild = await _make_category(db_session, parent_id=child.id)
+    # Inactive category/product: admin counts must still include them (unlike
+    # the public storefront tree, which only counts what's actually live).
+    inactive_sibling = await _make_category(db_session, parent_id=root.id, is_active=False)
+
+    await _make_product(db_session, root)
+    await _make_product(db_session, child)
+    await _make_product(db_session, grandchild)
+    await _make_product(db_session, grandchild, is_active=False)
+    await _make_product(db_session, inactive_sibling)
+    deleted = await _make_product(db_session, root)
+    deleted.deleted_at = deleted.created_at
+    await db_session.commit()
+
+    response = await client.get("/v1/admin/categories?page_size=100", headers=headers)
+    assert response.status_code == 200
+    by_id = {item["id"]: item["product_count"] for item in response.json()["items"]}
+
+    # grandchild: 2 own (1 active + 1 inactive -- both count for admin).
+    # child: 1 own + grandchild's 2 = 3. root: 1 own + child's 3 +
+    # inactive_sibling's 1 = 5 -- the soft-deleted product on root itself
+    # must NOT be counted.
+    assert by_id[str(root.id)] == 5
+    assert by_id[str(child.id)] == 3
+    assert by_id[str(grandchild.id)] == 2
+    assert by_id[str(inactive_sibling.id)] == 1
+
+
+@pytest.mark.asyncio
 async def test_cannot_deactivate_category_with_active_products(
     client: AsyncClient, db_session: AsyncSession
 ) -> None:

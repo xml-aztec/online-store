@@ -28,6 +28,7 @@ class AdminCategoryPublic(BaseModel):
     parent_id: uuid.UUID | None
     sort_order: int
     is_active: bool
+    product_count: int = 0
 
 
 class AdminCategoryListResponse(BaseModel):

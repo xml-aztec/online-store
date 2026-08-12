@@ -1301,6 +1301,11 @@ export interface components {
             sort_order: number;
             /** Is Active */
             is_active: boolean;
+            /**
+             * Product Count
+             * @default 0
+             */
+            product_count: number;
         };
         /** AdminCategoryUpdate */
         AdminCategoryUpdate: {

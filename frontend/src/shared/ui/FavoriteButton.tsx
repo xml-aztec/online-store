@@ -9,9 +9,10 @@ import { isFavorited, useFavoriteIdsQuery, useToggleFavoriteMutation } from "@/e
 interface FavoriteButtonProps {
   productId: string;
   className?: string;
+  size?: "sm" | "lg";
 }
 
-export function FavoriteButton({ productId, className = "" }: FavoriteButtonProps) {
+export function FavoriteButton({ productId, className = "", size = "sm" }: FavoriteButtonProps) {
   const router = useRouter();
   const status = useAuthStore((state) => state.status);
   const { data: favoriteIds } = useFavoriteIdsQuery();
@@ -36,10 +37,12 @@ export function FavoriteButton({ productId, className = "" }: FavoriteButtonProp
       onClick={handleClick}
       aria-pressed={active}
       aria-label={active ? "Убрать из избранного" : "Добавить в избранное"}
-      className={`flex h-9 w-9 items-center justify-center rounded-lg bg-bg/90 shadow-sm backdrop-blur transition hover:bg-bg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand ${className}`}
+      className={`flex items-center justify-center rounded-lg bg-bg/90 shadow-sm backdrop-blur transition hover:bg-bg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand ${
+        size === "lg" ? "h-[52px] w-[52px]" : "h-9 w-9"
+      } ${className}`}
     >
       <Heart
-        className={`h-[18px] w-[18px] ${active ? "fill-accent-sale text-accent-sale" : "text-ink"}`}
+        className={`${size === "lg" ? "h-[22px] w-[22px]" : "h-[18px] w-[18px]"} ${active ? "fill-accent-sale text-accent-sale" : "text-ink"}`}
         aria-hidden="true"
       />
     </button>

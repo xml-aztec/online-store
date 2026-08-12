@@ -14,9 +14,14 @@ interface ProductGalleryProps {
    * aspect-square card. There's no room for a thumbnail rail alongside that,
    * so navigation is arrows + keyboard only in this mode. */
   fill?: boolean;
+  /** "-N%" pill over the main image -- whether the product has any variant
+   * currently on sale. Not tied to which variant is selected (the gallery
+   * has no knowledge of variant selection state), so it doesn't change as
+   * the shopper switches options -- same as the design's static badge. */
+  discountBadge?: { percent: number } | null;
 }
 
-export function ProductGallery({ images, alt, fill = false }: ProductGalleryProps) {
+export function ProductGallery({ images, alt, fill = false, discountBadge }: ProductGalleryProps) {
   const [activeIndex, setActiveIndex] = useState(0);
   const active = images[activeIndex];
   const hasMultiple = images.length > 1;
@@ -72,6 +77,12 @@ export function ProductGallery({ images, alt, fill = false }: ProductGalleryProp
         className="object-cover"
       />
 
+      {discountBadge && (
+        <span className="pointer-events-none absolute left-3 top-3 z-10 rounded-lg bg-accent-sale px-2.5 py-1 font-mono text-[13px] font-bold text-white">
+          -{discountBadge.percent}%
+        </span>
+      )}
+
       {hasMultiple && (
         <>
           <button
@@ -91,8 +102,21 @@ export function ProductGallery({ images, alt, fill = false }: ProductGalleryProp
             <ChevronRight className="h-5 w-5" aria-hidden="true" />
           </button>
 
-          <div className="pointer-events-none absolute bottom-3 right-3 z-10 rounded-full bg-ink/70 px-2 py-0.5 font-mono text-xs text-white">
+          <div className="pointer-events-none absolute bottom-3 right-3 z-10 hidden rounded-full bg-ink/70 px-2 py-0.5 font-mono text-xs text-white lg:block">
             {activeIndex + 1}/{images.length}
+          </div>
+
+          {/* Dot pagination replaces the thumbnail rail on mobile -- there's
+              no room for a 96px thumbnail column below sm, and swipe/tap
+              navigation reads better as dots than as small crops. */}
+          <div className="pointer-events-none absolute bottom-3 left-1/2 z-10 flex -translate-x-1/2 gap-1.5 lg:hidden">
+            {images.map((image, index) => (
+              <span
+                key={image.url}
+                aria-hidden="true"
+                className={`h-1.5 w-1.5 rounded-full ${index === activeIndex ? "bg-ink" : "bg-ink/25"}`}
+              />
+            ))}
           </div>
         </>
       )}
@@ -104,7 +128,7 @@ export function ProductGallery({ images, alt, fill = false }: ProductGalleryProp
   return (
     <div className="flex flex-col gap-3 lg:flex-row lg:gap-4">
       {hasMultiple && (
-        <div className="flex gap-2 overflow-x-auto lg:order-first lg:w-20 lg:shrink-0 lg:flex-col lg:overflow-x-visible lg:overflow-y-auto">
+        <div className="hidden gap-2 overflow-x-auto lg:order-first lg:flex lg:w-24 lg:shrink-0 lg:flex-col lg:overflow-x-visible lg:overflow-y-auto">
           {images.map((image, index) => (
             <button
               key={image.url}
@@ -112,7 +136,7 @@ export function ProductGallery({ images, alt, fill = false }: ProductGalleryProp
               onClick={() => goTo(index)}
               aria-label={`Фото ${index + 1}`}
               aria-current={index === activeIndex}
-              className={`relative h-16 w-16 shrink-0 overflow-hidden rounded-lg ring-1 ring-inset transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand ${
+              className={`relative h-24 w-24 shrink-0 overflow-hidden rounded-lg ring-1 ring-inset transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand ${
                 index === activeIndex ? "ring-2 ring-brand" : "ring-ink/15 hover:ring-ink/30"
               }`}
             >
@@ -121,7 +145,7 @@ export function ProductGallery({ images, alt, fill = false }: ProductGalleryProp
                 alt={image.alt ?? alt}
                 fill
                 unoptimized
-                sizes="64px"
+                sizes="96px"
                 className="object-cover"
               />
             </button>

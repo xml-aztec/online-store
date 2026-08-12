@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { GripVertical, Pencil, Plus, X } from "lucide-react";
+import { Plus, X } from "lucide-react";
 import { useState } from "react";
 
 import { useAuthStore } from "@/entities/auth/store";
@@ -16,6 +16,7 @@ import { useToastStore } from "@/entities/toast/store";
 import { ApiError } from "@/shared/api/client";
 import { slugify } from "@/shared/lib/slugify";
 import { ConfirmDialog } from "@/shared/ui/ConfirmDialog";
+import { Drawer } from "@/shared/ui/Drawer";
 import { Toggle } from "@/shared/ui/Toggle";
 
 const QUERY_KEY = ["admin-categories"];
@@ -52,18 +53,18 @@ function flattenTree(categories: AdminCategory[]): FlatCategory[] {
 
 function CategoryRow({
   category,
-  categories,
   onDragStart,
   onDragOver,
   onDrop,
   isDragging,
+  onAddSubcategory,
 }: {
   category: FlatCategory;
-  categories: AdminCategory[];
   onDragStart: () => void;
   onDragOver: (event: React.DragEvent) => void;
   onDrop: () => void;
   isDragging: boolean;
+  onAddSubcategory: (parentId: string) => void;
 }) {
   const queryClient = useQueryClient();
   const pushToast = useToastStore((state) => state.push);
@@ -94,8 +95,6 @@ function CategoryRow({
     },
   });
 
-  const childCount = categories.filter((c) => c.parent_id === category.id).length;
-
   function startEditing() {
     setDraftName(category.name);
     setEditing(true);
@@ -110,85 +109,77 @@ function CategoryRow({
 
   return (
     <>
-      <tr
+      <div
         draggable={!editing}
         onDragStart={onDragStart}
         onDragOver={onDragOver}
         onDrop={onDrop}
-        className={`group border-b border-border/60 align-top text-sm last:border-0 ${
-          isDragging ? "bg-brand-soft/40" : "hover:bg-surface"
-        } ${category.is_active ? "" : "opacity-55"}`}
+        className={`group flex items-center gap-2.5 border-b border-surface px-4 py-2 last:border-0 ${
+          isDragging ? "bg-brand-soft" : "hover:bg-surface/60"
+        }`}
+        style={{ paddingLeft: `${16 + category.depth * 28}px`, opacity: category.is_active ? 1 : 0.55 }}
       >
-        <td
-          className={`px-3 py-2.5 ${editing ? "cursor-default" : "cursor-move"}`}
-          style={{ paddingLeft: `${12 + category.depth * 24}px` }}
+        <span
+          aria-hidden="true"
+          className="cursor-grab text-[13px] tracking-[-1px] text-ink-muted/50"
         >
-          <div className="flex items-center gap-2">
-            <GripVertical
-              className="h-3.5 w-3.5 shrink-0 text-ink-muted/60"
-              aria-hidden="true"
-            />
-            {editing ? (
-              <input
-                autoFocus
-                value={draftName}
-                onChange={(event) => setDraftName(event.target.value)}
-                onBlur={commitRename}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter") commitRename();
-                  if (event.key === "Escape") {
-                    setDraftName(category.name);
-                    setEditing(false);
-                  }
-                }}
-                className="w-full min-w-0 rounded-md border border-brand bg-bg px-1.5 py-0.5 text-sm text-ink outline-none"
-              />
-            ) : (
-              <button
-                type="button"
-                onDoubleClick={startEditing}
-                title="Двойной клик — переименовать"
-                className="truncate text-left text-ink"
-              >
-                {category.name}
-              </button>
-            )}
-            {!editing && (
-              <button
-                type="button"
-                onClick={startEditing}
-                aria-label={`Переименовать «${category.name}»`}
-                className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-ink-muted opacity-0 hover:bg-border/60 hover:text-ink group-hover:opacity-100"
-              >
-                <Pencil className="h-3 w-3" aria-hidden="true" />
-              </button>
-            )}
-          </div>
-        </td>
-        <td className="px-3 py-2.5 font-mono text-xs text-ink-muted">{category.slug}</td>
-        <td className="px-3 py-2.5 font-mono text-xs text-ink-muted">
-          {childCount > 0 ? `${childCount} подкат.` : "—"}
-        </td>
-        <td className="px-3 py-2.5">
-          <Toggle
-            checked={category.is_active}
-            disabled={updateMutation.isPending}
-            onChange={(checked) => updateMutation.mutate({ is_active: checked })}
-            label={`Категория ${category.is_active ? "активна" : "скрыта"}: ${category.name}`}
+          ⠿
+        </span>
+        {editing ? (
+          <input
+            autoFocus
+            value={draftName}
+            onChange={(event) => setDraftName(event.target.value)}
+            onBlur={commitRename}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") commitRename();
+              if (event.key === "Escape") {
+                setDraftName(category.name);
+                setEditing(false);
+              }
+            }}
+            className="h-[30px] flex-1 rounded-lg border border-brand bg-bg px-2.5 text-[13px] font-medium text-ink outline-none ring-2 ring-brand-soft"
           />
-        </td>
-        <td className="px-3 py-2.5 text-right">
+        ) : (
           <button
             type="button"
+            onDoubleClick={startEditing}
+            title="Двойной клик — переименовать"
+            className={`flex-1 truncate text-left text-[13px] text-ink ${category.parent_id === null ? "font-semibold" : "font-normal"}`}
+          >
+            {category.name}
+          </button>
+        )}
+        <span className="whitespace-nowrap font-mono text-[11px] text-ink-muted">
+          {category.product_count} тов.
+        </span>
+        <Toggle
+          checked={category.is_active}
+          disabled={updateMutation.isPending}
+          onChange={(checked) => updateMutation.mutate({ is_active: checked })}
+          label={`Категория ${category.is_active ? "активна" : "скрыта"}: ${category.name}`}
+        />
+        <span className="flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+          <button
+            type="button"
+            title="Добавить подкатегорию"
+            onClick={() => onAddSubcategory(category.id)}
+            className="flex h-6 w-6 items-center justify-center rounded-md bg-surface text-ink hover:bg-border/60"
+          >
+            <Plus className="h-2.5 w-2.5" aria-hidden="true" strokeWidth={2.5} />
+          </button>
+          <button
+            type="button"
+            title="Удалить"
             onClick={() => setConfirmDelete(true)}
             disabled={deleteMutation.isPending}
             aria-label={`Удалить «${category.name}»`}
-            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-ink-muted opacity-0 hover:bg-accent-sale/10 hover:text-accent-sale-700 disabled:opacity-50 group-hover:opacity-100"
+            className="flex h-6 w-6 items-center justify-center rounded-md bg-surface text-accent-sale hover:bg-accent-sale/10 disabled:opacity-50"
           >
-            <X className="h-3.5 w-3.5" aria-hidden="true" />
+            <X className="h-2.5 w-2.5" aria-hidden="true" strokeWidth={2.5} />
           </button>
-        </td>
-      </tr>
+        </span>
+      </div>
       <ConfirmDialog
         open={confirmDelete}
         title="Удалить категорию?"
@@ -207,14 +198,23 @@ function CategoryRow({
   );
 }
 
-function CreateCategoryForm({ categories }: { categories: AdminCategory[] }) {
+function CreateCategoryDrawer({
+  open,
+  onClose,
+  categories,
+  initialParentId,
+}: {
+  open: boolean;
+  onClose: () => void;
+  categories: AdminCategory[];
+  initialParentId: string | null;
+}) {
   const queryClient = useQueryClient();
   const pushToast = useToastStore((state) => state.push);
-  const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
   const [slugTouched, setSlugTouched] = useState(false);
-  const [parentId, setParentId] = useState("");
+  const [parentId, setParentId] = useState(initialParentId ?? "");
 
   const mutation = useMutation({
     mutationFn: () =>
@@ -225,13 +225,13 @@ function CreateCategoryForm({ categories }: { categories: AdminCategory[] }) {
         sort_order: 0,
       }),
     onSuccess: () => {
+      pushToast(`Категория «${name}» создана`);
       setName("");
       setSlug("");
       setSlugTouched(false);
       setParentId("");
-      setOpen(false);
-      pushToast("Категория создана");
       void queryClient.invalidateQueries({ queryKey: QUERY_KEY });
+      onClose();
     },
     onError: (err: unknown) =>
       pushToast(err instanceof ApiError ? err.message : "Не удалось создать", "error"),
@@ -242,79 +242,79 @@ function CreateCategoryForm({ categories }: { categories: AdminCategory[] }) {
     mutation.mutate();
   }
 
-  if (!open) {
-    return (
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="mb-4 flex items-center gap-1.5 rounded-lg border border-border bg-bg px-3.5 py-2 font-display text-[13px] font-semibold text-ink hover:border-brand/40"
-      >
-        <Plus className="h-3.5 w-3.5" aria-hidden="true" />
-        Добавить категорию
-      </button>
-    );
-  }
-
   return (
-    <form
-      onSubmit={handleSubmit}
-      className="mb-4 flex flex-wrap items-end gap-3 rounded-xl border border-border bg-surface p-4"
+    <Drawer
+      open={open}
+      onClose={onClose}
+      width={460}
+      title={<span className="font-display text-base font-extrabold text-ink">Новая категория</span>}
     >
-      <div>
-        <label className="mb-1 block text-xs text-ink-muted">Название</label>
-        <input
-          autoFocus
-          value={name}
-          onChange={(event) => {
-            setName(event.target.value);
-            if (!slugTouched) setSlug(slugify(event.target.value));
-          }}
-          required
-          className="w-48 rounded-lg border border-border bg-bg px-2 py-1.5 text-sm text-ink outline-none focus:border-brand"
-        />
-      </div>
-      <div>
-        <label className="mb-1 block text-xs text-ink-muted">Слаг</label>
-        <input
-          value={slug}
-          onChange={(event) => {
-            setSlug(event.target.value);
-            setSlugTouched(true);
-          }}
-          required
-          className="w-40 rounded-lg border border-border bg-bg px-2 py-1.5 font-mono text-sm text-ink outline-none focus:border-brand"
-        />
-      </div>
-      <div>
-        <label className="mb-1 block text-xs text-ink-muted">Родительская категория</label>
-        <select
-          value={parentId}
-          onChange={(event) => setParentId(event.target.value)}
-          className="rounded-lg border border-border bg-bg px-2 py-1.5 text-sm text-ink outline-none focus:border-brand"
-        >
-          <option value="">— нет —</option>
-          {categories.map((category) => (
-            <option key={category.id} value={category.id}>
-              {category.name}
-            </option>
-          ))}
-        </select>
-      </div>
-      <button
-        type="submit"
-        disabled={mutation.isPending}
-        className="rounded-lg bg-brand px-4 py-2 font-display text-[13px] font-bold text-white hover:bg-brand/90 disabled:opacity-50"
-      >
-        {mutation.isPending ? "Создание…" : "Создать"}
-      </button>
-      <button
-        type="button"
-        onClick={() => setOpen(false)}
-        className="rounded-lg px-3 py-2 font-display text-[13px] font-semibold text-ink-muted hover:text-ink"
-      >
-        Отмена
-      </button>
-    </form>
+      <form onSubmit={handleSubmit} className="flex flex-col gap-4 p-5">
+        <label className="flex flex-col gap-1.5 text-xs font-medium text-ink-muted">
+          Название
+          <input
+            autoFocus
+            value={name}
+            onChange={(event) => {
+              setName(event.target.value);
+              if (!slugTouched) setSlug(slugify(event.target.value));
+            }}
+            required
+            className="h-10 rounded-lg border border-border bg-bg px-3 text-sm text-ink outline-none focus:border-brand"
+          />
+        </label>
+        <label className="flex flex-col gap-1.5 text-xs font-medium text-ink-muted">
+          Слаг
+          <input
+            value={slug}
+            onChange={(event) => {
+              setSlug(event.target.value);
+              setSlugTouched(true);
+            }}
+            required
+            className="h-10 rounded-lg border border-border bg-bg px-3 font-mono text-sm text-ink outline-none focus:border-brand"
+          />
+        </label>
+        <label className="flex flex-col gap-1.5 text-xs font-medium text-ink-muted">
+          Родительская категория
+          <select
+            value={parentId}
+            onChange={(event) => setParentId(event.target.value)}
+            className="h-10 rounded-lg border border-border bg-bg px-3 text-sm text-ink outline-none focus:border-brand"
+          >
+            <option value="">— нет —</option>
+            {categories.map((category) => (
+              <option key={category.id} value={category.id}>
+                {category.name}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        {mutation.isError && (
+          <p className="text-sm text-accent-sale-700">
+            {mutation.error instanceof ApiError ? mutation.error.message : "Не удалось создать"}
+          </p>
+        )}
+
+        <div className="mt-1 flex gap-2">
+          <button
+            type="submit"
+            disabled={mutation.isPending}
+            className="flex-1 rounded-lg bg-brand px-4 py-2.5 font-display text-[13px] font-bold text-white hover:bg-brand/90 disabled:opacity-50"
+          >
+            {mutation.isPending ? "Создание…" : "Создать"}
+          </button>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg bg-surface px-4 py-2.5 font-display text-[13px] font-semibold text-ink hover:bg-border/60"
+          >
+            Отмена
+          </button>
+        </div>
+      </form>
+    </Drawer>
   );
 }
 
@@ -323,6 +323,8 @@ export default function AdminCategoriesPage() {
   const queryClient = useQueryClient();
   const pushToast = useToastStore((state) => state.push);
   const [dragId, setDragId] = useState<string | null>(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [drawerParentId, setDrawerParentId] = useState<string | null>(null);
   const { data, isLoading } = useQuery({
     queryKey: QUERY_KEY,
     queryFn: () => listAdminCategories(1, 100),
@@ -357,6 +359,11 @@ export default function AdminCategoriesPage() {
   const categories = data?.items ?? [];
   const flat = flattenTree(categories);
 
+  function openCreateDrawer(parentId: string | null) {
+    setDrawerParentId(parentId);
+    setDrawerOpen(true);
+  }
+
   function handleDrop(dropId: string) {
     if (!dragId || dragId === dropId) {
       setDragId(null);
@@ -383,50 +390,60 @@ export default function AdminCategoriesPage() {
   }
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-3.5">
       <div className="flex items-center justify-between">
-        <h1 className="font-display text-[22px] font-extrabold text-ink">
-          Категории <span className="font-mono text-base font-normal text-ink-muted">{categories.length}</span>
-        </h1>
+        <h1 className="font-display text-[20px] font-extrabold text-ink">Категории</h1>
+        <button
+          type="button"
+          onClick={() => openCreateDrawer(null)}
+          className="rounded-lg bg-brand px-4 py-2 font-display text-[13px] font-bold text-white hover:bg-brand/90"
+        >
+          + Добавить категорию
+        </button>
       </div>
-      <CreateCategoryForm categories={categories} />
-      <p className="-mt-2 text-xs text-ink-muted">
-        Перетаскивание за <GripVertical className="inline h-3 w-3 -translate-y-px" aria-hidden="true" /> меняет
-        порядок среди категорий одного уровня; двойной клик по названию — переименовать; выключенная
-        категория скрывается из каталога, товары остаются.
-      </p>
+
       {isLoading && <p className="text-ink-muted">Загрузка…</p>}
+
       {data && (
-        <div className="overflow-hidden rounded-xl border border-border bg-bg">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border bg-surface text-left text-[11px] font-semibold uppercase tracking-wide text-ink-muted">
-                <th className="px-3 py-2">Название</th>
-                <th className="px-3 py-2">Слаг</th>
-                <th className="px-3 py-2">Подкатегории</th>
-                <th className="px-3 py-2">Активна</th>
-                <th className="px-3 py-2" />
-              </tr>
-            </thead>
-            <tbody>
-              {flat.map((category) => (
-                <CategoryRow
-                  key={category.id}
-                  category={category}
-                  categories={categories}
-                  isDragging={dragId === category.id}
-                  onDragStart={() => setDragId(category.id)}
-                  onDragOver={(event) => event.preventDefault()}
-                  onDrop={() => handleDrop(category.id)}
-                />
-              ))}
-            </tbody>
-          </table>
-          {categories.length === 0 && (
-            <p className="p-4 text-center text-ink-muted">Категорий пока нет</p>
-          )}
+        <div className="grid items-start gap-3.5" style={{ gridTemplateColumns: "640px 1fr" }}>
+          <div className="overflow-hidden rounded-xl border border-border bg-bg">
+            {flat.map((category) => (
+              <CategoryRow
+                key={category.id}
+                category={category}
+                isDragging={dragId === category.id}
+                onDragStart={() => setDragId(category.id)}
+                onDragOver={(event) => event.preventDefault()}
+                onDrop={() => handleDrop(category.id)}
+                onAddSubcategory={openCreateDrawer}
+              />
+            ))}
+            {categories.length === 0 && (
+              <p className="p-4 text-center text-ink-muted">Категорий пока нет</p>
+            )}
+          </div>
+
+          <div className="flex flex-col gap-2.5 rounded-xl border border-border bg-bg p-4 text-xs leading-[1.6] text-ink-muted">
+            <span className="font-display text-[13px] font-bold text-ink">Как работает</span>
+            <span>
+              ⠿ — перетащить: порядок среди категорий одного уровня меняется сразу. Двойной клик по
+              названию — переименовать.
+            </span>
+            <span>
+              Тумблер выключает категорию с витрины, товары не удаляются. Удаление категории с
+              товарами или подкатегориями будет отклонено сервером.
+            </span>
+          </div>
         </div>
       )}
+
+      <CreateCategoryDrawer
+        key={drawerParentId ?? "none"}
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        categories={categories}
+        initialParentId={drawerParentId}
+      />
     </div>
   );
 }

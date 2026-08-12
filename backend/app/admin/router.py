@@ -36,7 +36,7 @@ router = APIRouter(
 )
 
 
-def _category_to_public(category: Category) -> AdminCategoryPublic:
+def _category_to_public(category: Category, *, product_count: int = 0) -> AdminCategoryPublic:
     return AdminCategoryPublic(
         id=category.id,
         name=category.name,
@@ -44,6 +44,7 @@ def _category_to_public(category: Category) -> AdminCategoryPublic:
         parent_id=category.parent_id,
         sort_order=category.sort_order,
         is_active=category.is_active,
+        product_count=product_count,
     )
 
 
@@ -126,8 +127,12 @@ async def list_categories(
     categories, total = await catalog_service.list_categories_admin(
         db, page=page, page_size=page_size
     )
+    counts = await catalog_service.get_admin_category_product_counts(db)
     return AdminCategoryListResponse(
-        items=[_category_to_public(category) for category in categories],
+        items=[
+            _category_to_public(category, product_count=counts.get(category.id, 0))
+            for category in categories
+        ],
         total=total,
         page=page,
         page_size=page_size,

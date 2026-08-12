@@ -107,6 +107,7 @@ export function QuickViewModal({ slug, open, onClose }: QuickViewModalProps) {
                   productSlug={product.slug}
                   imageUrl={product.images[0]?.url ?? null}
                   showFavorite={false}
+                  variant="compact"
                 />
               </div>
 

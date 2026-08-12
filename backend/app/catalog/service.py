@@ -641,6 +641,39 @@ async def list_categories_admin(
     return list(rows), total
 
 
+async def get_admin_category_product_counts(session: AsyncSession) -> dict[uuid.UUID, int]:
+    """Recursive per-category product count for the admin list -- same rollup
+    algorithm as `_build_category_tree`, but deliberately without its
+    `is_active` filters on categories/products: admins manage the whole
+    catalog, including hidden categories and disabled products, so the count
+    they see must reflect that, not just what's live on the storefront.
+    Soft-deleted products (`deleted_at`) are still excluded -- those aren't
+    part of the catalog at all anymore.
+    """
+    category_rows = (await session.execute(select(Category.id, Category.parent_id))).all()
+    parent_by_id: dict[uuid.UUID, uuid.UUID | None] = {row[0]: row[1] for row in category_rows}
+
+    count_rows = (
+        await session.execute(
+            select(Product.category_id, func.count())
+            .where(Product.deleted_at.is_(None))
+            .group_by(Product.category_id)
+        )
+    ).all()
+    own_counts: dict[uuid.UUID, int] = {row[0]: row[1] for row in count_rows}
+
+    counts: dict[uuid.UUID, int] = {category_id: 0 for category_id in parent_by_id}
+    for category_id, own in own_counts.items():
+        if category_id not in counts or not own:
+            continue
+        node_id: uuid.UUID | None = category_id
+        while node_id is not None and node_id in counts:
+            counts[node_id] += own
+            node_id = parent_by_id.get(node_id)
+
+    return counts
+
+
 async def get_category_admin(session: AsyncSession, *, category_id: uuid.UUID) -> Category:
     category = await session.get(Category, category_id)
     if category is None:
