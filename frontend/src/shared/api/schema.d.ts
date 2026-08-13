@@ -1246,6 +1246,10 @@ export interface components {
             sort_order: number;
             /** Is Active */
             is_active: boolean;
+            /** Starts At */
+            starts_at: string | null;
+            /** Ends At */
+            ends_at: string | null;
         };
         /** AdminBannerReorderRequest */
         AdminBannerReorderRequest: {
@@ -1264,6 +1268,10 @@ export interface components {
             button_text?: string | null;
             /** Is Active */
             is_active?: boolean | null;
+            /** Starts At */
+            starts_at?: string | null;
+            /** Ends At */
+            ends_at?: string | null;
         };
         /** AdminCategoryCreate */
         AdminCategoryCreate: {
@@ -1759,6 +1767,8 @@ export interface components {
             comment: string | null;
             /** Status */
             status: string;
+            /** Is Verified Purchase */
+            is_verified_purchase: boolean;
             /**
              * Created At
              * Format: date-time
@@ -2370,6 +2380,8 @@ export interface components {
             comment: string | null;
             /** Status */
             status: string;
+            /** Is Verified Purchase */
+            is_verified_purchase: boolean;
             /**
              * Created At
              * Format: date-time

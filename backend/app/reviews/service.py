@@ -1,5 +1,5 @@
 import uuid
-from typing import Any
+from typing import Any, cast
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -29,25 +29,36 @@ async def get_product_id_or_404(session: AsyncSession, *, slug: str) -> uuid.UUI
     return product_id
 
 
+async def find_eligible_order_id(
+    session: AsyncSession, *, product_id: uuid.UUID, user_id: uuid.UUID
+) -> uuid.UUID | None:
+    """The most recent delivered order containing this product, if any --
+    proves eligibility to review, and (ТЗ 5.7) is stored on the review to
+    back the "Проверенная покупка" badge. Relies on OrderItem.product_id,
+    denormalized at order-creation time specifically so this check survives a
+    variant later being deleted -- see app/orders/models.py::OrderItem.product_id.
+    """
+    return cast(
+        "uuid.UUID | None",
+        await session.scalar(
+            select(Order.id)
+            .join(OrderItem, OrderItem.order_id == Order.id)
+            .where(
+                Order.user_id == user_id,
+                Order.status == "delivered",
+                OrderItem.product_id == product_id,
+            )
+            .order_by(Order.created_at.desc())
+            .limit(1)
+        ),
+    )
+
+
 async def check_eligibility(
     session: AsyncSession, *, product_id: uuid.UUID, user_id: uuid.UUID
 ) -> bool:
-    """A delivered order containing this product proves eligibility. Relies on
-    OrderItem.product_id, denormalized at order-creation time specifically so
-    this check survives a variant later being deleted -- see
-    app/orders/models.py::OrderItem.product_id.
-    """
-    exists_stmt = (
-        select(OrderItem.id)
-        .join(Order, Order.id == OrderItem.order_id)
-        .where(
-            Order.user_id == user_id,
-            Order.status == "delivered",
-            OrderItem.product_id == product_id,
-        )
-        .exists()
-    )
-    return bool(await session.scalar(select(exists_stmt)))
+    order_id = await find_eligible_order_id(session, product_id=product_id, user_id=user_id)
+    return order_id is not None
 
 
 async def get_my_review(
@@ -78,7 +89,8 @@ async def create_review(
 ) -> Review:
     if await get_my_review(session, product_id=product_id, user_id=user_id) is not None:
         raise DomainError("Отзыв уже оставлен", code="REVIEW_ALREADY_EXISTS", status_code=409)
-    if not await check_eligibility(session, product_id=product_id, user_id=user_id):
+    order_id = await find_eligible_order_id(session, product_id=product_id, user_id=user_id)
+    if order_id is None:
         raise DomainError(
             "Оставить отзыв можно только после доставленного заказа с этим товаром",
             code="REVIEW_NOT_ELIGIBLE",
@@ -86,7 +98,12 @@ async def create_review(
         )
 
     review = Review(
-        product_id=product_id, user_id=user_id, rating=rating, comment=comment, status="pending"
+        product_id=product_id,
+        user_id=user_id,
+        rating=rating,
+        comment=comment,
+        status="pending",
+        order_id=order_id,
     )
     session.add(review)
     await session.commit()

@@ -22,6 +22,7 @@ class ReviewPublic(BaseModel):
     rating: int
     comment: str | None
     status: str
+    is_verified_purchase: bool
     created_at: datetime
 
 

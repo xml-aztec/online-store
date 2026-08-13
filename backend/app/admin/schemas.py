@@ -104,6 +104,8 @@ class AdminBannerPublic(BaseModel):
     thumbnail_url: str
     sort_order: int
     is_active: bool
+    starts_at: datetime | None
+    ends_at: datetime | None
 
 
 class AdminBannerUpdate(BaseModel):
@@ -112,6 +114,8 @@ class AdminBannerUpdate(BaseModel):
     link_url: str | None = None
     button_text: str | None = None
     is_active: bool | None = None
+    starts_at: datetime | None = None
+    ends_at: datetime | None = None
 
 
 class AdminBannerReorderRequest(BaseModel):
@@ -316,6 +320,7 @@ class AdminReviewPublic(BaseModel):
     rating: int
     comment: str | None
     status: str
+    is_verified_purchase: bool
     created_at: datetime
 
 

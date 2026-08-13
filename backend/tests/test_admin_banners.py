@@ -1,5 +1,6 @@
 import io
 import uuid
+from datetime import UTC, datetime, timedelta
 
 import httpx
 import pytest
@@ -354,3 +355,56 @@ async def test_public_banners_ordered_and_only_active(
     body = response.json()
     assert [b["title"] for b in body] == ["Первый", "Второй"]
     assert "is_active" not in body[0]
+
+
+@pytest.mark.asyncio
+async def test_public_banners_respect_scheduled_publish_window(
+    client: httpx.AsyncClient, db_session: AsyncSession
+) -> None:
+    # ТЗ 4 / 7.1: "плановая публикация/снятие" -- starts_at/ends_at gate
+    # visibility in the public listing independently of is_active.
+    headers = await _admin_headers(db_session)
+    now = datetime.now(UTC)
+
+    not_yet_started = await _create_banner(client, headers, title="Скоро")
+    already_ended = await _create_banner(client, headers, title="Закончился")
+    currently_running = await _create_banner(client, headers, title="Идёт сейчас")
+    no_bounds = await _create_banner(client, headers, title="Без расписания")
+    for response in (not_yet_started, already_ended, currently_running, no_bounds):
+        assert response.status_code == 201
+
+    async def _schedule(
+        banner_id: str, *, starts_at: datetime | None, ends_at: datetime | None
+    ) -> None:
+        patch_response = await client.patch(
+            f"/v1/admin/banners/{banner_id}",
+            json={
+                "starts_at": starts_at.isoformat() if starts_at else None,
+                "ends_at": ends_at.isoformat() if ends_at else None,
+            },
+            headers=headers,
+        )
+        assert patch_response.status_code == 200
+
+    await _schedule(not_yet_started.json()["id"], starts_at=now + timedelta(days=1), ends_at=None)
+    await _schedule(already_ended.json()["id"], starts_at=None, ends_at=now - timedelta(days=1))
+    await _schedule(
+        currently_running.json()["id"],
+        starts_at=now - timedelta(days=1),
+        ends_at=now + timedelta(days=1),
+    )
+
+    public_list = await client.get("/v1/banners")
+    assert public_list.status_code == 200
+    assert {b["title"] for b in public_list.json()} == {"Идёт сейчас", "Без расписания"}
+
+    # Admin listing is unaffected by scheduling -- it must still show every
+    # banner regardless of whether it's currently publicly visible.
+    admin_list = await client.get("/v1/admin/banners", headers=headers)
+    assert admin_list.status_code == 200
+    assert {b["title"] for b in admin_list.json()} == {
+        "Скоро",
+        "Закончился",
+        "Идёт сейчас",
+        "Без расписания",
+    }

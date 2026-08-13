@@ -22,6 +22,12 @@ class Review(TimestampedBase):
     product_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("products.id", ondelete="CASCADE"), nullable=False, index=True
     )
+    # ТЗ 5.7: which delivered order made this reviewer eligible -- powers the
+    # "Проверенная покупка" badge (set once, at creation; SET NULL rather than
+    # CASCADE so the review outlives the order).
+    order_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("orders.id", ondelete="SET NULL"), nullable=True
+    )
     rating: Mapped[int] = mapped_column(nullable=False)
     comment: Mapped[str | None] = mapped_column(nullable=True)
     status: Mapped[str] = mapped_column(nullable=False, server_default=text("'pending'"))

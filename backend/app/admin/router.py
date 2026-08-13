@@ -81,6 +81,8 @@ def _banner_to_public(banner: Banner) -> AdminBannerPublic:
         thumbnail_url=generate_presigned_url(banner.thumbnail_s3_key or banner.s3_key),
         sort_order=banner.sort_order,
         is_active=banner.is_active,
+        starts_at=banner.starts_at,
+        ends_at=banner.ends_at,
     )
 
 

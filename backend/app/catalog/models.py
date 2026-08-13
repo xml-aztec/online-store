@@ -126,3 +126,7 @@ class Banner(TimestampedBase):
     thumbnail_s3_key: Mapped[str | None] = mapped_column(nullable=True)
     sort_order: Mapped[int] = mapped_column(nullable=False, server_default=text("0"))
     is_active: Mapped[bool] = mapped_column(nullable=False, server_default=text("true"))
+    # ТЗ 4: "плановая публикация/снятие" -- filtered in the public listing
+    # (see catalog/service.py::list_banners), NULL means no bound on that side.
+    starts_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    ends_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

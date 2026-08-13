@@ -249,6 +249,93 @@ async def test_customer_cannot_access_moderation(
 
 
 @pytest.mark.asyncio
+async def test_eligible_review_is_marked_verified_purchase(
+    client: httpx.AsyncClient, db_session: AsyncSession
+) -> None:
+    # ТЗ 5.7: "Проверенная покупка" badge -- true whenever the review is
+    # backed by a delivered order for this product (see reviews/models.py::
+    # Review.order_id, set at creation from reviews/service.py::
+    # find_eligible_order_id).
+    user = await _make_user(db_session)
+    product, variant = await _make_product(db_session)
+    await _make_delivered_order(db_session, user=user, product=product, variant=variant)
+
+    response = await client.post(
+        f"/v1/products/{product.slug}/reviews", json={"rating": 5}, headers=_headers(user)
+    )
+
+    assert response.status_code == 201
+    assert response.json()["is_verified_purchase"] is True
+
+
+@pytest.mark.asyncio
+async def test_rating_avg_and_count_reflect_only_approved_reviews(
+    client: httpx.AsyncClient, db_session: AsyncSession
+) -> None:
+    # ТЗ 5.7: rating_avg/rating_count must reflect approved reviews only, and
+    # must update correctly as moderation decisions come in -- not just "some
+    # number changed" but the actual, correct average across 2-3 differently
+    # rated reviews (regression coverage for R.1: verified the aggregation
+    # itself, in app/catalog/service.py, already does this live/query-time
+    # rather than via a stale cached column -- this test proves the
+    # observable behavior end-to-end through moderation).
+    manager = await _make_user(db_session, role="manager")
+    product, variant = await _make_product(db_session)
+
+    async def _reviewer_with_rating(rating: int) -> str:
+        reviewer = await _make_user(db_session)
+        await _make_delivered_order(db_session, user=reviewer, product=product, variant=variant)
+        created = await client.post(
+            f"/v1/products/{product.slug}/reviews",
+            json={"rating": rating},
+            headers=_headers(reviewer),
+        )
+        review_id: str = created.json()["id"]
+        return review_id
+
+    review_5 = await _reviewer_with_rating(5)
+    review_3 = await _reviewer_with_rating(3)
+    review_1 = await _reviewer_with_rating(1)
+
+    # Before any moderation: no approved reviews yet, product shows no rating.
+    detail = await client.get(f"/v1/products/{product.slug}")
+    assert detail.json()["rating_avg"] is None
+    assert detail.json()["rating_count"] == 0
+
+    await client.post(
+        f"/v1/admin/reviews/{review_5}/moderate",
+        json={"status": "approved"},
+        headers=_headers(manager),
+    )
+    await client.post(
+        f"/v1/admin/reviews/{review_3}/moderate",
+        json={"status": "approved"},
+        headers=_headers(manager),
+    )
+    await client.post(
+        f"/v1/admin/reviews/{review_1}/moderate",
+        json={"status": "rejected"},
+        headers=_headers(manager),
+    )
+
+    after_first_two = await client.get(f"/v1/products/{product.slug}")
+    assert after_first_two.json()["rating_avg"] == 4.0  # avg(5, 3)
+    assert after_first_two.json()["rating_count"] == 2  # rejected one excluded
+
+    # Approving the third (lower-rated) review must correctly shift the
+    # average down, not just bump the count.
+    await client.post(
+        f"/v1/admin/reviews/{review_1}/moderate",
+        json={"status": "approved"},
+        headers=_headers(manager),
+    )
+
+    after_all_three = await client.get(f"/v1/products/{product.slug}")
+    assert after_all_three.json()["rating_avg"] == 3.0  # avg(5, 3, 1)
+    assert after_all_three.json()["rating_count"] == 3
+
+
+@pytest.mark.asyncio
 async def test_deleted_variant_does_not_break_eligibility(
     client: httpx.AsyncClient, db_session: AsyncSession
 ) -> None:

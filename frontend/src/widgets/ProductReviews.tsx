@@ -1,4 +1,4 @@
-import { Star } from "lucide-react";
+import { BadgeCheck, Star } from "lucide-react";
 
 import type { Review } from "@/entities/reviews/api";
 
@@ -29,9 +29,17 @@ export function ProductReviews({ reviews, total }: { reviews: Review[]; total: n
               ))}
             </div>
           </div>
-          <p className="mt-1 font-mono text-xs text-ink-muted">
-            {formatReviewDate(review.created_at)}
-          </p>
+          <div className="mt-1 flex items-center gap-2">
+            <p className="font-mono text-xs text-ink-muted">
+              {formatReviewDate(review.created_at)}
+            </p>
+            {review.is_verified_purchase && (
+              <span className="flex items-center gap-1 text-xs font-medium text-success-700">
+                <BadgeCheck className="h-3.5 w-3.5" aria-hidden="true" />
+                Проверенная покупка
+              </span>
+            )}
+          </div>
           {review.comment && <p className="mt-2 text-sm text-ink">{review.comment}</p>}
         </li>
       ))}

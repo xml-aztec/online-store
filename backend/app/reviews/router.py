@@ -26,6 +26,7 @@ def _to_public(review: Review, author_label: str) -> ReviewPublic:
         rating=review.rating,
         comment=review.comment,
         status=review.status,
+        is_verified_purchase=review.order_id is not None,
         created_at=review.created_at,
     )
 

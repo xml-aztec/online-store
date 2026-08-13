@@ -1221,9 +1221,18 @@ _BANNER_CREATE_LOCK_KEY = 87_234_501
 
 
 async def list_banners(session: AsyncSession) -> list[Banner]:
+    # ТЗ 4 / 7.1: scheduled publish/unpublish -- NULL on either side means no
+    # bound on that side (always started / never ends).
+    now = datetime.now(UTC)
     rows = (
         await session.scalars(
-            select(Banner).where(Banner.is_active.is_(True)).order_by(Banner.sort_order)
+            select(Banner)
+            .where(
+                Banner.is_active.is_(True),
+                or_(Banner.starts_at.is_(None), Banner.starts_at <= now),
+                or_(Banner.ends_at.is_(None), Banner.ends_at >= now),
+            )
+            .order_by(Banner.sort_order)
         )
     ).all()
     return list(rows)

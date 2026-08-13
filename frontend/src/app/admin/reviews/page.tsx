@@ -1,6 +1,6 @@
 "use client";
 
-import { Star } from "lucide-react";
+import { BadgeCheck, Star } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -75,6 +75,12 @@ export default function AdminReviewsPage() {
                     {review.product_name}
                   </Link>
                   <span className="text-sm text-ink-muted">— {review.author_label}</span>
+                  {review.is_verified_purchase && (
+                    <span className="flex items-center gap-1 text-xs font-medium text-success-700">
+                      <BadgeCheck className="h-3.5 w-3.5" aria-hidden="true" />
+                      Проверенная покупка
+                    </span>
+                  )}
                 </div>
                 <div className="flex items-center gap-1">
                   {Array.from({ length: 5 }, (_, index) => (

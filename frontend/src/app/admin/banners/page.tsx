@@ -24,6 +24,22 @@ function errorMessage(error: unknown, fallback: string): string {
   return error instanceof ApiError ? error.message : fallback;
 }
 
+// <input type="datetime-local"> wants "YYYY-MM-DDTHH:mm" in local time, no
+// timezone -- the API works in UTC ISO strings, so both directions need a
+// conversion (not just a slice(0, 16), which would silently shift the
+// displayed time by the browser's UTC offset).
+function toDatetimeLocalValue(iso: string | null): string {
+  if (!iso) return "";
+  const date = new Date(iso);
+  const offsetMs = date.getTimezoneOffset() * 60_000;
+  return new Date(date.getTime() - offsetMs).toISOString().slice(0, 16);
+}
+
+function fromDatetimeLocalValue(value: string): string | null {
+  if (!value) return null;
+  return new Date(value).toISOString();
+}
+
 function BannerCard({
   banner,
   onDragStart,
@@ -44,6 +60,8 @@ function BannerCard({
   const [subtitle, setSubtitle] = useState(banner.subtitle ?? "");
   const [linkUrl, setLinkUrl] = useState(banner.link_url ?? "");
   const [buttonText, setButtonText] = useState(banner.button_text ?? "");
+  const [startsAt, setStartsAt] = useState(toDatetimeLocalValue(banner.starts_at));
+  const [endsAt, setEndsAt] = useState(toDatetimeLocalValue(banner.ends_at));
 
   function invalidate() {
     return queryClient.invalidateQueries({ queryKey: QUERY_KEY });
@@ -76,6 +94,11 @@ function BannerCard({
 
   function saveIfChanged(field: "title" | "subtitle" | "link_url" | "button_text", value: string) {
     const next = value.trim() || null;
+    if (banner[field] !== next) updateMutation.mutate({ [field]: next });
+  }
+
+  function saveDateIfChanged(field: "starts_at" | "ends_at", value: string) {
+    const next = fromDatetimeLocalValue(value);
     if (banner[field] !== next) updateMutation.mutate({ [field]: next });
   }
 
@@ -134,6 +157,26 @@ function BannerCard({
           placeholder="Текст кнопки"
           className="rounded-lg border border-ink/15 bg-bg px-2 py-1.5 text-sm"
         />
+        <label className="flex flex-col gap-1 text-xs text-ink-muted">
+          Показывать с
+          <input
+            type="datetime-local"
+            value={startsAt}
+            onChange={(event) => setStartsAt(event.target.value)}
+            onBlur={() => saveDateIfChanged("starts_at", startsAt)}
+            className="rounded-lg border border-ink/15 bg-bg px-2 py-1.5 text-sm text-ink"
+          />
+        </label>
+        <label className="flex flex-col gap-1 text-xs text-ink-muted">
+          Показывать до
+          <input
+            type="datetime-local"
+            value={endsAt}
+            onChange={(event) => setEndsAt(event.target.value)}
+            onBlur={() => saveDateIfChanged("ends_at", endsAt)}
+            className="rounded-lg border border-ink/15 bg-bg px-2 py-1.5 text-sm text-ink"
+          />
+        </label>
       </div>
 
       <div className="flex shrink-0 flex-col items-end gap-2">
@@ -264,7 +307,9 @@ export default function AdminBannersPage() {
       <h1 className="mb-6 text-xl font-semibold text-ink">Баннеры</h1>
       <p className="mb-4 text-xs text-ink-muted">
         Баннеры показываются на главной странице по очереди — можно добавить сколько угодно.
-        Перетащите за ⠿, чтобы изменить порядок; выключенный баннер скрывается с сайта.
+        Перетащите за ⠿, чтобы изменить порядок; выключенный баннер скрывается с сайта. «Показывать
+        с»/«Показывать до» — необязательное расписание публикации, пустое поле — без ограничения с
+        этой стороны.
       </p>
 
       {isLoading && <p className="text-ink-muted">Загрузка…</p>}
