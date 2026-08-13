@@ -107,7 +107,7 @@ async def _safe_send(
 
 
 def _order_keyboard(order: Order) -> dict[str, Any] | None:
-    targets = sorted(orders_service.ALLOWED_TRANSITIONS.get(order.status, set()))
+    targets = orders_service.manually_allowed_transitions(order.status)
     if not targets:
         return None
     return bot_api.inline_keyboard(

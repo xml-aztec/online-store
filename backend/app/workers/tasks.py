@@ -170,8 +170,8 @@ async def process_payment_succeeded(ctx: dict[str, Any], *, payment_id: str) -> 
         order = await session.get(Order, payment.order_id)
         if order is None or order.status != "awaiting_payment":
             return
-        await orders_service.transition_status(
-            session, order, to_status="paid", changed_by=None, comment="Оплата подтверждена"
+        await orders_service.transition_status_from_payment(
+            session, order, comment="Оплата подтверждена"
         )
 
 

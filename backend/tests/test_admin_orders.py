@@ -116,7 +116,10 @@ async def test_order_detail_reports_allowed_transitions(
 
     assert response.status_code == 200
     body = response.json()
-    assert set(body["allowed_transitions"]) == {"paid", "cancelled"}
+    # "paid" is a real state-machine transition from awaiting_payment but is
+    # excluded here -- it's only reachable via the payment webhook (ТЗ 5.1),
+    # never a button the admin panel should offer.
+    assert set(body["allowed_transitions"]) == {"cancelled"}
     assert body["items"][0]["product_name"] == "Товар"
 
 
@@ -125,19 +128,42 @@ async def test_manager_can_transition_order_status(
     client: httpx.AsyncClient, db_session: AsyncSession
 ) -> None:
     manager = await _make_user(db_session, role="manager")
-    order = await _make_order(db_session, status="awaiting_payment")
+    order = await _make_order(db_session, status="processing")
 
     response = await client.post(
         f"/v1/admin/orders/{order.id}/status",
-        json={"to_status": "paid", "comment": "Проверено вручную"},
+        json={"to_status": "shipped", "comment": "Проверено вручную"},
         headers=_headers(manager),
     )
 
     assert response.status_code == 200
     body = response.json()
-    assert body["status"] == "paid"
+    assert body["status"] == "shipped"
     assert body["status_history"][-1]["comment"] == "Проверено вручную"
     assert str(manager.id) == body["status_history"][-1]["changed_by"]
+
+
+@pytest.mark.asyncio
+async def test_manager_cannot_manually_mark_order_paid(
+    client: httpx.AsyncClient, db_session: AsyncSession
+) -> None:
+    # Regression test for the audit finding B.1: an order with zero payments
+    # must not be flippable to "paid" through the admin panel -- ТЗ 5.1 requires
+    # that transition to come exclusively from the payment webhook.
+    manager = await _make_user(db_session, role="manager")
+    order = await _make_order(db_session, status="awaiting_payment")
+
+    response = await client.post(
+        f"/v1/admin/orders/{order.id}/status",
+        json={"to_status": "paid"},
+        headers=_headers(manager),
+    )
+
+    assert response.status_code == 409
+    assert response.json()["error"]["code"] == "MANUAL_PAID_TRANSITION_FORBIDDEN"
+
+    unchanged = await client.get(f"/v1/admin/orders/{order.id}", headers=_headers(manager))
+    assert unchanged.json()["status"] == "awaiting_payment"
 
 
 @pytest.mark.asyncio

@@ -34,6 +34,16 @@ ALLOWED_TRANSITIONS: dict[str, set[str]] = {
 
 _STOCK_RESTORING_STATUSES = {"cancelled", "refunded"}
 _NOTIFY_STATUSES = {"paid", "shipped", "cancelled"}
+# "paid" is a real ALLOWED_TRANSITIONS target (state machine shape), but never
+# a manually-triggerable one -- transition_status() rejects it unconditionally
+# (see there). Anything that advertises actions to a human (admin panel
+# allowed_transitions field, Telegram bot buttons) must filter it out here so
+# it never offers a button that's guaranteed to 409.
+_MANUALLY_FORBIDDEN_TARGETS = {"paid"}
+
+
+def manually_allowed_transitions(status: str) -> list[str]:
+    return sorted(ALLOWED_TRANSITIONS.get(status, set()) - _MANUALLY_FORBIDDEN_TARGETS)
 _CUSTOMER_CANCELLABLE_STATUSES = {"pending", "awaiting_payment"}
 _ORDER_EXPIRY = timedelta(minutes=30)
 
@@ -258,7 +268,50 @@ async def transition_status(
             code="INVALID_STATUS_TRANSITION",
             status_code=409,
         )
+    # ТЗ 5.1: "awaiting_payment -> paid — ТОЛЬКО из webhook платёжки" -- this is
+    # the entry point the admin panel and the Telegram bot both call, so it's
+    # the one place that must refuse "paid" regardless of caller. The only
+    # legitimate path to "paid" is transition_status_from_payment() below,
+    # reached exclusively from the payment webhook via process_payment_succeeded.
+    if to_status == "paid":
+        raise DomainError(
+            "Перевод заказа в «paid» вручную запрещён — только через подтверждение платежа",
+            code="MANUAL_PAID_TRANSITION_FORBIDDEN",
+            status_code=409,
+        )
 
+    return await _transition_status_core(
+        session, order, to_status=to_status, changed_by=changed_by, comment=comment
+    )
+
+
+async def transition_status_from_payment(
+    session: AsyncSession, order: Order, *, comment: str | None = None
+) -> Order:
+    """The only allowed path to 'paid' (ТЗ 5.1) -- called exclusively from
+    process_payment_succeeded, itself only enqueued by apply_payment_event on a
+    verified 'succeeded' webhook event. changed_by is always None here since no
+    human made this change."""
+    allowed = ALLOWED_TRANSITIONS.get(order.status, set())
+    if "paid" not in allowed:
+        raise DomainError(
+            f"Переход из «{order.status}» в «paid» запрещён",
+            code="INVALID_STATUS_TRANSITION",
+            status_code=409,
+        )
+    return await _transition_status_core(
+        session, order, to_status="paid", changed_by=None, comment=comment
+    )
+
+
+async def _transition_status_core(
+    session: AsyncSession,
+    order: Order,
+    *,
+    to_status: str,
+    changed_by: uuid.UUID | None,
+    comment: str | None,
+) -> Order:
     from_status = order.status
     order.status = to_status
 

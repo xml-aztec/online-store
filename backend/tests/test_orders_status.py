@@ -106,10 +106,40 @@ async def test_forbidden_status_transition_returns_409(
 
 
 @pytest.mark.asyncio
+async def test_manual_transition_to_paid_rejected_even_when_otherwise_allowed(
+    db_session: AsyncSession,
+) -> None:
+    # ТЗ 5.1: "awaiting_payment -> paid" is a valid transition in principle, but
+    # the public transition_status() must still refuse it -- only
+    # transition_status_from_payment() (the webhook path) may set "paid".
+    order, _ = await _make_order_with_items(db_session, status="awaiting_payment")
+
+    with pytest.raises(DomainError) as exc_info:
+        await orders_service.transition_status(db_session, order, to_status="paid", changed_by=None)
+
+    assert exc_info.value.code == "MANUAL_PAID_TRANSITION_FORBIDDEN"
+    assert exc_info.value.status_code == 409
+    assert order.status == "awaiting_payment"
+
+
+@pytest.mark.asyncio
+async def test_transition_status_from_payment_rejects_non_awaiting_payment_order(
+    db_session: AsyncSession,
+) -> None:
+    order, _ = await _make_order_with_items(db_session, status="processing")
+
+    with pytest.raises(DomainError) as exc_info:
+        await orders_service.transition_status_from_payment(db_session, order)
+
+    assert exc_info.value.code == "INVALID_STATUS_TRANSITION"
+    assert order.status == "processing"
+
+
+@pytest.mark.asyncio
 async def test_allowed_transition_writes_history(db_session: AsyncSession) -> None:
     order, _ = await _make_order_with_items(db_session, status="awaiting_payment")
 
-    await orders_service.transition_status(db_session, order, to_status="paid", changed_by=None)
+    await orders_service.transition_status_from_payment(db_session, order)
 
     assert order.status == "paid"
     history = (
@@ -136,14 +166,14 @@ async def test_allowed_transition_logs_audit_event(db_session: AsyncSession) -> 
 
     with capture_logs() as captured:
         await orders_service.transition_status(
-            db_session, order, to_status="paid", changed_by=changer.id
+            db_session, order, to_status="cancelled", changed_by=changer.id
         )
 
     entries = [entry for entry in captured if entry["event"] == "order_status_transition"]
     assert len(entries) == 1
     assert entries[0]["order_id"] == str(order.id)
     assert entries[0]["from_status"] == "awaiting_payment"
-    assert entries[0]["to_status"] == "paid"
+    assert entries[0]["to_status"] == "cancelled"
     assert entries[0]["changed_by"] == str(changer.id)
 
 
@@ -165,7 +195,7 @@ async def test_cancelling_restores_stock(db_session: AsyncSession) -> None:
 async def test_transition_to_notify_status_enqueues_email(db_session: AsyncSession) -> None:
     order, _ = await _make_order_with_items(db_session, status="awaiting_payment")
 
-    await orders_service.transition_status(db_session, order, to_status="paid", changed_by=None)
+    await orders_service.transition_status_from_payment(db_session, order)
 
     pool = await get_arq_pool()
     jobs = await pool.queued_jobs()

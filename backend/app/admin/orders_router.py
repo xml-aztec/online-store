@@ -62,7 +62,7 @@ def _order_to_detail(order: Order) -> AdminOrderDetail:
         comment=order.comment,
         expires_at=order.expires_at,
         created_at=order.created_at,
-        allowed_transitions=sorted(orders_service.ALLOWED_TRANSITIONS.get(order.status, set())),
+        allowed_transitions=orders_service.manually_allowed_transitions(order.status),
         items=[
             AdminOrderItemPublic(
                 product_name=item.product_name,
