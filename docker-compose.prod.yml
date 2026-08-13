@@ -46,6 +46,13 @@ services:
     restart: unless-stopped
     env_file:
       - .env
+    environment:
+      # Hardcoded (not left to .env) -- ТЗ 8 secure cookie flag (auth/router.py,
+      # cart/dependencies.py) reads this, and .env.example ships
+      # ENVIRONMENT=development by default. Setting it here means a prod
+      # deploy can't accidentally serve non-Secure auth cookies just because
+      # someone forgot to flip that one line in .env.
+      - ENVIRONMENT=production
     depends_on:
       postgres:
         condition: service_healthy
@@ -64,6 +71,8 @@ services:
     restart: unless-stopped
     env_file:
       - .env
+    environment:
+      - ENVIRONMENT=production
     command: ["arq", "app.workers.settings.WorkerSettings"]
     depends_on:
       postgres:

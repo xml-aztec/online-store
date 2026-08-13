@@ -1,7 +1,12 @@
 import { expect, test } from "@playwright/test";
 
+interface ProductListItem {
+  slug: string;
+  is_available: boolean;
+}
+
 interface ProductListResponse {
-  items: { slug: string }[];
+  items: ProductListItem[];
 }
 
 interface ProductVariant {
@@ -14,18 +19,81 @@ interface ProductDetail {
   variants: ProductVariant[];
 }
 
+// Resolves a product slug that's actually purchasable right now, instead of
+// assuming "first item in the catalog" has stock -- the catalog is real,
+// mutable dev/prod data, not a fixture, so that assumption is exactly what
+// made this spec flaky (audit finding B.3).
+//
+// Requires EVERY variant to be in stock, not just "some variant" (product-
+// level is_available is bool_or across variants): the product page is SSR +
+// ISR (ТЗ 7.1, 60s revalidate), so the purchase panel's default-selected
+// variant can briefly reflect a stale snapshot after a stock change. Picking
+// a product where all variants are available makes the happy-path test
+// immune to which variant that stale default selection happens to land on.
+async function findPurchasableProductSlug(page: import("@playwright/test").Page): Promise<string> {
+  const listResponse = await page.request.get("/api/v1/products?page_size=50");
+  const { items } = (await listResponse.json()) as ProductListResponse;
+  for (const item of items.filter((candidate) => candidate.is_available)) {
+    const detailResponse = await page.request.get(`/api/v1/products/${item.slug}`);
+    const detail = (await detailResponse.json()) as ProductDetail;
+    if (detail.variants.length > 0 && detail.variants.every((v) => v.is_available)) {
+      return item.slug;
+    }
+  }
+  throw new Error("no product with every variant in stock found for e2e setup");
+}
+
+// Same fix, at the variant level: scans candidate products (not just the
+// single first one) for the first with a variant that actually has stock.
+async function findPurchasableVariant(
+  page: import("@playwright/test").Page
+): Promise<{ slug: string; variant: ProductVariant }> {
+  const listResponse = await page.request.get("/api/v1/products?page_size=50");
+  const { items } = (await listResponse.json()) as ProductListResponse;
+  for (const item of items.filter((candidate) => candidate.is_available)) {
+    const detailResponse = await page.request.get(`/api/v1/products/${item.slug}`);
+    const detail = (await detailResponse.json()) as ProductDetail;
+    const variant = detail.variants.find((v) => v.is_available && v.stock_qty > 0);
+    if (variant) return { slug: item.slug, variant };
+  }
+  throw new Error("no product with a purchasable variant found for e2e setup");
+}
+
 test("catalog -> cart -> checkout (cash on delivery) -> success page with order number", async ({
   page,
 }) => {
-  await page.goto("/catalog");
-  await page.locator("a[href^='/product/']").first().click();
+  // Default 30s can be tight in dev Docker: findPurchasableProductSlug now
+  // makes a sequential detail request per candidate product to find one
+  // where every variant is in stock (see its comment), on top of the usual
+  // page-navigation round trips.
+  test.setTimeout(60_000);
 
-  await page.getByRole("button", { name: "Добавить в корзину" }).click();
+  const slug = await findPurchasableProductSlug(page);
+  await page.goto(`/product/${slug}`);
+
+  // Scoped to the purchase panel: a bare getByRole('button', {name:
+  // 'Добавить в корзину'}) also matches the "С этим покупают" recommendation
+  // grid's quick-add buttons (aria-label "Быстро добавить в корзину" --
+  // Playwright's default name match is a case-insensitive substring, so it
+  // contains this string too), which made this locator resolve to multiple
+  // elements whenever the current product had in-stock recommendations.
+  const purchasePanel = page.getByTestId("product-purchase-panel");
+  await purchasePanel.getByRole("button", { name: "Добавить в корзину" }).click();
   await expect(page.getByText("Добавлено в корзину")).toBeVisible();
 
-  await page.getByRole("link", { name: /Корзина/ }).click();
+  // Scoped to the header (<header>, implicit role "banner") -- a bare
+  // getByRole('link', {name: /Корзина/}) also matches any recommended
+  // product literally named "Корзина ..." ("Корзина для белья складная" is a
+  // real catalog item), since "Корзина" is both the nav label and a common
+  // Russian product-name word.
+  await page.getByRole("banner").getByRole("link", { name: /Корзина/ }).click();
   await page.waitForURL("**/cart");
-  await expect(page.getByText("Итого")).toBeVisible();
+  // Scoped to the summary sidebar (<aside>, implicit role "complementary") --
+  // a bare getByText("Итого") also matches the mobile sticky bar's label,
+  // which is always present in the DOM (CSS-hidden via lg:hidden at desktop
+  // viewport widths, but Playwright's strict-mode locator resolution counts
+  // it regardless of visibility), so it resolves to 2 elements.
+  await expect(page.getByRole("complementary").getByText("Итого")).toBeVisible();
 
   await page.getByRole("link", { name: "Оформить заказ" }).click();
   await page.waitForURL("**/checkout");
@@ -45,16 +113,7 @@ test("a competing checkout draining stock shows a readable 409 on checkout", asy
   page,
   request,
 }) => {
-  const listResponse = await page.request.get("/api/v1/products?page_size=1");
-  const { items } = (await listResponse.json()) as ProductListResponse;
-  const slug = items[0].slug;
-
-  const detailResponse = await page.request.get(`/api/v1/products/${slug}`);
-  const detail = (await detailResponse.json()) as ProductDetail;
-  const variant = detail.variants.find((v) => v.is_available && v.stock_qty > 0);
-  expect(variant).toBeTruthy();
-  if (!variant) throw new Error("no available variant found for e2e setup");
-
+  const { variant } = await findPurchasableVariant(page);
   const stockQty = variant.stock_qty;
 
   // The browser's own cart claims all remaining stock.

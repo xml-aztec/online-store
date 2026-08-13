@@ -134,7 +134,7 @@ export function ProductPurchasePanel({
   }
 
   return (
-    <div className="space-y-5 lg:sticky lg:top-24">
+    <div className="space-y-5 lg:sticky lg:top-24" data-testid="product-purchase-panel">
       {variant === "page" && (
         <div className="space-y-2">
           <h1 className="font-display text-2xl font-bold text-ink">{productName}</h1>
