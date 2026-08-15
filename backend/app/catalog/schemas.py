@@ -91,6 +91,12 @@ class BannerPublic(BaseModel):
     sort_order: int
 
 
+class PromoMessagePublic(BaseModel):
+    id: uuid.UUID
+    message: str
+    sort_order: int
+
+
 class FacetsResponse(BaseModel):
     price_min: Decimal | None
     price_max: Decimal | None

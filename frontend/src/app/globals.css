@@ -88,6 +88,22 @@ body {
   outline-offset: 2px;
 }
 
+/* Header search input: it already sits inside its own always-visible brand
+   border (see widgets/Header.tsx), so the :focus-visible ring above would
+   just draw a second, visually broken-looking border around it on click.
+   Tailwind's `focus:outline-none` utility on the input didn't reliably win
+   against native/UA focus styling here, so this pins it down with an ID
+   selector + !important -- the one guaranteed way to beat both. */
+#header-search,
+#header-search:focus,
+#header-search:focus-visible {
+  outline: none !important;
+  border: none !important;
+  box-shadow: none !important;
+  -webkit-appearance: none !important;
+  appearance: none !important;
+}
+
 /* Hand-authored motion (header shrink is plain CSS transitions and already
    respects prefers-reduced-motion via the media query below). Keyframe
    animations are opt-in only when the user hasn't asked for reduced motion,

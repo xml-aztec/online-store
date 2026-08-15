@@ -416,6 +416,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/promo-messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Promo Messages */
+        get: operations["list_promo_messages_v1_promo_messages_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/products": {
         parameters: {
             query?: never;
@@ -729,6 +746,59 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/promo-messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Promo Messages */
+        get: operations["list_promo_messages_v1_admin_promo_messages_get"];
+        put?: never;
+        /** Create Promo Message */
+        post: operations["create_promo_message_v1_admin_promo_messages_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/promo-messages/reorder": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Reorder Promo Messages */
+        patch: operations["reorder_promo_messages_v1_admin_promo_messages_reorder_patch"];
+        trace?: never;
+    };
+    "/v1/admin/promo-messages/{promo_message_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Promo Message */
+        delete: operations["delete_promo_message_v1_admin_promo_messages__promo_message_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update Promo Message */
+        patch: operations["update_promo_message_v1_admin_promo_messages__promo_message_id__patch"];
         trace?: never;
     };
     "/v1/admin/orders/status-counts": {
@@ -1750,6 +1820,37 @@ export interface components {
             /** Is Active */
             is_active?: boolean | null;
         };
+        /** AdminPromoMessageCreate */
+        AdminPromoMessageCreate: {
+            /** Message */
+            message: string;
+        };
+        /** AdminPromoMessagePublic */
+        AdminPromoMessagePublic: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Message */
+            message: string;
+            /** Sort Order */
+            sort_order: number;
+            /** Is Active */
+            is_active: boolean;
+        };
+        /** AdminPromoMessageReorderRequest */
+        AdminPromoMessageReorderRequest: {
+            /** Promo Message Ids */
+            promo_message_ids: string[];
+        };
+        /** AdminPromoMessageUpdate */
+        AdminPromoMessageUpdate: {
+            /** Message */
+            message?: string | null;
+            /** Is Active */
+            is_active?: boolean | null;
+        };
         /** AdminReviewListResponse */
         AdminReviewListResponse: {
             /** Items */
@@ -2355,6 +2456,18 @@ export interface components {
             is_active: boolean;
             /** Is Available */
             is_available: boolean;
+        };
+        /** PromoMessagePublic */
+        PromoMessagePublic: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Message */
+            message: string;
+            /** Sort Order */
+            sort_order: number;
         };
         /** RegisterRequest */
         RegisterRequest: {
@@ -3336,6 +3449,26 @@ export interface operations {
             };
         };
     };
+    list_promo_messages_v1_promo_messages_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PromoMessagePublic"][];
+                };
+            };
+        };
+    };
     list_products_v1_products_get: {
         parameters: {
             query?: {
@@ -4201,6 +4334,156 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AdminBannerPublic"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_promo_messages_v1_admin_promo_messages_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminPromoMessagePublic"][];
+                };
+            };
+        };
+    };
+    create_promo_message_v1_admin_promo_messages_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminPromoMessageCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminPromoMessagePublic"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reorder_promo_messages_v1_admin_promo_messages_reorder_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminPromoMessageReorderRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminPromoMessagePublic"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_promo_message_v1_admin_promo_messages__promo_message_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                promo_message_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_promo_message_v1_admin_promo_messages__promo_message_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                promo_message_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminPromoMessageUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminPromoMessagePublic"];
                 };
             };
             /** @description Validation Error */

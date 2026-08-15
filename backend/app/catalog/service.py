@@ -11,7 +11,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.catalog.models import Banner, Category, Product, ProductImage, ProductVariant
+from app.catalog.models import Banner, Category, Product, ProductImage, ProductVariant, PromoMessage
 from app.catalog.schemas import (
     CategoryNode,
     CategorySummary,
@@ -1416,3 +1416,78 @@ async def reorder_banners(session: AsyncSession, *, banner_ids: list[uuid.UUID])
 
     await session.commit()
     return sorted(banners_by_id.values(), key=lambda banner: banner.sort_order)
+
+
+async def list_promo_messages(session: AsyncSession) -> list[PromoMessage]:
+    rows = (
+        await session.scalars(
+            select(PromoMessage)
+            .where(PromoMessage.is_active.is_(True))
+            .order_by(PromoMessage.sort_order)
+        )
+    ).all()
+    return list(rows)
+
+
+async def list_promo_messages_admin(session: AsyncSession) -> list[PromoMessage]:
+    rows = (
+        await session.scalars(select(PromoMessage).order_by(PromoMessage.sort_order))
+    ).all()
+    return list(rows)
+
+
+async def _get_admin_promo_message_or_404(
+    session: AsyncSession, promo_message_id: uuid.UUID
+) -> PromoMessage:
+    promo_message = await session.get(PromoMessage, promo_message_id)
+    if promo_message is None:
+        raise DomainError(
+            "Сообщение не найдено", code="PROMO_MESSAGE_NOT_FOUND", status_code=404
+        )
+    return promo_message
+
+
+async def create_promo_message(session: AsyncSession, *, message: str) -> PromoMessage:
+    next_sort_order = await session.scalar(
+        select(func.coalesce(func.max(PromoMessage.sort_order) + 1, 0))
+    )
+    promo_message = PromoMessage(message=message, sort_order=next_sort_order or 0)
+    session.add(promo_message)
+    await session.commit()
+    return promo_message
+
+
+async def update_promo_message(
+    session: AsyncSession, *, promo_message_id: uuid.UUID, updates: dict[str, Any]
+) -> PromoMessage:
+    promo_message = await _get_admin_promo_message_or_404(session, promo_message_id)
+    for field, value in updates.items():
+        setattr(promo_message, field, value)
+    await session.commit()
+    return promo_message
+
+
+async def delete_promo_message(session: AsyncSession, *, promo_message_id: uuid.UUID) -> None:
+    promo_message = await _get_admin_promo_message_or_404(session, promo_message_id)
+    await session.delete(promo_message)
+    await session.commit()
+
+
+async def reorder_promo_messages(
+    session: AsyncSession, *, promo_message_ids: list[uuid.UUID]
+) -> list[PromoMessage]:
+    messages = (await session.scalars(select(PromoMessage))).all()
+    messages_by_id = {message.id: message for message in messages}
+
+    if set(promo_message_ids) != set(messages_by_id.keys()):
+        raise DomainError(
+            "Список сообщений должен содержать ровно все сообщения",
+            code="PROMO_MESSAGE_REORDER_MISMATCH",
+            status_code=422,
+        )
+
+    for index, promo_message_id in enumerate(promo_message_ids):
+        messages_by_id[promo_message_id].sort_order = index
+
+    await session.commit()
+    return sorted(messages_by_id.values(), key=lambda message: message.sort_order)

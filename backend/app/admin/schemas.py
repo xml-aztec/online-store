@@ -124,6 +124,26 @@ class AdminBannerReorderRequest(BaseModel):
     banner_ids: list[uuid.UUID]
 
 
+class AdminPromoMessagePublic(BaseModel):
+    id: uuid.UUID
+    message: str
+    sort_order: int
+    is_active: bool
+
+
+class AdminPromoMessageCreate(BaseModel):
+    message: str
+
+
+class AdminPromoMessageUpdate(BaseModel):
+    message: str | None = None
+    is_active: bool | None = None
+
+
+class AdminPromoMessageReorderRequest(BaseModel):
+    promo_message_ids: list[uuid.UUID]
+
+
 class AdminProductListItem(BaseModel):
     id: uuid.UUID
     category_id: uuid.UUID

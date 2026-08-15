@@ -1,7 +1,7 @@
 import uuid
 from typing import Any
 
-from sqlalchemy import select, update
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.models import Address, User
@@ -36,7 +36,15 @@ async def _get_address_or_404(
 async def create_address(
     session: AsyncSession, *, user_id: uuid.UUID, data: dict[str, Any]
 ) -> Address:
-    if data.get("is_default"):
+    existing_count = await session.scalar(
+        select(func.count()).select_from(Address).where(Address.user_id == user_id)
+    )
+    if existing_count == 0:
+        # The very first address has nothing to be "default" relative to --
+        # make it the default automatically so the user isn't required to
+        # click a toggle that, right now, can only mean one thing anyway.
+        data = {**data, "is_default": True}
+    elif data.get("is_default"):
         await session.execute(
             update(Address).where(Address.user_id == user_id).values(is_default=False)
         )

@@ -135,3 +135,18 @@ class Banner(TimestampedBase):
     # (see catalog/service.py::list_banners), NULL means no bound on that side.
     starts_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     ends_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class PromoMessage(TimestampedBase):
+    """Admin-editable items for the sitewide running promo strip (see
+    frontend widgets/PromoMarquee.tsx). Deliberately simpler than Banner --
+    plain text, no image/schedule -- since it's just a rotating one-liner."""
+
+    __tablename__ = "promo_messages"
+
+    # Named `message`, not `text` -- a column literally named `text` shadows
+    # the module-level `sqlalchemy.text` import for the rest of this class
+    # body, breaking `server_default=text(...)` on the very next line.
+    message: Mapped[str] = mapped_column(nullable=False)
+    sort_order: Mapped[int] = mapped_column(nullable=False, server_default=text("0"))
+    is_active: Mapped[bool] = mapped_column(nullable=False, server_default=text("true"))

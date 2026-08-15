@@ -4,7 +4,7 @@ import { Heart, Home, Menu, Search, ShoppingCart, User, X } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { type FormEvent, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { cartItemCount, useCartQuery } from "@/entities/cart/queries";
 import { useAuthStore } from "@/entities/auth/store";
@@ -175,7 +175,7 @@ export function Header() {
     setPreviewOpen(false);
   }
 
-  function handleSearchSubmit(event: FormEvent<HTMLFormElement>) {
+  function handleSearchSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const trimmed = query.trim();
     setPreviewOpen(false);
@@ -220,14 +220,14 @@ export function Header() {
             <label htmlFor="header-search" className="sr-only">
               Поиск товаров
             </label>
-            <div className="flex h-11 items-center overflow-hidden rounded-lg border-2 border-brand bg-bg focus-within:ring-2 focus-within:ring-brand/30">
+            <div className="flex h-11 items-center overflow-hidden rounded-lg border-2 border-brand bg-bg">
               <Search
                 aria-hidden="true"
                 className="ml-3.5 h-4 w-4 shrink-0 text-ink-muted"
               />
               <input
                 id="header-search"
-                type="search"
+                type="text"
                 name="q"
                 value={query}
                 onChange={(event) => {
@@ -240,7 +240,7 @@ export function Header() {
                 }}
                 placeholder="Найти контейнер, лоток, органайзер..."
                 autoComplete="off"
-                className="min-w-0 flex-1 bg-transparent px-2.5 text-sm text-ink placeholder:text-ink-muted focus:outline-none"
+                className="min-w-0 flex-1 appearance-none border-0 bg-transparent px-2.5 text-sm text-ink shadow-none outline-none placeholder:text-ink-muted focus:border-0 focus:shadow-none focus:outline-none focus:ring-0"
               />
               {query && (
                 <button

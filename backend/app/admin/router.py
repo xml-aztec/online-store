@@ -22,11 +22,22 @@ from app.admin.schemas import (
     AdminProductVariantCreate,
     AdminProductVariantPublic,
     AdminProductVariantUpdate,
+    AdminPromoMessageCreate,
+    AdminPromoMessagePublic,
+    AdminPromoMessageReorderRequest,
+    AdminPromoMessageUpdate,
     BulkStatusRequest,
     BulkStatusResponse,
 )
 from app.catalog import service as catalog_service
-from app.catalog.models import Banner, Category, Product, ProductImage, ProductVariant
+from app.catalog.models import (
+    Banner,
+    Category,
+    Product,
+    ProductImage,
+    ProductVariant,
+    PromoMessage,
+)
 from app.core.storage import generate_presigned_url
 from app.database import get_db
 from app.dependencies import require_role
@@ -91,6 +102,15 @@ def _banner_to_public(banner: Banner) -> AdminBannerPublic:
         is_active=banner.is_active,
         starts_at=banner.starts_at,
         ends_at=banner.ends_at,
+    )
+
+
+def _promo_message_to_public(message: PromoMessage) -> AdminPromoMessagePublic:
+    return AdminPromoMessagePublic(
+        id=message.id,
+        message=message.message,
+        sort_order=message.sort_order,
+        is_active=message.is_active,
     )
 
 
@@ -460,3 +480,53 @@ async def delete_banner(
     banner_id: uuid.UUID, db: Annotated[AsyncSession, Depends(get_db)]
 ) -> None:
     await catalog_service.delete_banner(db, banner_id=banner_id)
+
+
+# --- Promo messages (running strip above the storefront header) ---
+
+
+@router.get("/promo-messages", response_model=list[AdminPromoMessagePublic])
+async def list_promo_messages(
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> list[AdminPromoMessagePublic]:
+    messages = await catalog_service.list_promo_messages_admin(db)
+    return [_promo_message_to_public(message) for message in messages]
+
+
+@router.post(
+    "/promo-messages", response_model=AdminPromoMessagePublic, status_code=status.HTTP_201_CREATED
+)
+async def create_promo_message(
+    payload: AdminPromoMessageCreate, db: Annotated[AsyncSession, Depends(get_db)]
+) -> AdminPromoMessagePublic:
+    message = await catalog_service.create_promo_message(db, message=payload.message)
+    return _promo_message_to_public(message)
+
+
+@router.patch("/promo-messages/reorder", response_model=list[AdminPromoMessagePublic])
+async def reorder_promo_messages(
+    payload: AdminPromoMessageReorderRequest, db: Annotated[AsyncSession, Depends(get_db)]
+) -> list[AdminPromoMessagePublic]:
+    messages = await catalog_service.reorder_promo_messages(
+        db, promo_message_ids=payload.promo_message_ids
+    )
+    return [_promo_message_to_public(message) for message in messages]
+
+
+@router.patch("/promo-messages/{promo_message_id}", response_model=AdminPromoMessagePublic)
+async def update_promo_message(
+    promo_message_id: uuid.UUID,
+    payload: AdminPromoMessageUpdate,
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> AdminPromoMessagePublic:
+    message = await catalog_service.update_promo_message(
+        db, promo_message_id=promo_message_id, updates=payload.model_dump(exclude_unset=True)
+    )
+    return _promo_message_to_public(message)
+
+
+@router.delete("/promo-messages/{promo_message_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_promo_message(
+    promo_message_id: uuid.UUID, db: Annotated[AsyncSession, Depends(get_db)]
+) -> None:
+    await catalog_service.delete_promo_message(db, promo_message_id=promo_message_id)

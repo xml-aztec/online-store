@@ -12,6 +12,7 @@ from app.catalog.schemas import (
     ProductDetail,
     ProductListResponse,
     ProductSort,
+    PromoMessagePublic,
 )
 from app.core.storage import generate_presigned_url
 from app.database import get_db
@@ -50,6 +51,17 @@ async def list_banners(db: Annotated[AsyncSession, Depends(get_db)]) -> list[Ban
             sort_order=banner.sort_order,
         )
         for banner in banners
+    ]
+
+
+@router.get("/promo-messages", response_model=list[PromoMessagePublic])
+async def list_promo_messages(
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> list[PromoMessagePublic]:
+    messages = await catalog_service.list_promo_messages(db)
+    return [
+        PromoMessagePublic(id=message.id, message=message.message, sort_order=message.sort_order)
+        for message in messages
     ]
 
 

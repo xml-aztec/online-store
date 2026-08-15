@@ -1,14 +1,27 @@
-"use client";
-
-import { useCheckoutConfigQuery } from "@/entities/orders/queries";
+import { getCheckoutConfig, type CheckoutConfig } from "@/entities/orders/api";
+import { getPromoMessages } from "@/entities/promoMessage/api";
 import { formatPrice } from "@/shared/lib/formatPrice";
 
+async function safeCheckoutConfig(): Promise<CheckoutConfig | null> {
+  try {
+    return await getCheckoutConfig();
+  } catch {
+    return null;
+  }
+}
+
+async function safePromoMessages(): Promise<string[]> {
+  try {
+    return (await getPromoMessages()).map((item) => item.message);
+  } catch {
+    return [];
+  }
+}
+
 // Real, factual claims only -- no fabricated deadlines/addresses/discounts.
-// free_delivery_threshold comes from the same config the checkout form uses;
-// the other two are static because cash-on-delivery and pickup are both
-// always-on features of this store, not something that could go stale.
-function useMarqueeItems(): string[] {
-  const { data: config } = useCheckoutConfigQuery();
+// Used only while nothing is configured in /admin/promo-messages, so the
+// strip is never empty on a fresh store.
+function defaultItems(config: CheckoutConfig | null): string[] {
   const items = ["Оплата при получении", "Самовывоз или доставка по Бишкеку"];
   if (config) {
     items.unshift(`Бесплатная доставка от ${formatPrice(config.free_delivery_threshold)}`);
@@ -31,8 +44,9 @@ function MarqueeTrack({ items }: { items: string[] }) {
   );
 }
 
-export function PromoMarquee() {
-  const items = useMarqueeItems();
+export async function PromoMarquee() {
+  const [config, configured] = await Promise.all([safeCheckoutConfig(), safePromoMessages()]);
+  const items = configured.length > 0 ? configured : defaultItems(config);
 
   return (
     <div className="flex h-9 items-center overflow-hidden bg-accent-sale text-white">

@@ -148,6 +148,40 @@ async def test_setting_new_default_address_unsets_previous_default(
 
 
 @pytest.mark.asyncio
+async def test_first_address_is_automatically_default(
+    client: httpx.AsyncClient, db_session: AsyncSession
+) -> None:
+    user = await _make_user(db_session)
+    headers = _headers(user)
+
+    # Not requested as default -- should still become it, since there's
+    # nothing else it could be relative to yet.
+    first = await client.post(
+        "/v1/me/addresses",
+        json={"city": "Бишкек", "street": "Чуй", "building": "1"},
+        headers=headers,
+    )
+    assert first.status_code == 201
+    assert first.json()["is_default"] is True
+
+    # A second address, also not requesting default, must NOT steal it from
+    # the first -- only an explicit is_default=True (covered by the test
+    # above) should change who holds it.
+    second = await client.post(
+        "/v1/me/addresses",
+        json={"city": "Бишкек", "street": "Ленина", "building": "2"},
+        headers=headers,
+    )
+    assert second.status_code == 201
+    assert second.json()["is_default"] is False
+
+    addresses = (await client.get("/v1/me/addresses", headers=headers)).json()
+    defaults = [address for address in addresses if address["is_default"]]
+    assert len(defaults) == 1
+    assert defaults[0]["id"] == first.json()["id"]
+
+
+@pytest.mark.asyncio
 async def test_address_not_found_for_other_user(
     client: httpx.AsyncClient, db_session: AsyncSession
 ) -> None:
