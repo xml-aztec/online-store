@@ -1,0 +1,9 @@
+<!doctype html>
+<html lang="ru">
+  <body style="font-family: sans-serif; color: #1a1a1a;">
+    <h1 style="font-size: 20px;">HobbyLife</h1>
+    <p>Здравствуйте{{ ", " + full_name if full_name else "" }}!</p>
+    <p>Статус заказа <strong>{{ order_number }}</strong> изменился: <strong>{{ status_label }}</strong>.</p>
+    <p><a href="{{ order_url }}">Посмотреть статус заказа</a></p>
+  </body>
+</html>
