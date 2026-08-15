@@ -119,7 +119,13 @@ async def test_cash_on_delivery_checkout_goes_straight_to_processing(
     assert order.status == "processing"
     assert order.subtotal == Decimal("1000.00")
     assert order.expires_at is None
-    assert order.user_id is None
+    # Guest checkout provisions a passwordless account for this email (ТЗ 4)
+    # so the order is visible once they claim it -- see test_email.py for the
+    # account-creation/set-password-email behavior itself.
+    assert order.user_id is not None
+    guest_account = await db_session.get(User, order.user_id)
+    assert guest_account is not None
+    assert guest_account.password_hash is None
 
     await db_session.refresh(variant)
     assert variant.stock_qty == 8

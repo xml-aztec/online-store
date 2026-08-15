@@ -144,6 +144,44 @@ async def verify_email(session: AsyncSession, *, token: str) -> None:
         await session.commit()
 
 
+async def get_or_create_guest_account(
+    session: AsyncSession, *, email: str, full_name: str, phone: str
+) -> User | None:
+    """For guest checkout only (ТЗ 4: `password_hash` may be NULL for an
+    account created this way). Returns the user the order should be
+    associated with, or None if an account with this email already exists --
+    a guest order must never get silently attached to someone else's
+    existing account just because the email typed at checkout happens to
+    match it.
+
+    Doesn't send the "set password" email itself -- that needs the order
+    number, which doesn't exist yet at this point in checkout (see
+    app/orders/router.py::checkout, which calls enqueue_set_password_email
+    once the order is actually created).
+    """
+    existing = await session.scalar(select(User).where(User.email == email))
+    if existing is not None:
+        return None
+
+    user = User(email=email, full_name=full_name, phone=phone, password_hash=None)
+    session.add(user)
+    await session.flush()
+    return user
+
+
+async def enqueue_set_password_email(*, user_id: uuid.UUID, order_number: str) -> None:
+    token = create_email_action_token(
+        user_id=user_id, purpose="password_reset", ttl=_PASSWORD_RESET_TTL, password_hash=None
+    )
+    pool = await get_arq_pool()
+    await pool.enqueue_job(
+        "send_set_password_email",
+        user_id=str(user_id),
+        token=token,
+        order_number=order_number,
+    )
+
+
 async def forgot_password(session: AsyncSession, *, email: str) -> None:
     user = await session.scalar(select(User).where(User.email == email))
     if user is None:

@@ -11,7 +11,7 @@ from sqlalchemy.orm import selectinload
 from app.auth.models import User
 from app.catalog.models import Banner, ProductImage, ProductVariant
 from app.config import settings
-from app.core.email import send_email
+from app.core.email import render_email_template, send_email
 from app.core.storage import get_s3_client
 from app.database import async_session_factory
 from app.imports import service as imports_service
@@ -45,12 +45,10 @@ async def send_verification_email(ctx: dict[str, Any], *, user_id: str, token: s
             return
 
         verify_url = f"{settings.domain}/verify-email?token={token}"
-        await send_email(
-            to=user.email,
-            subject="Подтверждение email — HobbyLife",
-            template_name="verify_email.html",
-            context={"full_name": user.full_name, "verify_url": verify_url},
+        html = render_email_template(
+            "verify_email.html", full_name=user.full_name, verify_url=verify_url
         )
+        await send_email(to=user.email, subject="Подтверждение email — HobbyLife", html=html)
 
 
 async def send_password_reset_email(ctx: dict[str, Any], *, user_id: str, token: str) -> None:
@@ -60,11 +58,35 @@ async def send_password_reset_email(ctx: dict[str, Any], *, user_id: str, token:
             return
 
         reset_url = f"{settings.domain}/reset-password?token={token}"
+        html = render_email_template(
+            "reset_password.html", full_name=user.full_name, reset_url=reset_url
+        )
+        await send_email(to=user.email, subject="Восстановление пароля — HobbyLife", html=html)
+
+
+async def send_set_password_email(
+    ctx: dict[str, Any], *, user_id: str, token: str, order_number: str
+) -> None:
+    # ТЗ 4: guest checkout may create an account with password_hash NULL (see
+    # app/auth/service.py::get_or_create_guest_account) -- this is how that
+    # account gets claimed. Reuses the password_reset token purpose/endpoint
+    # (POST /auth/reset-password): a NULL password_hash fingerprints the same
+    # way as any other, so "set my first password" and "reset my password"
+    # are literally the same operation from the token's point of view.
+    async with async_session_factory() as session:
+        user = await session.get(User, uuid.UUID(user_id))
+        if user is None:
+            return
+
+        set_password_url = f"{settings.domain}/reset-password?token={token}"
+        html = render_email_template(
+            "set_password.html",
+            full_name=user.full_name,
+            order_number=order_number,
+            set_password_url=set_password_url,
+        )
         await send_email(
-            to=user.email,
-            subject="Восстановление пароля — HobbyLife",
-            template_name="reset_password.html",
-            context={"full_name": user.full_name, "reset_url": reset_url},
+            to=user.email, subject="Установите пароль — HobbyLife", html=html
         )
 
 
@@ -150,16 +172,14 @@ async def send_order_status_email(ctx: dict[str, Any], *, order_id: str, status:
         if order is None:
             return
 
-        await send_email(
-            to=order.email,
-            subject=f"Заказ {order.number} — HobbyLife",
-            template_name="order_status_update.html",
-            context={
-                "order_number": order.number,
-                "full_name": order.full_name,
-                "status_label": _ORDER_STATUS_LABELS.get(status, status),
-            },
+        html = render_email_template(
+            "order_status_update.html",
+            order_number=order.number,
+            full_name=order.full_name,
+            status_label=_ORDER_STATUS_LABELS.get(status, status),
+            order_url=f"{settings.domain}/account/orders/{order.number}",
         )
+        await send_email(to=order.email, subject=f"Заказ {order.number} — HobbyLife", html=html)
 
 
 async def process_payment_succeeded(ctx: dict[str, Any], *, payment_id: str) -> None:

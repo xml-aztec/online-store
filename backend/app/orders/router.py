@@ -1,8 +1,10 @@
+import uuid
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, Query, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.auth import service as auth_service
 from app.auth.models import User
 from app.cart.dependencies import CartContext, get_cart_context
 from app.config import settings
@@ -84,10 +86,25 @@ async def checkout(
 ) -> CheckoutResponse:
     # ТЗ 5.5: 10 order creations / hour / IP.
     await check_rate_limit(f"ratelimit:order:{client_ip(request)}", *ORDER_CREATE_RATE_LIMIT)
+
+    guest_account: User | None = None
+    user_id: uuid.UUID | None
+    if cart.user is not None:
+        user_id = cart.user.id
+    else:
+        # ТЗ 4: a guest checkout may provision a passwordless account for this
+        # email so the order is visible once they claim it -- but only when no
+        # account exists yet (see get_or_create_guest_account's docstring for
+        # why an existing email is never silently attached to).
+        guest_account = await auth_service.get_or_create_guest_account(
+            db, email=payload.email, full_name=payload.full_name, phone=payload.phone
+        )
+        user_id = guest_account.id if guest_account is not None else None
+
     order, payment_url = await orders_service.create_order(
         db,
         cart_key=cart.key,
-        user_id=cart.user.id if cart.user is not None else None,
+        user_id=user_id,
         email=payload.email,
         phone=payload.phone,
         full_name=payload.full_name,
@@ -96,6 +113,12 @@ async def checkout(
         payment_method=payload.payment_method,
         comment=payload.comment,
     )
+
+    if guest_account is not None:
+        await auth_service.enqueue_set_password_email(
+            user_id=guest_account.id, order_number=order.number
+        )
+
     return CheckoutResponse(number=order.number, payment_url=payment_url)
 
 

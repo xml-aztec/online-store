@@ -12,6 +12,7 @@ from app.workers.tasks import (
     process_product_image,
     send_order_status_email,
     send_password_reset_email,
+    send_set_password_email,
     send_telegram_daily_digest,
     send_telegram_low_stock,
     send_telegram_new_order,
@@ -24,6 +25,7 @@ class WorkerSettings:
     functions: list[Any] = [
         send_verification_email,
         send_password_reset_email,
+        send_set_password_email,
         process_product_image,
         process_banner_image,
         send_order_status_email,

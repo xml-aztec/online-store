@@ -310,7 +310,7 @@ export function OrderDetailContent({ orderId }: OrderDetailContentProps) {
         onClose={() => setCancelDialogOpen(false)}
       >
         <label className="flex flex-col gap-1.5 text-xs font-medium text-ink-muted">
-          Причина (видна клиенту)
+          Причина:
           <input
             type="text"
             value={cancelReason}

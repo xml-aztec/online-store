@@ -25,11 +25,14 @@ class Settings(BaseSettings):
     jwt_access_token_ttl_minutes: int = 15
     jwt_refresh_token_ttl_days: int = 30
 
-    smtp_host: str = ""
-    smtp_port: int = 587
-    smtp_user: str = ""
-    smtp_password: str = ""
-    smtp_from: str = "no-reply@hobbylife.kg"
+    # ТЗ 1.2: transactional email via the Resend REST API (see app/core/
+    # email.py) -- not SMTP. Until the hobbylife.kg domain is verified in
+    # Resend (SPF/DKIM, done separately later), sending only works from
+    # onboarding@resend.dev and only to the email address the Resend account
+    # itself is registered under -- EMAIL_FROM stays configurable so that
+    # verification is a pure .env change, no code/deploy involved.
+    resend_api_key: str = ""
+    email_from: str = "HobbyLife <onboarding@resend.dev>"
 
     payment_providers: str = "mock"
     payment_webhook_secret: str = "change-me-in-production"
