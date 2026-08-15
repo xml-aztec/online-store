@@ -9,7 +9,6 @@ import { isColorFacet, resolveSwatchColor, swatchStyle } from "@/shared/lib/colo
 import { optionLabel } from "@/shared/lib/optionLabels";
 import { isLowStock, stockLabel as sharedStockLabel } from "@/shared/lib/stock";
 import { FavoriteButton } from "@/shared/ui/FavoriteButton";
-import { RatingRow } from "@/shared/ui/RatingRow";
 
 interface Axis {
   key: string;
@@ -74,9 +73,6 @@ interface ProductPurchasePanelProps {
    * inside a modal sheet, not a real page, so a page-level sticky bar
    * doesn't belong there. */
   variant?: "page" | "compact";
-  ratingAvg?: number | null;
-  ratingCount?: number;
-  reviewsTotal?: number;
   /** Real flat courier cost from `/checkout/config` -- omit to hide the
    * delivery line rather than guess at a number. */
   courierCost?: string | number;
@@ -90,9 +86,6 @@ export function ProductPurchasePanel({
   imageUrl,
   showFavorite = true,
   variant = "page",
-  ratingAvg = null,
-  ratingCount = 0,
-  reviewsTotal = 0,
   courierCost,
 }: ProductPurchasePanelProps) {
   const axes = useMemo(() => getAxes(variants), [variants]);
@@ -139,15 +132,6 @@ export function ProductPurchasePanel({
         <div className="space-y-2">
           <h1 className="font-display text-2xl font-bold text-ink">{productName}</h1>
           <div className="flex flex-wrap items-center gap-3">
-            <RatingRow ratingAvg={ratingAvg} ratingCount={ratingCount} size="md" />
-            {reviewsTotal > 0 && (
-              <a
-                href="#reviews"
-                className="text-[13px] text-ink-muted hover:text-ink hover:underline"
-              >
-                {reviewsTotal} отзывов
-              </a>
-            )}
             {selectedVariant && (
               <span className="font-mono text-xs text-ink-muted">SKU {selectedVariant.sku}</span>
             )}

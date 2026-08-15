@@ -4,12 +4,9 @@ import { notFound } from "next/navigation";
 
 import { getCheckoutConfig } from "@/entities/orders/api";
 import { getProductBySlug, listProducts } from "@/entities/product/api";
-import { listReviews } from "@/entities/reviews/api";
 import { ProductCard } from "@/widgets/ProductCard";
 import { ProductGallery } from "@/widgets/ProductGallery";
 import { ProductPurchasePanel } from "@/widgets/ProductPurchasePanel";
-import { ProductReviews } from "@/widgets/ProductReviews";
-import { ReviewForm } from "@/widgets/ReviewForm";
 
 interface ProductPageProps {
   params: Promise<{ slug: string }>;
@@ -45,8 +42,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
   const product = await getProductBySlug(slug);
   if (!product) notFound();
 
-  const [reviewsResponse, checkoutConfig, recsResponse] = await Promise.all([
-    listReviews(slug),
+  const [checkoutConfig, recsResponse] = await Promise.all([
     getCheckoutConfig(),
     listProducts({ category: product.category.slug, page_size: 8 }),
   ]);
@@ -123,9 +119,6 @@ export default async function ProductPage({ params }: ProductPageProps) {
           productName={product.name}
           productSlug={product.slug}
           imageUrl={product.images[0]?.url ?? null}
-          ratingAvg={product.rating_avg ?? null}
-          ratingCount={product.rating_count}
-          reviewsTotal={reviewsResponse.total}
           courierCost={checkoutConfig.courier_delivery_cost}
         />
       </div>
@@ -170,16 +163,6 @@ export default async function ProductPage({ params }: ProductPageProps) {
           </div>
         </div>
       )}
-
-      <div id="reviews" className="mx-auto mt-12 max-w-2xl scroll-mt-24">
-        <h2 className="mb-4 font-display text-lg font-semibold text-ink">
-          Отзывы {reviewsResponse.total > 0 && `(${reviewsResponse.total})`}
-        </h2>
-        <div className="mb-6">
-          <ReviewForm slug={slug} />
-        </div>
-        <ProductReviews reviews={reviewsResponse.items} total={reviewsResponse.total} />
-      </div>
     </div>
   );
 }

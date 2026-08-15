@@ -1,6 +1,7 @@
 "use client";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { z } from "zod";
@@ -107,6 +108,16 @@ function CheckoutFields({ initialForm }: { initialForm: FormState }) {
 
   const [form, setForm] = useState<FormState>(initialForm);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+
+  // Defense in depth: CartView already blocks navigating here with an
+  // unavailable item, but stock can also go to zero in the time between
+  // landing on this page and submitting, so the submit button re-checks the
+  // same condition rather than relying solely on the 409 the backend would
+  // return anyway (that failure mode works, but surprises the user after
+  // they've filled in the whole form instead of catching it up front).
+  const hasUnavailableItems = Boolean(
+    cart?.items.some((item) => !item.is_available || item.qty > item.available_qty)
+  );
 
   const subtotal = cart ? Number(cart.subtotal) : 0;
   const freeThreshold = config ? Number(config.free_delivery_threshold) : undefined;
@@ -347,9 +358,21 @@ function CheckoutFields({ initialForm }: { initialForm: FormState }) {
           </p>
         )}
 
+        {hasUnavailableItems && (
+          <p className="mt-3 rounded-lg bg-accent-sale/10 p-3 text-sm text-accent-sale-700">
+            Некоторые товары в корзине недоступны в нужном количестве.{" "}
+            <Link href="/cart" className="font-medium underline">
+              Вернитесь в корзину
+            </Link>
+            , чтобы убрать их или изменить количество.
+          </p>
+        )}
+
         <button
           type="submit"
-          disabled={checkoutMutation.isPending || !cart || cart.items.length === 0}
+          disabled={
+            checkoutMutation.isPending || !cart || cart.items.length === 0 || hasUnavailableItems
+          }
           className="mt-4 w-full rounded-lg bg-brand px-4 py-3 text-sm font-medium text-white transition hover:bg-brand/90 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
         >
           {checkoutMutation.isPending ? "Оформляем…" : "Оплатить"}

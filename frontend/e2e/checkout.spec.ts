@@ -109,7 +109,7 @@ test("catalog -> cart -> checkout (cash on delivery) -> success page with order 
   await expect(page.getByText(/Номер заказа: ORD-/)).toBeVisible();
 });
 
-test("a competing checkout draining stock shows a readable 409 on checkout", async ({
+test("a competing checkout draining stock disables checkout with a readable message", async ({
   page,
   request,
 }) => {
@@ -139,13 +139,25 @@ test("a competing checkout draining stock shows a readable 409 on checkout", asy
   });
   expect(competitorCheckout.ok()).toBeTruthy();
 
+  // The cart page itself must not offer a live link into checkout for a cart
+  // it already knows is unavailable -- only a disabled lookalike button.
+  await page.goto("/cart");
+  await expect(
+    page.getByText("Некоторые товары недоступны в нужном количестве — уберите их")
+  ).toBeVisible();
+  await expect(page.getByRole("complementary").getByRole("button", { name: "Оформить заказ" })).toBeDisabled();
+  await expect(page.getByRole("complementary").getByRole("link", { name: "Оформить заказ" })).toHaveCount(0);
+
   await page.goto("/checkout");
   await page.fill("#email", `e2e-conflict-${Date.now()}@example.com`);
   await page.fill("#phone", "+996700000002");
   await page.fill("#full_name", "E2E Buyer");
-  await page.getByRole("button", { name: "Оплатить" }).click();
 
+  // The competitor's purchase already happened before this page loaded, so
+  // the fresh cart fetch here reflects it immediately -- checkout is blocked
+  // up front with an explanation, not discovered via a 409 after submitting.
   await expect(
-    page.getByText("Некоторые товары недоступны в нужном количестве")
+    page.getByText("Некоторые товары в корзине недоступны в нужном количестве")
   ).toBeVisible();
+  await expect(page.getByRole("button", { name: "Оплатить" })).toBeDisabled();
 });

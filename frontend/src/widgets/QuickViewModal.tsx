@@ -8,7 +8,6 @@ import { createPortal } from "react-dom";
 
 import { getProductBySlug } from "@/entities/product/api";
 import { FavoriteButton } from "@/shared/ui/FavoriteButton";
-import { RatingRow } from "@/shared/ui/RatingRow";
 import { ProductGallery } from "@/widgets/ProductGallery";
 import { ProductPurchasePanel } from "@/widgets/ProductPurchasePanel";
 
@@ -91,13 +90,6 @@ export function QuickViewModal({ slug, open, onClose }: QuickViewModalProps) {
               <h2 className="font-display text-lg font-bold text-ink sm:text-xl">
                 {product.name}
               </h2>
-              <div className="mt-1.5">
-                <RatingRow
-                  ratingAvg={product.rating_avg ?? null}
-                  ratingCount={product.rating_count}
-                  size="md"
-                />
-              </div>
 
               <div className="mt-5">
                 <ProductPurchasePanel

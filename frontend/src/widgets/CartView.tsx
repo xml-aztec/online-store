@@ -92,7 +92,8 @@ export function CartView() {
       <aside className="flex h-fit flex-col gap-4 lg:sticky lg:top-24">
         {hasUnavailableItems && (
           <p className="rounded-lg bg-accent-sale/10 p-3 text-sm text-accent-sale-700">
-            Некоторые товары изменились в наличии — проверьте количество перед оформлением.
+            Некоторые товары недоступны в нужном количестве — уберите их или уменьшите количество,
+            чтобы оформить заказ.
           </p>
         )}
 
@@ -166,12 +167,24 @@ export function CartView() {
             <span className="font-mono text-2xl font-bold text-ink">{formatPrice(cart.total)}</span>
           </div>
 
-          <Link
-            href="/checkout"
-            className="block w-full rounded-xl bg-brand px-4 py-3.5 text-center font-display text-base font-bold text-white hover:bg-brand/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
-          >
-            Оформить заказ
-          </Link>
+          {hasUnavailableItems ? (
+            <button
+              type="button"
+              disabled
+              aria-disabled="true"
+              title="Уберите недоступные товары из корзины, чтобы оформить заказ"
+              className="block w-full cursor-not-allowed rounded-xl bg-brand px-4 py-3.5 text-center font-display text-base font-bold text-white opacity-50"
+            >
+              Оформить заказ
+            </button>
+          ) : (
+            <Link
+              href="/checkout"
+              className="block w-full rounded-xl bg-brand px-4 py-3.5 text-center font-display text-base font-bold text-white hover:bg-brand/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+            >
+              Оформить заказ
+            </Link>
+          )}
         </div>
 
         <p className="px-1 text-xs leading-relaxed text-ink-muted">
@@ -188,12 +201,24 @@ export function CartView() {
           <p className="text-xs text-ink-muted">Итого</p>
           <p className="truncate font-mono text-lg font-bold text-ink">{formatPrice(cart.total)}</p>
         </div>
-        <Link
-          href="/checkout"
-          className="shrink-0 rounded-lg bg-brand px-5 py-2.5 text-sm font-medium text-white hover:bg-brand/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
-        >
-          Оформить заказ
-        </Link>
+        {hasUnavailableItems ? (
+          <button
+            type="button"
+            disabled
+            aria-disabled="true"
+            title="Уберите недоступные товары из корзины, чтобы оформить заказ"
+            className="shrink-0 cursor-not-allowed rounded-lg bg-brand px-5 py-2.5 text-sm font-medium text-white opacity-50"
+          >
+            Оформить заказ
+          </button>
+        ) : (
+          <Link
+            href="/checkout"
+            className="shrink-0 rounded-lg bg-brand px-5 py-2.5 text-sm font-medium text-white hover:bg-brand/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+          >
+            Оформить заказ
+          </Link>
+        )}
       </div>
     </div>
   );

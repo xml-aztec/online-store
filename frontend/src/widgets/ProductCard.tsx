@@ -11,7 +11,6 @@ import { Badge } from "@/shared/ui/Badge";
 import { FavoriteButton } from "@/shared/ui/FavoriteButton";
 import { HoverImageCycle } from "@/shared/ui/HoverImageCycle";
 import { PriceBlock } from "@/shared/ui/PriceBlock";
-import { RatingRow } from "@/shared/ui/RatingRow";
 import { StockLabel } from "@/shared/ui/StockLabel";
 import { QuickViewModal } from "@/widgets/QuickViewModal";
 
@@ -203,10 +202,7 @@ export function ProductCard({ product, layout = "grid", showFavorite, badges }: 
         </h3>
 
         {!isList && (
-          <>
-            <RatingRow ratingAvg={product.rating_avg ?? null} ratingCount={product.rating_count} />
-            <StockLabel stockQty={product.stock_qty} isAvailable={product.is_available} />
-          </>
+          <StockLabel stockQty={product.stock_qty} isAvailable={product.is_available} />
         )}
 
         {product.is_available && !isList && (
