@@ -114,65 +114,72 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     <div data-theme={theme} className="admin-shell bg-bg text-ink">
       <AdminPortalProvider value={portalRoot}>
         <div className="grid min-h-screen grid-cols-[216px_1fr] bg-surface">
-          <aside className="flex flex-col gap-0.5 border-r border-border bg-bg p-2.5">
-            <Link href="/admin" className="mb-3 flex items-center gap-2 px-2 pt-1">
-              <span className="flex h-[26px] w-[26px] items-center justify-center rounded-lg bg-brand">
-                <Home className="h-3.5 w-3.5 text-white" aria-hidden="true" strokeWidth={2.2} />
-              </span>
-              <span className="font-display text-[14px] font-extrabold text-ink">
-                HobbyLife <span className="text-[10px] font-semibold text-ink-muted">админ</span>
-              </span>
-            </Link>
+          {/* Pinned to the viewport (not the page) so the theme toggle and
+              logout at the bottom never scroll away under a tall table --
+              only the nav-links section in the middle scrolls internally if
+              it ever outgrows the viewport, the account/theme block below it
+              never does. */}
+          <aside className="sticky top-0 flex h-screen flex-col border-r border-border bg-bg">
+            <div className="flex flex-1 flex-col gap-0.5 overflow-y-auto p-2.5">
+              <Link href="/admin" className="mb-3 flex items-center gap-2 px-2 pt-1">
+                <span className="flex h-[26px] w-[26px] items-center justify-center rounded-lg bg-brand">
+                  <Home className="h-3.5 w-3.5 text-white" aria-hidden="true" strokeWidth={2.2} />
+                </span>
+                <span className="font-display text-[14px] font-extrabold text-ink">
+                  HobbyLife <span className="text-[10px] font-semibold text-ink-muted">админ</span>
+                </span>
+              </Link>
 
-            <button
-              type="button"
-              onClick={() => setPaletteOpen(true)}
-              className="mb-2.5 flex h-[34px] items-center gap-2 rounded-lg bg-surface px-2.5 text-xs text-ink-muted hover:bg-border/60"
-            >
-              <Search className="h-[13px] w-[13px]" aria-hidden="true" strokeWidth={2.2} />
-              Поиск и команды…
-              <span className="ml-auto rounded-md border border-border bg-bg px-1.5 py-0.5 font-mono text-[10px] text-ink-muted">
-                ⌘K
-              </span>
-            </button>
+              <button
+                type="button"
+                onClick={() => setPaletteOpen(true)}
+                className="mb-2.5 flex h-[34px] items-center gap-2 rounded-lg bg-surface px-2.5 text-xs text-ink-muted hover:bg-border/60"
+              >
+                <Search className="h-[13px] w-[13px]" aria-hidden="true" strokeWidth={2.2} />
+                Поиск и команды…
+                <span className="ml-auto rounded-md border border-border bg-bg px-1.5 py-0.5 font-mono text-[10px] text-ink-muted">
+                  ⌘K
+                </span>
+              </button>
 
-            {navLinks
-              .filter((link) => !link.adminOnly || role === "admin")
-              .map((link) => {
-                const active = isNavLinkActive(pathname, link.href);
-                const Icon = link.icon;
-                return (
-                  <Link
-                    key={link.href}
-                    href={link.href}
-                    aria-current={active ? "page" : undefined}
-                    className={`flex h-[34px] items-center gap-2.5 rounded-lg px-2.5 font-display text-[13px] font-bold transition ${
-                      active
-                        ? "bg-brand-soft text-brand-text"
-                        : "text-ink-muted hover:bg-surface hover:text-ink"
-                    }`}
-                  >
-                    <Icon className="h-[15px] w-[15px] shrink-0" aria-hidden="true" />
-                    {link.label}
-                    {Boolean(link.badge) && (
-                      <span
-                        className={`ml-auto flex h-[17px] min-w-[17px] items-center justify-center rounded-full px-1 font-mono text-[10px] font-bold ${
-                          active ? "bg-brand-text/20 text-brand-text" : "bg-accent-sale text-white"
-                        }`}
-                      >
-                        {link.badge}
-                      </span>
-                    )}
-                    {!link.badge && link.hotkey && (
-                      <span className="ml-auto font-mono text-[10px] text-ink-muted">
-                        {link.hotkey}
-                      </span>
-                    )}
-                  </Link>
-                );
-              })}
+              {navLinks
+                .filter((link) => !link.adminOnly || role === "admin")
+                .map((link) => {
+                  const active = isNavLinkActive(pathname, link.href);
+                  const Icon = link.icon;
+                  return (
+                    <Link
+                      key={link.href}
+                      href={link.href}
+                      aria-current={active ? "page" : undefined}
+                      className={`flex h-[34px] items-center gap-2.5 rounded-lg px-2.5 font-display text-[13px] font-bold transition ${
+                        active
+                          ? "bg-brand-soft text-brand-text"
+                          : "text-ink-muted hover:bg-surface hover:text-ink"
+                      }`}
+                    >
+                      <Icon className="h-[15px] w-[15px] shrink-0" aria-hidden="true" />
+                      {link.label}
+                      {Boolean(link.badge) && (
+                        <span
+                          className={`ml-auto flex h-[17px] min-w-[17px] items-center justify-center rounded-full px-1 font-mono text-[10px] font-bold ${
+                            active ? "bg-brand-text/20 text-brand-text" : "bg-accent-sale text-white"
+                          }`}
+                        >
+                          {link.badge}
+                        </span>
+                      )}
+                      {!link.badge && link.hotkey && (
+                        <span className="ml-auto font-mono text-[10px] text-ink-muted">
+                          {link.hotkey}
+                        </span>
+                      )}
+                    </Link>
+                  );
+                })}
+            </div>
 
-            <div className="mt-auto flex flex-col gap-2 border-t border-border pt-2.5">
+            <div className="flex shrink-0 flex-col gap-2 border-t border-border p-2.5 pt-2.5">
               <a
                 href="/"
                 target="_blank"
