@@ -11,6 +11,7 @@ import {
   Rows3,
   Search,
   Star,
+  Store,
   Tag,
   Upload,
   UserCircle,
@@ -110,7 +111,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   const initials = (email ?? "").slice(0, 2).toUpperCase();
 
   return (
-    <div data-theme={theme} className="bg-bg">
+    <div data-theme={theme} className="bg-bg text-ink">
       <AdminPortalProvider value={portalRoot}>
         <div className="grid min-h-screen grid-cols-[216px_1fr] bg-surface">
           <aside className="flex flex-col gap-0.5 border-r border-border bg-bg p-2.5">
@@ -172,6 +173,15 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
               })}
 
             <div className="mt-auto flex flex-col gap-2 border-t border-border pt-2.5">
+              <a
+                href="/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex h-[34px] items-center gap-2.5 rounded-lg px-2.5 font-display text-[13px] font-bold text-ink-muted transition hover:bg-surface hover:text-ink"
+              >
+                <Store className="h-[15px] w-[15px] shrink-0" aria-hidden="true" />
+                Открыть магазин
+              </a>
               <div className="flex items-center gap-2 px-2">
                 <span className="flex-1 text-[11px] text-ink-muted">Тема</span>
                 <ThemeToggle />
