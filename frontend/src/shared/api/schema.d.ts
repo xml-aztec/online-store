@@ -487,6 +487,23 @@ export interface paths {
         patch: operations["update_category_v1_admin_categories__category_id__patch"];
         trace?: never;
     };
+    "/v1/admin/categories/{category_id}/image": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Replace Category Image */
+        post: operations["replace_category_image_v1_admin_categories__category_id__image_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/products/bulk-status": {
         parameters: {
             query?: never;
@@ -1320,6 +1337,10 @@ export interface components {
              * @default 0
              */
             product_count: number;
+            /** Image Url */
+            image_url?: string | null;
+            /** Thumbnail Url */
+            thumbnail_url?: string | null;
         };
         /** AdminCategoryUpdate */
         AdminCategoryUpdate: {
@@ -1864,6 +1885,11 @@ export interface components {
             /** File */
             file: string;
         };
+        /** Body_replace_category_image_v1_admin_categories__category_id__image_post */
+        Body_replace_category_image_v1_admin_categories__category_id__image_post: {
+            /** File */
+            file: string;
+        };
         /** Body_upload_import_v1_admin_imports_xlsx_post */
         Body_upload_import_v1_admin_imports_xlsx_post: {
             /** File */
@@ -1952,6 +1978,8 @@ export interface components {
              * @default 0
              */
             product_count: number;
+            /** Image Url */
+            image_url?: string | null;
             /**
              * Children
              * @default []
@@ -3515,6 +3543,41 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["AdminCategoryUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminCategoryPublic"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    replace_category_image_v1_admin_categories__category_id__image_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                category_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_replace_category_image_v1_admin_categories__category_id__image_post"];
             };
         };
         responses: {

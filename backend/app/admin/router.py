@@ -45,6 +45,14 @@ def _category_to_public(category: Category, *, product_count: int = 0) -> AdminC
         sort_order=category.sort_order,
         is_active=category.is_active,
         product_count=product_count,
+        image_url=generate_presigned_url(category.image_s3_key)
+        if category.image_s3_key
+        else None,
+        thumbnail_url=generate_presigned_url(
+            category.image_thumbnail_s3_key or category.image_s3_key
+        )
+        if category.image_s3_key
+        else None,
     )
 
 
@@ -166,6 +174,19 @@ async def delete_category(
     category_id: uuid.UUID, db: Annotated[AsyncSession, Depends(get_db)]
 ) -> None:
     await catalog_service.delete_category(db, category_id=category_id)
+
+
+@router.post("/categories/{category_id}/image", response_model=AdminCategoryPublic)
+async def replace_category_image(
+    category_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    file: Annotated[UploadFile, File()],
+) -> AdminCategoryPublic:
+    contents = await file.read()
+    category = await catalog_service.replace_category_image(
+        db, category_id=category_id, content_type=file.content_type, contents=contents
+    )
+    return _category_to_public(category)
 
 
 # --- Products ---

@@ -9,7 +9,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from app.auth.models import User
-from app.catalog.models import Banner, ProductImage, ProductVariant
+from app.catalog import service as catalog_service
+from app.catalog.models import Banner, Category, ProductImage, ProductVariant
 from app.config import settings
 from app.core.email import render_email_template, send_email
 from app.core.storage import get_s3_client
@@ -30,6 +31,10 @@ _PREVIEW_LARGE_SIZE = 800
 # would look visibly soft stretched across a ~1200px+ container.
 _BANNER_THUMBNAIL_SIZE = 400
 _BANNER_HERO_SIZE = 1920
+# Category tiles render at roughly half a ~1280px container -- 800px covers
+# that at 2x pixel density without the hero-banner-sized upload cost.
+_CATEGORY_THUMBNAIL_SIZE = 300
+_CATEGORY_IMAGE_SIZE = 800
 
 _ORDER_STATUS_LABELS = {
     "paid": "оплата получена",
@@ -132,6 +137,31 @@ async def process_banner_image(
         banner.s3_key = hero_key
         banner.thumbnail_s3_key = thumbnail_key
         await session.commit()
+
+
+async def process_category_image(
+    ctx: dict[str, Any], *, category_id: str, original_s3_key: str
+) -> None:
+    thumbnail_key, image_key = await asyncio.to_thread(
+        _generate_previews,
+        original_s3_key,
+        thumbnail_size=_CATEGORY_THUMBNAIL_SIZE,
+        large_size=_CATEGORY_IMAGE_SIZE,
+    )
+
+    async with async_session_factory() as session:
+        category = await session.get(Category, uuid.UUID(category_id))
+        if category is None:
+            return
+        # Same staleness guard as process_banner_image -- a second upload
+        # while this resize was in flight means our result no longer matches
+        # what's actually stored.
+        if category.image_s3_key != original_s3_key:
+            return
+        category.image_s3_key = image_key
+        category.image_thumbnail_s3_key = thumbnail_key
+        await session.commit()
+        await catalog_service.invalidate_category_cache()
 
 
 def _generate_previews(

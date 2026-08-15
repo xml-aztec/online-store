@@ -123,6 +123,9 @@ async def _build_category_tree(session: AsyncSession) -> list[CategoryNode]:
             slug=category.slug,
             sort_order=category.sort_order,
             product_count=own_counts.get(category.id, 0),
+            image_url=generate_presigned_url(category.image_s3_key)
+            if category.image_s3_key
+            else None,
         )
         for category in categories
     }
@@ -782,6 +785,43 @@ async def delete_category(session: AsyncSession, *, category_id: uuid.UUID) -> N
     await session.delete(category)
     await session.commit()
     await invalidate_category_cache()
+
+
+async def replace_category_image(
+    session: AsyncSession, *, category_id: uuid.UUID, content_type: str | None, contents: bytes
+) -> Category:
+    category = await get_category_admin(session, category_id=category_id)
+    content_type = _validate_image_upload(content_type, contents)
+
+    old_prefix = category.image_s3_key.rsplit("/", 1)[0] + "/" if category.image_s3_key else None
+
+    upload_id = uuid.uuid4().hex
+    original_key = f"categories/{upload_id}/original"
+    ensure_bucket_exists()
+    client = get_s3_client()
+    client.put_object(
+        Bucket=settings.s3_bucket, Key=original_key, Body=contents, ContentType=content_type
+    )
+
+    category.image_s3_key = original_key
+    category.image_thumbnail_s3_key = None
+    await session.commit()
+
+    if old_prefix is not None:
+        listing = client.list_objects_v2(Bucket=settings.s3_bucket, Prefix=old_prefix)
+        keys = [obj["Key"] for obj in listing.get("Contents", [])]
+        if keys:
+            client.delete_objects(
+                Bucket=settings.s3_bucket, Delete={"Objects": [{"Key": key} for key in keys]}
+            )
+
+    pool = await get_arq_pool()
+    await pool.enqueue_job(
+        "process_category_image", category_id=str(category.id), original_s3_key=original_key
+    )
+
+    await invalidate_category_cache()
+    return category
 
 
 # --- Admin: products ---

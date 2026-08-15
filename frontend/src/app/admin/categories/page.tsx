@@ -1,14 +1,16 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, X } from "lucide-react";
-import { useState } from "react";
+import { ImagePlus, Plus, X } from "lucide-react";
+import Image from "next/image";
+import { useRef, useState } from "react";
 
 import { useAuthStore } from "@/entities/auth/store";
 import {
   createAdminCategory,
   deleteAdminCategory,
   listAdminCategories,
+  replaceAdminCategoryImage,
   updateAdminCategory,
   type AdminCategory,
 } from "@/entities/category/adminApi";
@@ -95,6 +97,14 @@ function CategoryRow({
     },
   });
 
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  const imageMutation = useMutation({
+    mutationFn: (file: File) => replaceAdminCategoryImage(category.id, file),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: QUERY_KEY }),
+    onError: (err: unknown) =>
+      pushToast(err instanceof ApiError ? err.message : "Не удалось загрузить фото", "error"),
+  });
+
   function startEditing() {
     setDraftName(category.name);
     setEditing(true);
@@ -125,6 +135,37 @@ function CategoryRow({
         >
           ⠿
         </span>
+        <button
+          type="button"
+          title="Фото для плитки категории на главной"
+          onClick={() => imageInputRef.current?.click()}
+          disabled={imageMutation.isPending}
+          className="relative flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-md border border-border bg-surface disabled:opacity-50"
+        >
+          {category.thumbnail_url ? (
+            <Image
+              src={category.thumbnail_url}
+              alt=""
+              fill
+              unoptimized
+              sizes="28px"
+              className="object-cover"
+            />
+          ) : (
+            <ImagePlus className="h-3.5 w-3.5 text-ink-muted" aria-hidden="true" />
+          )}
+        </button>
+        <input
+          ref={imageInputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={(event) => {
+            const file = event.target.files?.[0];
+            if (file) imageMutation.mutate(file);
+            event.target.value = "";
+          }}
+        />
         {editing ? (
           <input
             autoFocus

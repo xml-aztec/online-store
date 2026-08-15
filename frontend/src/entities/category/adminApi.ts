@@ -1,4 +1,4 @@
-import { apiFetch } from "@/shared/api/client";
+import { apiFetch, apiFetchRaw } from "@/shared/api/client";
 import type { components } from "@/shared/api/schema";
 
 export type AdminCategory = components["schemas"]["AdminCategoryPublic"];
@@ -36,4 +36,17 @@ export async function updateAdminCategory(
 
 export async function deleteAdminCategory(categoryId: string): Promise<void> {
   await apiFetch<void>(`/admin/categories/${categoryId}`, { method: "DELETE" });
+}
+
+export async function replaceAdminCategoryImage(
+  categoryId: string,
+  file: File
+): Promise<AdminCategory> {
+  const formData = new FormData();
+  formData.append("file", file);
+  const response = await apiFetchRaw(`/admin/categories/${categoryId}/image`, {
+    method: "POST",
+    body: formData,
+  });
+  return (await response.json()) as AdminCategory;
 }

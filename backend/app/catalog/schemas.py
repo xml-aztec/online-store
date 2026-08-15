@@ -15,6 +15,7 @@ class CategoryNode(BaseModel):
     slug: str
     sort_order: int
     product_count: int = 0
+    image_url: str | None = None
     children: list[CategoryNode] = []
 
 

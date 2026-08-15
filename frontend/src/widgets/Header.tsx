@@ -1,6 +1,6 @@
 "use client";
 
-import { Heart, Menu, Search, ShoppingCart, User, X } from "lucide-react";
+import { Heart, Home, Menu, Search, ShoppingCart, User, X } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -197,14 +197,19 @@ export function Header() {
       >
         <Link
           href="/"
-          className="shrink-0 rounded-lg font-display text-lg font-extrabold tracking-tight text-brand focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+          className="flex shrink-0 items-center gap-2 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
         >
-          HobbyLife
+          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand">
+            <Home className="h-5 w-5 text-white" strokeWidth={2.4} aria-hidden="true" />
+          </span>
+          <span className="font-display text-lg font-extrabold tracking-tight text-ink">
+            Hobby<span className="text-brand">Life</span>
+          </span>
         </Link>
 
         <Link
           href="/catalog"
-          className="hidden shrink-0 items-center gap-2 rounded-xl bg-surface px-4 py-2.5 font-display text-sm font-bold text-ink hover:bg-ink/10 sm:flex focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+          className="hidden h-11 shrink-0 items-center gap-2 rounded-lg bg-brand px-4 font-display text-sm font-bold text-white hover:bg-brand/90 sm:flex focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
         >
           <Menu className="h-[18px] w-[18px]" aria-hidden="true" />
           Каталог
@@ -215,10 +220,10 @@ export function Header() {
             <label htmlFor="header-search" className="sr-only">
               Поиск товаров
             </label>
-            <div className="relative">
+            <div className="flex h-11 items-center overflow-hidden rounded-lg border-2 border-brand bg-bg focus-within:ring-2 focus-within:ring-brand/30">
               <Search
                 aria-hidden="true"
-                className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-muted"
+                className="ml-3.5 h-4 w-4 shrink-0 text-ink-muted"
               />
               <input
                 id="header-search"
@@ -235,7 +240,7 @@ export function Header() {
                 }}
                 placeholder="Найти контейнер, лоток, органайзер..."
                 autoComplete="off"
-                className="w-full rounded-lg border border-ink/15 bg-surface py-2.5 pl-10 pr-9 text-sm text-ink placeholder:text-ink-muted focus:border-brand focus:bg-bg focus:outline-none focus:ring-2 focus:ring-brand/30"
+                className="min-w-0 flex-1 bg-transparent px-2.5 text-sm text-ink placeholder:text-ink-muted focus:outline-none"
               />
               {query && (
                 <button
@@ -245,11 +250,17 @@ export function Header() {
                     setPreviewOpen(false);
                   }}
                   aria-label="Очистить поиск"
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded p-0.5 text-ink-muted hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+                  className="mr-2 shrink-0 rounded p-0.5 text-ink-muted hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
                 >
                   <X className="h-4 w-4" />
                 </button>
               )}
+              <button
+                type="submit"
+                className="hidden h-full shrink-0 bg-brand px-5 font-display text-sm font-bold text-white hover:bg-brand/90 sm:block"
+              >
+                Найти
+              </button>
             </div>
           </form>
 

@@ -29,6 +29,11 @@ class Category(TimestampedBase):
     slug: Mapped[str] = mapped_column(unique=True, nullable=False)
     sort_order: Mapped[int] = mapped_column(nullable=False, server_default=text("0"))
     is_active: Mapped[bool] = mapped_column(nullable=False, server_default=text("true"))
+    # Homepage category tile photo (ТЗ design v2). Nullable -- most categories
+    # won't have one uploaded yet; the frontend falls back to a plain tinted
+    # tile when unset instead of faking a photo.
+    image_s3_key: Mapped[str | None] = mapped_column(nullable=True)
+    image_thumbnail_s3_key: Mapped[str | None] = mapped_column(nullable=True)
 
     parent: Mapped["Category | None"] = relationship(
         remote_side="Category.id", back_populates="children"

@@ -1,13 +1,24 @@
+import io
 import uuid
 from decimal import Decimal
 
 import pytest
 from httpx import AsyncClient
+from PIL import Image
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.models import User
+from app.catalog import service as catalog_service
 from app.catalog.models import Category, Product, ProductVariant
 from app.core.security import create_access_token
+from tests.helpers import s3_reachable
+
+
+def _fake_jpeg_bytes(size: tuple[int, int] = (600, 600)) -> bytes:
+    image = Image.new("RGB", size, color=(255, 106, 0))
+    buffer = io.BytesIO()
+    image.save(buffer, format="JPEG")
+    return buffer.getvalue()
 
 
 def _slug(prefix: str) -> str:
@@ -277,6 +288,56 @@ async def test_reparenting_category_rejects_resulting_depth_over_3(
 
     assert response.status_code == 409
     assert response.json()["error"]["code"] == "CATEGORY_TOO_DEEP"
+
+
+@pytest.mark.asyncio
+@pytest.mark.skipif(
+    not s3_reachable(), reason="S3/MinIO endpoint is not reachable in this environment"
+)
+async def test_category_image_upload_appears_in_admin_and_public_tree(
+    client: AsyncClient, db_session: AsyncSession
+) -> None:
+    headers = await _admin_headers(db_session)
+    category = await _make_category(db_session)
+    await db_session.commit()
+
+    response = await client.post(
+        f"/v1/admin/categories/{category.id}/image",
+        files={"file": ("tile.jpg", _fake_jpeg_bytes(), "image/jpeg")},
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["image_url"]
+    assert body["thumbnail_url"]
+
+    # Public homepage tree reads the same s3_key -- it should see the (still
+    # unresized, background job hasn't run yet) upload immediately too, not
+    # just the admin listing.
+    await catalog_service.invalidate_category_cache()
+    tree = await client.get("/v1/categories")
+    assert tree.status_code == 200
+    node = next(n for n in tree.json() if n["id"] == str(category.id))
+    assert node["image_url"]
+
+
+@pytest.mark.asyncio
+async def test_category_image_upload_rejects_non_image_file(
+    client: AsyncClient, db_session: AsyncSession
+) -> None:
+    headers = await _admin_headers(db_session)
+    category = await _make_category(db_session)
+    await db_session.commit()
+
+    response = await client.post(
+        f"/v1/admin/categories/{category.id}/image",
+        files={"file": ("not-an-image.txt", b"hello", "text/plain")},
+        headers=headers,
+    )
+
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "INVALID_IMAGE"
 
 
 @pytest.mark.asyncio

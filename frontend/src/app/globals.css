@@ -6,24 +6,30 @@
   --color-border: #e5e7eb;
   --color-ink: #14161a;
   --color-ink-muted: #6b7280;
-  --color-brand: #2f5af5;
-  /* Text/icon-only variant of --color-brand -- buttons keep the same blue in
-     both themes, but blue *text* on the admin v2 dark surfaces (#16181D/
-     #1D2026) needs the lighter #7D9AFA to stay readable; see
-     admin/layout.tsx's dark-mode token block below. */
-  --color-brand-text: #2f5af5;
-  /* Tinted background for "selected/active" affordances (active nav item,
-     active table row, focused command-palette row) -- a soft wash, not the
-     solid button blue. */
-  --color-brand-soft: #eaeefe;
-  --color-accent-sale: #ff6a4d;
+  /* Storefront v2 "промо" palette (Стайл-тайл v2): orange brand, red for
+     discounts/urgency, green for availability/delivery -- see .admin-shell
+     below, which pins the admin panel back to the original blue/coral so
+     this retheme is storefront-only. */
+  --color-brand: #ff6a00;
+  /* Text/icon-only variant of --color-brand -- raw #FF6A00 is only ~2.9:1
+     against white (fails WCAG AA's 4.5:1 for body text), so text/links use
+     this darker, same-hue value instead; solid button fills keep the
+     brighter --color-brand since white-on-orange already has plenty of
+     contrast. */
+  --color-brand-text: #c2410c;
+  /* Tinted background for "selected/active" affordances and the warm promo
+     panels ("Товары дня", category tiles) -- a soft wash, not the solid
+     button orange. */
+  --color-brand-soft: #fff7f0;
+  /* Discounts / urgency only (sale badges, countdown chips) -- not the brand
+     color. #E3170A already clears 4.5:1 against white on its own, but -700
+     (the mockup's own button-hover red) is used for text/icons anyway for
+     headroom and to stay one family with --color-*-700 elsewhere. */
+  --color-accent-sale: #e3170a;
+  --color-accent-sale-700: #c21308;
   --color-success: #1aa35a;
-  /* Darker text-safe variants of the two brand accents: at full brightness
-     both fail WCAG AA against a white/light background (accent-sale 2.83:1,
-     success 3.27:1, both need 4.5:1 for body text). Same hue family, used
-     wherever the color renders as text or an icon; badge/swatch backgrounds
-     keep the brighter base color. */
-  --color-accent-sale-700: #b84c37;
+  /* Text-safe variant of --color-success: at full brightness it's 3.27:1
+     against white (fails WCAG AA's 4.5:1 for body text). */
   --color-success-700: #157a42;
 
   --font-sans: var(--font-inter);
@@ -38,6 +44,21 @@ html {
 body {
   background: var(--color-bg);
   color: var(--color-ink);
+}
+
+/* Admin panel keeps its original blue/coral identity -- only the storefront
+   (app/(shop) and the auth pages) picks up the v2 orange/red promo palette
+   above. Scoped to .admin-shell (the admin layout's own wrapper, see
+   admin/layout.tsx) so it never leaks into the storefront, which shares
+   these same token names. Must come before the [data-theme="dark"] block
+   below so that block's brand-text/brand-soft override still wins in dark
+   mode (equal selector specificity, later source wins). */
+.admin-shell {
+  --color-brand: #2f5af5;
+  --color-brand-text: #2f5af5;
+  --color-brand-soft: #eaeefe;
+  --color-accent-sale: #ff6a4d;
+  --color-accent-sale-700: #b84c37;
 }
 
 /* Admin v2 dark theme (ТЗ plan-razrabotki 4.3+ design import, "Каркас" doc).
@@ -72,6 +93,19 @@ body {
    animations are opt-in only when the user hasn't asked for reduced motion,
    so there is nothing to "turn off" -- it never starts. */
 @media (prefers-reduced-motion: no-preference) {
+  @keyframes hl-marquee {
+    from {
+      transform: translateX(0);
+    }
+    to {
+      transform: translateX(-50%);
+    }
+  }
+
+  .animate-marquee {
+    animation: hl-marquee 28s linear infinite;
+  }
+
   @keyframes cart-pulse {
     0% {
       transform: scale(1);
@@ -111,5 +145,14 @@ body {
     transition-duration: 0.01ms !important;
     animation-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+
+  /* Unlike cart-pulse/price-tick (one-shot, so a 0.01ms duration just makes
+     them instant), .animate-marquee is `infinite` -- collapsing its duration
+     would flicker forever instead of stopping. Freeze it on frame 0 instead,
+     which still shows the full message list once (the track is the list
+     duplicated end-to-end for the seamless loop). */
+  .animate-marquee {
+    animation: none;
   }
 }

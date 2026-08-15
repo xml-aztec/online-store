@@ -111,7 +111,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   const initials = (email ?? "").slice(0, 2).toUpperCase();
 
   return (
-    <div data-theme={theme} className="bg-bg text-ink">
+    <div data-theme={theme} className="admin-shell bg-bg text-ink">
       <AdminPortalProvider value={portalRoot}>
         <div className="grid min-h-screen grid-cols-[216px_1fr] bg-surface">
           <aside className="flex flex-col gap-0.5 border-r border-border bg-bg p-2.5">

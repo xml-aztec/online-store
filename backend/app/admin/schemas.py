@@ -29,6 +29,8 @@ class AdminCategoryPublic(BaseModel):
     sort_order: int
     is_active: bool
     product_count: int = 0
+    image_url: str | None = None
+    thumbnail_url: str | None = None
 
 
 class AdminCategoryListResponse(BaseModel):
