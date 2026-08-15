@@ -19,6 +19,7 @@ import type { AdminProductListItem } from "@/entities/product/adminApi";
 import { useToastStore } from "@/entities/toast/store";
 import { ApiError } from "@/shared/api/client";
 import { useMountTransition } from "@/shared/lib/useMountTransition";
+import { AdminPagination } from "@/shared/ui/AdminPagination";
 import { Toggle } from "@/shared/ui/Toggle";
 import { ProductDrawer } from "@/widgets/ProductDrawer";
 
@@ -28,6 +29,7 @@ function errorMessage(error: unknown, fallback: string): string {
 
 const QUERY_KEY = "admin-products";
 const ROW_COLUMNS = "32px 56px 1fr 130px 130px 96px 90px 32px";
+const PAGE_SIZE = 50;
 
 function ProductsTableSkeleton() {
   return (
@@ -351,6 +353,17 @@ function ProductsTable() {
   const openProductId = searchParams.get("product");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
+  const [page, setPage] = useState(1);
+  // Jumping back to page 1 whenever the filters actually change (not on
+  // every render) -- compares against the last-committed filter snapshot
+  // in state rather than a ref, since setState during render is only safe
+  // against other state (see useMountTransition.ts for the same pattern).
+  const [lastFilters, setLastFilters] = useState({ search, categoryId });
+  if (lastFilters.search !== search || lastFilters.categoryId !== categoryId) {
+    setLastFilters({ search, categoryId });
+    setPage(1);
+  }
+
   const { data: categoriesData } = useQuery({
     queryKey: ["admin-categories"],
     queryFn: () => listAdminCategories(1, 100),
@@ -363,13 +376,13 @@ function ProductsTable() {
   );
 
   const { data, isLoading } = useQuery({
-    queryKey: [QUERY_KEY, search, categoryId],
+    queryKey: [QUERY_KEY, search, categoryId, page],
     queryFn: () =>
       listAdminProducts({
         search: search || undefined,
         categoryId: categoryId || undefined,
-        page: 1,
-        pageSize: 100,
+        page,
+        pageSize: PAGE_SIZE,
       }),
     enabled: role === "admin",
   });
@@ -550,6 +563,10 @@ function ProductsTable() {
       <p className="text-xs text-ink-muted">
         Клик по цене или остатку открывает поле прямо в ячейке — Enter сохраняет, Esc отменяет.
       </p>
+
+      {data && (
+        <AdminPagination page={page} pageSize={data.page_size} total={data.total} onPageChange={setPage} />
+      )}
 
       {data && (
         <BulkBar selectedIds={selectedIds} items={data.items} onClear={() => setSelectedIds(new Set())} />

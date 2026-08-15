@@ -1,9 +1,20 @@
-<!doctype html>
-<html lang="ru">
-  <body style="font-family: sans-serif; color: #1a1a1a;">
-    <h1 style="font-size: 20px;">HobbyLife</h1>
-    <p>Здравствуйте{{ ", " + full_name if full_name else "" }}!</p>
-    <p>Статус заказа <strong>{{ order_number }}</strong> изменился: <strong>{{ status_label }}</strong>.</p>
-    <p><a href="{{ order_url }}">Посмотреть статус заказа</a></p>
-  </body>
-</html>
+{% extends "_base.html" %}
+{% import "_macros.html" as macros %}
+{% block title %}Заказ {{ order_number }} — HobbyLife{% endblock %}
+{% block content %}
+<h1 style="margin:0 0 4px 0; font-size:20px; font-weight:800; color:#14161a;">Обновление по заказу</h1>
+<p style="margin:16px 0 0 0;">Здравствуйте{{ ", " + full_name if full_name else "" }}!</p>
+<p style="margin:12px 0 0 0;">
+  Статус заказа
+  <span style="font-family:'SFMono-Regular',Consolas,'Liberation Mono',Menlo,monospace; font-weight:700;">{{ order_number }}</span>
+  изменился:
+</p>
+<table role="presentation" cellpadding="0" cellspacing="0" style="margin:14px 0 0 0;">
+  <tr>
+    <td style="background-color:{{ status_color_soft }}; border-radius:8px; padding:8px 14px;">
+      <span style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif; font-size:13px; font-weight:700; color:{{ status_color }};">{{ status_label }}</span>
+    </td>
+  </tr>
+</table>
+{{ macros.button("Посмотреть заказ", order_url) }}
+{% endblock %}

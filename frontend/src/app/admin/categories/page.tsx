@@ -384,6 +384,11 @@ export default function AdminCategoriesPage() {
   const [dragId, setDragId] = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerParentId, setDrawerParentId] = useState<string | null>(null);
+  // No page control here on purpose: this renders as one drag-reorderable
+  // tree (flattenTree below), and paging a flat page/page_size slice would
+  // cut parents away from their children mid-tree. 100 (the backend's max
+  // page_size) is already far more than a curated category tree needs --
+  // unlike products/orders/users this list doesn't grow with store traffic.
   const { data, isLoading } = useQuery({
     queryKey: QUERY_KEY,
     queryFn: () => listAdminCategories(1, 100),

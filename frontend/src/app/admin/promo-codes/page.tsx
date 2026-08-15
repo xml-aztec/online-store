@@ -14,11 +14,13 @@ import {
 } from "@/entities/promoCode/adminApi";
 import { useToastStore } from "@/entities/toast/store";
 import { ApiError } from "@/shared/api/client";
+import { AdminPagination } from "@/shared/ui/AdminPagination";
 import { ConfirmDialog } from "@/shared/ui/ConfirmDialog";
 import { Drawer } from "@/shared/ui/Drawer";
 import { Toggle } from "@/shared/ui/Toggle";
 
 const QUERY_KEY = ["admin-promo-codes"];
+const PAGE_SIZE = 50;
 
 // Excludes visually-ambiguous characters (0/O, 1/I) since codes are typed by
 // customers at checkout.
@@ -433,9 +435,10 @@ export default function AdminPromoCodesPage() {
   const role = useAuthStore((state) => state.role);
   const [openPromoId, setOpenPromoId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
+  const [page, setPage] = useState(1);
   const { data, isLoading } = useQuery({
-    queryKey: QUERY_KEY,
-    queryFn: () => listAdminPromoCodes(1, 100),
+    queryKey: [...QUERY_KEY, page],
+    queryFn: () => listAdminPromoCodes(page, PAGE_SIZE),
     enabled: role === "admin",
   });
 
@@ -483,6 +486,12 @@ export default function AdminPromoCodesPage() {
           {data.items.length === 0 && (
             <p className="p-4 text-center text-ink-muted">Промокодов пока нет</p>
           )}
+        </div>
+      )}
+
+      {data && (
+        <div className="max-w-[800px]">
+          <AdminPagination page={page} pageSize={data.page_size} total={data.total} onPageChange={setPage} />
         </div>
       )}
 

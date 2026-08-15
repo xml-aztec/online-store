@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Calendar, ChevronLeft, ChevronRight, Download, MoreHorizontal, Search } from "lucide-react";
+import { Calendar, Download, MoreHorizontal, Search } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 
@@ -15,6 +15,7 @@ import { useToastStore } from "@/entities/toast/store";
 import { formatPrice } from "@/shared/lib/formatPrice";
 import { formatRelativeTime } from "@/shared/lib/formatRelativeTime";
 import { useMountTransition } from "@/shared/lib/useMountTransition";
+import { AdminPagination } from "@/shared/ui/AdminPagination";
 import { StatusPill } from "@/shared/ui/StatusPill";
 import { OrderDrawer } from "@/widgets/OrderDrawer";
 
@@ -466,36 +467,13 @@ function OrdersTable() {
         </div>
       )}
 
-      {data && data.total > data.page_size && (
-        <div className="flex items-center justify-between gap-3">
-          <p className="text-xs text-ink-muted">
-            {(page - 1) * data.page_size + 1}–{Math.min(page * data.page_size, data.total)} из{" "}
-            {data.total}
-          </p>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              disabled={page <= 1}
-              onClick={() => updateParam({ page: String(page - 1) })}
-              className="flex h-8 w-8 items-center justify-center rounded-lg border border-border text-ink disabled:cursor-not-allowed disabled:opacity-40"
-              aria-label="Предыдущая страница"
-            >
-              <ChevronLeft className="h-4 w-4" aria-hidden="true" />
-            </button>
-            <span className="font-mono text-xs text-ink-muted">
-              {page} / {Math.max(1, Math.ceil(data.total / data.page_size))}
-            </span>
-            <button
-              type="button"
-              disabled={page * data.page_size >= data.total}
-              onClick={() => updateParam({ page: String(page + 1) })}
-              className="flex h-8 w-8 items-center justify-center rounded-lg border border-border text-ink disabled:cursor-not-allowed disabled:opacity-40"
-              aria-label="Следующая страница"
-            >
-              <ChevronRight className="h-4 w-4" aria-hidden="true" />
-            </button>
-          </div>
-        </div>
+      {data && (
+        <AdminPagination
+          page={page}
+          pageSize={data.page_size}
+          total={data.total}
+          onPageChange={(next) => updateParam({ page: String(next) })}
+        />
       )}
 
       {data && (

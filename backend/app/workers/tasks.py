@@ -42,6 +42,18 @@ _ORDER_STATUS_LABELS = {
     "cancelled": "заказ отменён",
 }
 
+# (text color, soft background) per status -- mirrors the same brand/sale
+# split the admin/account UI uses for status pills (see
+# frontend/src/shared/lib/orderStatusStyles.ts): paid/shipped share the brand
+# orange, cancelled gets the sale red. Falls back to a neutral grey below for
+# any status not in _NOTIFY_STATUSES (shouldn't happen, but this dict is
+# indexed the same way as the labels above).
+_ORDER_STATUS_COLORS = {
+    "paid": ("#c2410c", "#fff7f0"),
+    "shipped": ("#c2410c", "#fff7f0"),
+    "cancelled": ("#c21308", "#fdeae8"),
+}
+
 
 async def send_verification_email(ctx: dict[str, Any], *, user_id: str, token: str) -> None:
     async with async_session_factory() as session:
@@ -202,11 +214,14 @@ async def send_order_status_email(ctx: dict[str, Any], *, order_id: str, status:
         if order is None:
             return
 
+        status_color, status_color_soft = _ORDER_STATUS_COLORS.get(status, ("#6b7280", "#f4f5f7"))
         html = render_email_template(
             "order_status_update.html",
             order_number=order.number,
             full_name=order.full_name,
             status_label=_ORDER_STATUS_LABELS.get(status, status),
+            status_color=status_color,
+            status_color_soft=status_color_soft,
             order_url=f"{settings.domain}/account/orders/{order.number}",
         )
         await send_email(to=order.email, subject=f"Заказ {order.number} — HobbyLife", html=html)

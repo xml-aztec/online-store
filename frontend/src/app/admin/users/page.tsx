@@ -6,9 +6,11 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuthStore } from "@/entities/auth/store";
 import { listAdminUsers, updateAdminUser, type AdminUser } from "@/entities/user/adminApi";
 import { ApiError } from "@/shared/api/client";
+import { AdminPagination } from "@/shared/ui/AdminPagination";
 import { Toggle } from "@/shared/ui/Toggle";
 
 const QUERY_KEY = ["admin-users"];
+const PAGE_SIZE = 50;
 const ROLE_LABELS: Record<string, string> = {
   customer: "Покупатель",
   manager: "Менеджер",
@@ -115,9 +117,16 @@ export default function AdminUsersPage() {
   const role = useAuthStore((state) => state.role);
   const myEmail = useAuthStore((state) => state.email);
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const [lastSearch, setLastSearch] = useState(search);
+  if (lastSearch !== search) {
+    setLastSearch(search);
+    setPage(1);
+  }
+
   const { data, isLoading } = useQuery({
-    queryKey: [...QUERY_KEY, search],
-    queryFn: () => listAdminUsers(search || undefined, 1, 100),
+    queryKey: [...QUERY_KEY, search, page],
+    queryFn: () => listAdminUsers(search || undefined, page, PAGE_SIZE),
     enabled: role === "admin",
   });
 
@@ -168,6 +177,12 @@ export default function AdminUsersPage() {
           {data.items.length === 0 && (
             <p className="p-4 text-center text-ink-muted">Пользователи не найдены</p>
           )}
+        </div>
+      )}
+
+      {data && (
+        <div className="mt-4">
+          <AdminPagination page={page} pageSize={data.page_size} total={data.total} onPageChange={setPage} />
         </div>
       )}
     </div>
