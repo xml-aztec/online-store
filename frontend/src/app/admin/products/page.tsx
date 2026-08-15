@@ -79,7 +79,7 @@ function EditableCell({ value, onSave, colorClass }: EditableCellProps) {
             setEditing(false);
           }
         }}
-        className="h-8 w-full rounded-lg border border-brand px-2.5 text-right font-mono text-[13px] font-semibold text-ink shadow-[0_0_0_3px_rgba(47,90,245,0.12)] outline-none"
+        className="h-8 w-full rounded-lg border border-brand bg-bg px-2.5 text-right font-mono text-[13px] font-semibold text-ink outline-none ring-2 ring-brand/20"
       />
     );
   }
@@ -228,7 +228,10 @@ function BulkBar({
 
   return (
     <div className="sticky bottom-4 z-10 flex justify-center">
-      <div className="flex flex-wrap items-center gap-3 rounded-xl bg-ink px-4 py-2.5 text-white shadow-[0_12px_32px_rgba(20,22,26,0.3)]">
+      {/* Floating bar is deliberately always-dark like the [#2C3038] buttons
+          inside it (not `bg-ink`, which flips light in dark mode and would
+          leave the white text unreadable). */}
+      <div className="flex flex-wrap items-center gap-3 rounded-xl bg-[#14161a] px-4 py-2.5 text-white shadow-[0_12px_32px_rgba(20,22,26,0.3)]">
         <span className="text-[13px] font-medium">
           Выбрано <span className="font-mono font-bold">{selectedIds.size}</span>
         </span>

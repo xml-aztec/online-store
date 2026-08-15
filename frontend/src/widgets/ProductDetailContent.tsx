@@ -22,6 +22,7 @@ import {
 } from "@/entities/product/adminApi";
 import { ApiError } from "@/shared/api/client";
 import { isColorFacet, swatchStyle } from "@/shared/lib/colorSwatches";
+import { optionsToString, parseOptions } from "@/shared/lib/productOptions";
 import { Toggle } from "@/shared/ui/Toggle";
 
 type Tab = "basic" | "variants" | "images";
@@ -29,21 +30,6 @@ type Tab = "basic" | "variants" | "images";
 const INPUT_CLASS =
   "w-full rounded-lg border border-border bg-bg px-3.5 py-2.5 text-sm text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/30";
 const LABEL_CLASS = "mb-1.5 block text-xs font-medium text-ink-muted";
-
-function optionsToString(options: Record<string, unknown>): string {
-  return Object.entries(options)
-    .map(([key, value]) => `${key}=${String(value)}`)
-    .join("; ");
-}
-
-function parseOptions(input: string): Record<string, string> {
-  const result: Record<string, string> = {};
-  for (const pair of input.split(";")) {
-    const [key, value] = pair.split("=").map((part) => part.trim());
-    if (key && value) result[key] = value;
-  }
-  return result;
-}
 
 function attributesToEntries(attributes: Record<string, unknown>): [string, string][] {
   const entries = Object.entries(attributes).map(
@@ -402,7 +388,7 @@ function VariantsTab({ product }: { product: AdminProductDetail }) {
         <button
           type="submit"
           disabled={createMutation.isPending}
-          className="rounded-lg bg-ink px-4 py-2 text-sm font-semibold text-white hover:bg-ink/85 disabled:opacity-50"
+          className="rounded-lg bg-ink px-4 py-2 text-sm font-semibold text-bg hover:bg-ink/85 disabled:opacity-50"
         >
           {createMutation.isPending ? "Создание…" : "+ Добавить вариант"}
         </button>
@@ -468,7 +454,7 @@ function ImageTile({
         type="button"
         onClick={() => deleteMutation.mutate()}
         disabled={deleteMutation.isPending}
-        className="absolute right-1.5 top-1.5 rounded-md bg-ink/70 px-1.5 py-1 text-[10px] font-semibold text-white hover:bg-ink disabled:opacity-50"
+        className="absolute right-1.5 top-1.5 rounded-md bg-ink/70 px-1.5 py-1 text-[10px] font-semibold text-bg hover:bg-ink disabled:opacity-50"
       >
         Удалить
       </button>

@@ -46,7 +46,9 @@ export function ConfirmDialog({
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex justify-center px-4 pt-[16vh]">
-      <div aria-hidden="true" className="absolute inset-0 bg-ink/45" onClick={onClose} />
+      {/* Deliberately always-dark, not `bg-ink` -- see Drawer.tsx's backdrop
+          comment for why. */}
+      <div aria-hidden="true" className="absolute inset-0 bg-[#14161a]/45" onClick={onClose} />
       <div
         role="alertdialog"
         aria-modal="true"

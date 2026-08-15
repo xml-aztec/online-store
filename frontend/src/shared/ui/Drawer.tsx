@@ -43,7 +43,14 @@ export function Drawer({ open, onClose, width = 460, title, headerExtra, childre
 
   return createPortal(
     <div className="fixed inset-0 z-40">
-      <div aria-hidden="true" className="absolute inset-0 bg-ink/45" onClick={onClose} />
+      {/* Dimming backdrop is deliberately always-dark (not `bg-ink`, which
+          flips light in dark mode and would light up the page behind the
+          drawer instead of dimming it). */}
+      <div
+        aria-hidden="true"
+        className="absolute inset-0 bg-[#14161a]/45"
+        onClick={onClose}
+      />
       <div
         role="dialog"
         aria-modal="true"

@@ -22,7 +22,11 @@ export function ToastStack() {
           key={item.id}
           role="status"
           className={`pointer-events-auto flex items-center gap-2.5 rounded-xl px-4 py-3 text-[13px] font-medium shadow-[0_12px_32px_rgba(20,22,26,0.25)] ${
-            item.variant === "error" ? "bg-accent-sale text-white" : "bg-ink text-white"
+            // Success toasts are deliberately always-dark, not `bg-ink` (which
+            // flips light in dark mode and would leave the white text and
+            // dismiss button unreadable). Error keeps `bg-accent-sale`, which
+            // is already theme-invariant for admin (pinned in .admin-shell).
+            item.variant === "error" ? "bg-accent-sale text-white" : "bg-[#14161a] text-white"
           }`}
         >
           {item.variant === "error" ? (
