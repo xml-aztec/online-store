@@ -148,7 +148,7 @@ export function ProductCard({ product, layout = "grid", showFavorite, badges }: 
             onClick={handleQuickAdd}
             disabled={quickAddState === "loading"}
             aria-label="Быстро добавить в корзину"
-            className={`absolute bottom-[42px] right-2 z-20 hidden h-9 w-9 items-center justify-center rounded-lg bg-brand text-white shadow-md transition duration-150 hover:bg-brand/90 focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand sm:flex sm:opacity-0 sm:group-hover:opacity-100 ${
+            className={`absolute bottom-[42px] right-2 z-20 hidden h-9 w-9 items-center justify-center rounded-lg bg-brand text-white shadow-md transition duration-150 ease-out hover:bg-brand/90 focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand active:scale-90 sm:flex sm:opacity-0 sm:group-hover:opacity-100 ${
               quickAddState !== "idle" ? "sm:opacity-100" : ""
             }`}
           >
@@ -210,7 +210,7 @@ export function ProductCard({ product, layout = "grid", showFavorite, badges }: 
             type="button"
             onClick={handleQuickAdd}
             disabled={quickAddState === "loading"}
-            className="relative mt-1 w-full rounded-lg bg-brand py-2 text-xs font-bold text-white transition hover:bg-brand/90 disabled:opacity-60 sm:hidden"
+            className="relative mt-1 w-full rounded-lg bg-brand py-2 text-xs font-bold text-white transition duration-150 ease-out hover:bg-brand/90 active:scale-95 disabled:opacity-60 sm:hidden"
           >
             {quickAddState === "loading" ? "Добавляем…" : "В корзину"}
           </button>

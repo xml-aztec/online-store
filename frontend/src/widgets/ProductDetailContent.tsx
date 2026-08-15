@@ -422,6 +422,7 @@ function ImageTile({
   isDragging: boolean;
 }) {
   const queryClient = useQueryClient();
+  const [loaded, setLoaded] = useState(false);
   const deleteMutation = useMutation({
     mutationFn: () => deleteAdminProductImage(productId, image.id),
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["admin-product", productId] }),
@@ -438,7 +439,14 @@ function ImageTile({
       }`}
     >
       {/* eslint-disable-next-line @next/next/no-img-element -- presigned S3 URL, next/image optimization is pointless here (see Задача 2.3) */}
-      <img src={image.thumbnail_url} alt={image.alt ?? ""} className="h-full w-full object-cover" />
+      <img
+        src={image.thumbnail_url}
+        alt={image.alt ?? ""}
+        onLoad={() => setLoaded(true)}
+        className={`h-full w-full object-cover transition-opacity duration-200 ease-out ${
+          loaded ? "opacity-100" : "opacity-0"
+        }`}
+      />
       {isPrimary && (
         <span className="pointer-events-none absolute left-1.5 top-1.5 rounded-md bg-brand px-1.5 py-0.5 font-display text-[10px] font-bold text-white">
           Главное

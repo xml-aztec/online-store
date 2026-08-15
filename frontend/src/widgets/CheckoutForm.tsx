@@ -341,12 +341,19 @@ function CheckoutFields({ initialForm }: { initialForm: FormState }) {
           <dl className="space-y-2 text-sm">
             <div className="flex justify-between">
               <dt className="text-ink-muted">Товары</dt>
-              <dd className="font-mono text-ink">{formatPrice(cart.subtotal)}</dd>
+              <dd key={cart.subtotal} className="animate-price-tick font-mono text-ink">
+                {formatPrice(cart.subtotal)}
+              </dd>
             </div>
             {Number(cart.discount_amount) > 0 && (
               <div className="flex justify-between">
                 <dt className="text-ink-muted">Скидка</dt>
-                <dd className="font-mono text-success-700">−{formatPrice(cart.discount_amount)}</dd>
+                <dd
+                  key={cart.discount_amount}
+                  className="animate-price-tick font-mono text-success-700"
+                >
+                  −{formatPrice(cart.discount_amount)}
+                </dd>
               </div>
             )}
           </dl>

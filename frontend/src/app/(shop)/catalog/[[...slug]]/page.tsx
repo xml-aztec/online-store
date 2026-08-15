@@ -4,6 +4,8 @@ import { notFound } from "next/navigation";
 
 import { findCategoryByPath, getCategoryTree, type CategoryNode } from "@/entities/category/api";
 import { listProducts, type ListProductsParams, type ProductSort } from "@/entities/product/api";
+import { CatalogTransitionProvider } from "@/shared/lib/catalogTransition";
+import { CatalogResultsFade } from "@/widgets/CatalogResultsFade";
 import { CategorySidebar } from "@/widgets/CategorySidebar";
 import { FiltersForm } from "@/widgets/FiltersForm";
 import { LoadMoreProducts } from "@/widgets/LoadMoreProducts";
@@ -115,6 +117,7 @@ export default async function CatalogPage({ params, searchParams }: CatalogPageP
   );
 
   return (
+    <CatalogTransitionProvider>
     <div className="mx-auto max-w-[1440px] px-4 py-6 sm:py-8">
       <nav aria-label="Хлебные крошки" className="mb-3 flex flex-wrap items-center gap-1 text-sm text-ink-muted">
         {breadcrumb.length === 0 ? (
@@ -167,34 +170,37 @@ export default async function CatalogPage({ params, searchParams }: CatalogPageP
             </div>
           </div>
 
-          {items.length === 0 ? (
-            <p className="py-12 text-center text-ink-muted">Ничего не найдено</p>
-          ) : view === "grid" ? (
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
-              {items.map((product) => (
-                <ProductCard key={product.id} product={product} showFavorite />
-              ))}
-            </div>
-          ) : (
-            <div className="flex flex-col gap-3">
-              {items.map((product) => (
-                <ProductCard key={product.id} product={product} layout="list" />
-              ))}
-            </div>
-          )}
+          <CatalogResultsFade>
+            {items.length === 0 ? (
+              <p className="py-12 text-center text-ink-muted">Ничего не найдено</p>
+            ) : view === "grid" ? (
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
+                {items.map((product) => (
+                  <ProductCard key={product.id} product={product} showFavorite />
+                ))}
+              </div>
+            ) : (
+              <div className="flex flex-col gap-3">
+                {items.map((product) => (
+                  <ProductCard key={product.id} product={product} layout="list" />
+                ))}
+              </div>
+            )}
 
-          {items.length > 0 && (
-            <LoadMoreProducts
-              params={queryParams}
-              initialPage={page}
-              totalPages={totalPages}
-              view={view}
-            />
-          )}
+            {items.length > 0 && (
+              <LoadMoreProducts
+                params={queryParams}
+                initialPage={page}
+                totalPages={totalPages}
+                view={view}
+              />
+            )}
 
-          <Pagination basePath={basePath} searchParams={sp} page={page} totalPages={totalPages} />
+            <Pagination basePath={basePath} searchParams={sp} page={page} totalPages={totalPages} />
+          </CatalogResultsFade>
         </div>
       </div>
     </div>
+    </CatalogTransitionProvider>
   );
 }

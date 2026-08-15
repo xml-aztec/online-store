@@ -9,6 +9,27 @@ import { formatPrice } from "@/shared/lib/formatPrice";
 import { pluralizeRu } from "@/shared/lib/pluralizeRu";
 import { StatusPill } from "@/shared/ui/StatusPill";
 
+function OrdersSkeleton() {
+  return (
+    <div className="flex flex-col gap-2.5" aria-busy="true" aria-label="Загрузка заказов">
+      {Array.from({ length: 3 }, (_, i) => (
+        <div
+          key={i}
+          className="flex flex-wrap items-center gap-3 rounded-xl border border-ink/10 bg-bg px-5 py-4 sm:flex-nowrap sm:gap-5"
+        >
+          <div className="flex w-[150px] shrink-0 flex-col gap-1.5">
+            <div className="h-4 w-20 animate-pulse rounded bg-surface" />
+            <div className="h-3 w-16 animate-pulse rounded bg-surface" />
+          </div>
+          <div className="h-6 w-24 shrink-0 animate-pulse rounded-full bg-surface" />
+          <div className="h-3 min-w-0 flex-1 basis-full animate-pulse rounded bg-surface sm:basis-auto" />
+          <div className="h-4 w-16 shrink-0 animate-pulse rounded bg-surface" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function AccountOrdersPage() {
   const { data, isLoading } = useQuery({
     queryKey: ["my-orders"],
@@ -18,10 +39,12 @@ export default function AccountOrdersPage() {
   return (
     <div>
       <h2 className="mb-4 font-display text-lg font-extrabold text-ink">Мои заказы</h2>
-      {isLoading && <p className="text-ink-muted">Загрузка…</p>}
-      {data && data.items.length === 0 && <p className="text-ink-muted">Заказов пока нет</p>}
+      {isLoading && <OrdersSkeleton />}
+      {data && data.items.length === 0 && (
+        <p className="animate-content-fade-in text-ink-muted">Заказов пока нет</p>
+      )}
       {data && data.items.length > 0 && (
-        <div className="flex flex-col gap-2.5">
+        <div className="flex animate-content-fade-in flex-col gap-2.5">
           {data.items.map((order) => (
             <Link
               key={order.number}

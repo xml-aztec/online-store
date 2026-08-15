@@ -1,10 +1,11 @@
+"use client";
+
 import { ChevronDown } from "lucide-react";
-import Form from "next/form";
-import Link from "next/link";
 
 import type { FacetsResponse } from "@/entities/product/api";
 import { isColorFacet, resolveSwatchColor, swatchStyle } from "@/shared/lib/colorSwatches";
 import { optionLabel } from "@/shared/lib/optionLabels";
+import { useCatalogTransition } from "@/shared/lib/catalogTransition";
 import { PriceRangeSlider } from "@/shared/ui/PriceRangeSlider";
 
 type SearchParamsRecord = Record<string, string | string[] | undefined>;
@@ -51,6 +52,7 @@ function hasActiveFilters(searchParams: SearchParamsRecord): boolean {
 }
 
 export function FiltersForm({ basePath, searchParams, facets }: FiltersFormProps) {
+  const { navigate } = useCatalogTransition();
   const optionEntries = Object.entries(facets.options);
   const q = firstValue(searchParams.q);
   const sort = firstValue(searchParams.sort);
@@ -58,8 +60,22 @@ export function FiltersForm({ basePath, searchParams, facets }: FiltersFormProps
   const priceMin = facets.price_min != null ? Number(facets.price_min) : null;
   const priceMax = facets.price_max != null ? Number(facets.price_max) : null;
 
+  // Same "GET form" semantics next/form's <Form> gave us (serialize every
+  // named field, hidden inputs carry over q/sort/view) -- just dispatched
+  // through the shared transition instead of a native form navigation, so
+  // it participates in the same isPending the other controls do.
+  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const params = new URLSearchParams();
+    for (const [key, value] of new FormData(event.currentTarget).entries()) {
+      if (typeof value === "string" && value) params.append(key, value);
+    }
+    const query = params.toString();
+    navigate(query ? `${basePath}?${query}` : basePath);
+  }
+
   return (
-    <Form action={basePath} className="text-sm">
+    <form onSubmit={handleSubmit} className="text-sm">
       {q && <input type="hidden" name="q" value={q} />}
       {sort && <input type="hidden" name="sort" value={sort} />}
       {view && <input type="hidden" name="view" value={view} />}
@@ -180,13 +196,19 @@ export function FiltersForm({ basePath, searchParams, facets }: FiltersFormProps
       </button>
 
       {hasActiveFilters(searchParams) && (
-        <Link
+        <a
           href={q ? `${basePath}?q=${encodeURIComponent(q)}` : basePath}
+          onClick={(event) => {
+            if (event.defaultPrevented || event.button !== 0) return;
+            if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+            event.preventDefault();
+            navigate(q ? `${basePath}?q=${encodeURIComponent(q)}` : basePath);
+          }}
           className="mt-3 block text-center font-medium text-brand hover:text-brand/80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
         >
           Сбросить фильтры
-        </Link>
+        </a>
       )}
-    </Form>
+    </form>
   );
 }

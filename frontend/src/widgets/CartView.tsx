@@ -40,7 +40,7 @@ export function CartView() {
 
   if (!cart || cart.items.length === 0) {
     return (
-      <div className="flex flex-col items-center gap-4 py-16 text-center">
+      <div className="flex animate-content-fade-in flex-col items-center gap-4 py-16 text-center">
         <span className="flex h-24 w-24 items-center justify-center rounded-full bg-surface">
           <ShoppingCart className="h-10 w-10 text-ink-muted" aria-hidden="true" />
         </span>
@@ -65,7 +65,7 @@ export function CartView() {
   );
 
   return (
-    <div className="grid grid-cols-1 gap-8 pb-24 lg:grid-cols-[1fr_360px] lg:pb-0">
+    <div className="grid animate-content-fade-in grid-cols-1 gap-8 pb-24 lg:grid-cols-[1fr_360px] lg:pb-0">
       <div>
         <div className="mb-2 flex justify-end">
           <button
@@ -144,7 +144,9 @@ export function CartView() {
               <dt className="text-ink-muted">
                 Товары (<span className="font-mono">{cart.items.length}</span> шт.)
               </dt>
-              <dd className="font-mono font-semibold text-ink">{formatPrice(cart.subtotal)}</dd>
+              <dd key={cart.subtotal} className="animate-price-tick font-mono font-semibold text-ink">
+                {formatPrice(cart.subtotal)}
+              </dd>
             </div>
             <div className="flex justify-between">
               <dt className="text-ink-muted">Доставка</dt>
@@ -153,7 +155,10 @@ export function CartView() {
             {Number(cart.discount_amount) > 0 && (
               <div className="flex justify-between">
                 <dt className="text-ink-muted">Скидка</dt>
-                <dd className="font-mono font-semibold text-success-700">
+                <dd
+                  key={cart.discount_amount}
+                  className="animate-price-tick font-mono font-semibold text-success-700"
+                >
                   −{formatPrice(cart.discount_amount)}
                 </dd>
               </div>
@@ -164,7 +169,9 @@ export function CartView() {
 
           <div className="flex items-baseline justify-between">
             <span className="font-display text-base font-bold text-ink">Итого</span>
-            <span className="font-mono text-2xl font-bold text-ink">{formatPrice(cart.total)}</span>
+            <span key={cart.total} className="animate-price-tick font-mono text-2xl font-bold text-ink">
+              {formatPrice(cart.total)}
+            </span>
           </div>
 
           {hasUnavailableItems ? (

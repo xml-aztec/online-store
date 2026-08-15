@@ -5,6 +5,9 @@ import { type ReactNode, useEffect } from "react";
 import { createPortal } from "react-dom";
 
 import { useAdminPortalRoot } from "@/shared/lib/adminPortalContext";
+import { useMountTransition } from "@/shared/lib/useMountTransition";
+
+const TRANSITION_MS = 300;
 
 interface ConfirmDialogProps {
   open: boolean;
@@ -32,6 +35,7 @@ export function ConfirmDialog({
   children,
 }: ConfirmDialogProps) {
   const portalRoot = useAdminPortalRoot();
+  const { shouldRender, isVisible } = useMountTransition(open, TRANSITION_MS);
 
   useEffect(() => {
     if (!open) return;
@@ -42,18 +46,26 @@ export function ConfirmDialog({
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [open, onClose]);
 
-  if (!open || !portalRoot) return null;
+  if (!shouldRender || !portalRoot) return null;
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex justify-center px-4 pt-[16vh]">
       {/* Deliberately always-dark, not `bg-ink` -- see Drawer.tsx's backdrop
           comment for why. */}
-      <div aria-hidden="true" className="absolute inset-0 bg-[#14161a]/45" onClick={onClose} />
+      <div
+        aria-hidden="true"
+        onClick={onClose}
+        className={`absolute inset-0 bg-[#14161a]/45 transition-opacity duration-300 ${
+          isVisible ? "opacity-100 ease-out" : "opacity-0 ease-in"
+        }`}
+      />
       <div
         role="alertdialog"
         aria-modal="true"
         aria-label={title}
-        className="relative flex h-fit w-full max-w-[420px] flex-col gap-3.5 rounded-xl bg-bg p-[22px] shadow-[0_24px_64px_rgba(20,22,26,0.3)]"
+        className={`relative flex h-fit w-full max-w-[420px] flex-col gap-3.5 rounded-xl bg-bg p-[22px] shadow-[0_24px_64px_rgba(20,22,26,0.3)] transition-[opacity,transform] duration-300 ${
+          isVisible ? "scale-100 opacity-100 ease-out" : "scale-95 opacity-0 ease-in"
+        }`}
       >
         <div className="flex items-center gap-2.5">
           {danger && (

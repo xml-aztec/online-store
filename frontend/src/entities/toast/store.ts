@@ -14,14 +14,16 @@ interface ToastState {
   dismiss: (id: string) => void;
 }
 
-const AUTO_DISMISS_MS = 4000;
-
-export const useToastStore = create<ToastState>((set, get) => ({
+export const useToastStore = create<ToastState>((set) => ({
   items: [],
   push: (message, variant = "success") => {
     const id = crypto.randomUUID();
     set((state) => ({ items: [...state.items, { id, message, variant }] }));
-    setTimeout(() => get().dismiss(id), AUTO_DISMISS_MS);
   },
+  // Auto-dismiss timing + the exit-transition delay both live in
+  // shared/ui/Toast.tsx now, not here -- dismiss() removes the item from
+  // this array immediately when called, so the caller (the toast's own
+  // mount-transition lifecycle) is responsible for waiting until its fade-out
+  // has actually played before calling this.
   dismiss: (id) => set((state) => ({ items: state.items.filter((item) => item.id !== id) })),
 }));

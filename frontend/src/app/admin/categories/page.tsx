@@ -179,7 +179,7 @@ function CategoryRow({
                 setEditing(false);
               }
             }}
-            className="h-[30px] flex-1 rounded-lg border border-brand bg-bg px-2.5 text-[13px] font-medium text-ink outline-none ring-2 ring-brand-soft"
+            className="animate-cell-edit-in h-[30px] flex-1 rounded-lg border border-brand bg-bg px-2.5 text-[13px] font-medium text-ink outline-none ring-2 ring-brand-soft"
           />
         ) : (
           <button
@@ -236,6 +236,24 @@ function CategoryRow({
         onClose={() => setConfirmDelete(false)}
       />
     </>
+  );
+}
+
+function CategoriesTableSkeleton() {
+  return (
+    <div className="overflow-hidden rounded-xl border border-border bg-bg" aria-busy="true" aria-label="Загрузка категорий">
+      {Array.from({ length: 6 }, (_, i) => (
+        <div key={i} className="flex items-center gap-2.5 border-b border-surface px-4 py-2 last:border-0">
+          <span className="text-[13px] tracking-[-1px] text-ink-muted/20" aria-hidden="true">
+            ⠿
+          </span>
+          <div className="h-7 w-7 shrink-0 animate-pulse rounded-md bg-surface" />
+          <div className="h-3.5 flex-1 animate-pulse rounded bg-surface" style={{ maxWidth: `${60 - (i % 3) * 12}%` }} />
+          <div className="h-3 w-10 shrink-0 animate-pulse rounded bg-surface" />
+          <div className="h-5 w-9 shrink-0 animate-pulse rounded-full bg-surface" />
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -443,10 +461,14 @@ export default function AdminCategoriesPage() {
         </button>
       </div>
 
-      {isLoading && <p className="text-ink-muted">Загрузка…</p>}
+      {isLoading && (
+        <div className="grid items-start gap-3.5" style={{ gridTemplateColumns: "640px 1fr" }}>
+          <CategoriesTableSkeleton />
+        </div>
+      )}
 
       {data && (
-        <div className="grid items-start gap-3.5" style={{ gridTemplateColumns: "640px 1fr" }}>
+        <div className="grid animate-content-fade-in items-start gap-3.5" style={{ gridTemplateColumns: "640px 1fr" }}>
           <div className="overflow-hidden rounded-xl border border-border bg-bg">
             {flat.map((category) => (
               <CategoryRow

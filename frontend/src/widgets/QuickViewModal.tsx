@@ -82,11 +82,11 @@ export function QuickViewModal({ slug, open, onClose }: QuickViewModalProps) {
           </div>
         ) : (
           <>
-            <div className="relative aspect-square w-full shrink-0 bg-surface sm:aspect-auto sm:h-full sm:w-auto sm:flex-1">
+            <div className="relative aspect-square w-full shrink-0 animate-content-fade-in bg-surface sm:aspect-auto sm:h-full sm:w-auto sm:flex-1">
               <ProductGallery images={product.images} alt={product.name} fill />
             </div>
 
-            <div className="flex min-w-0 flex-1 flex-col overflow-y-auto p-5 pt-16 sm:w-[440px] sm:shrink-0 sm:p-8 sm:pt-16">
+            <div className="flex min-w-0 flex-1 animate-content-fade-in flex-col overflow-y-auto p-5 pt-16 sm:w-[440px] sm:shrink-0 sm:p-8 sm:pt-16">
               <h2 className="font-display text-lg font-bold text-ink sm:text-xl">
                 {product.name}
               </h2>

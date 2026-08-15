@@ -1,14 +1,16 @@
 "use client";
 
 import { LayoutGrid, List } from "lucide-react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
+
+import { useCatalogTransition } from "@/shared/lib/catalogTransition";
 
 export type CatalogView = "grid" | "list";
 
 export function ViewToggle({ value }: { value: CatalogView }) {
-  const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const { navigate } = useCatalogTransition();
 
   function setView(next: CatalogView) {
     const params = new URLSearchParams(searchParams.toString());
@@ -17,7 +19,7 @@ export function ViewToggle({ value }: { value: CatalogView }) {
     } else {
       params.set("view", next);
     }
-    router.push(`${pathname}${params.size > 0 ? `?${params.toString()}` : ""}`);
+    navigate(`${pathname}${params.size > 0 ? `?${params.toString()}` : ""}`);
   }
 
   return (

@@ -104,6 +104,21 @@ body {
   appearance: none !important;
 }
 
+/* Timing convention for every hand-authored transition/animation in this
+   app -- pick the bucket by what's moving, don't invent a new duration:
+     - Micro-interactions (hover, button press, checkbox, toggle):
+       duration-150 ease-out
+     - Regular transitions (content fade-in, state change, price-tick):
+       duration-200 ease-out
+     - Modals/drawers/sheets/dropdowns (Drawer, Toast, BulkBar,
+       ConfirmDialog, CommandPalette, ShortcutsCheatsheet): 300ms,
+       ease-out opening, ease-in closing (see useMountTransition.ts, which
+       drives the enter/exit lifecycle these all share).
+   All of Tailwind's default `duration-*`/`ease-*` utilities already cover
+   these values -- no custom theme tokens needed, just use them consistently.
+   Only animate `transform`/`opacity` (never width/height/top/left/margin)
+   so nothing here forces layout on slower devices. */
+
 /* Hand-authored motion (header shrink is plain CSS transitions and already
    respects prefers-reduced-motion via the media query below). Keyframe
    animations are opt-in only when the user hasn't asked for reduced motion,
@@ -151,6 +166,34 @@ body {
 
   .animate-price-tick {
     animation: price-tick 0.22s ease-out;
+  }
+
+  @keyframes cell-edit-in {
+    0% {
+      opacity: 0;
+      transform: scale(0.96);
+    }
+    100% {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  .animate-cell-edit-in {
+    animation: cell-edit-in 0.15s ease-out;
+  }
+
+  @keyframes content-fade-in {
+    0% {
+      opacity: 0;
+    }
+    100% {
+      opacity: 1;
+    }
+  }
+
+  .animate-content-fade-in {
+    animation: content-fade-in 0.2s ease-out;
   }
 }
 

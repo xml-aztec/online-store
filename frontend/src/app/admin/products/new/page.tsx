@@ -33,6 +33,21 @@ interface PendingImage {
   previewUrl: string;
 }
 
+function PendingImagePreview({ src }: { src: string }) {
+  const [loaded, setLoaded] = useState(false);
+  return (
+    // eslint-disable-next-line @next/next/no-img-element -- local blob: preview, next/image optimization doesn't apply
+    <img
+      src={src}
+      alt=""
+      onLoad={() => setLoaded(true)}
+      className={`h-full w-full object-cover transition-opacity duration-200 ease-out ${
+        loaded ? "opacity-100" : "opacity-0"
+      }`}
+    />
+  );
+}
+
 function AttributeRows({
   entries,
   onChange,
@@ -348,8 +363,7 @@ export default function NewAdminProductPage() {
                 key={image.id}
                 className="relative aspect-square overflow-hidden rounded-lg border border-border bg-surface"
               >
-                {/* eslint-disable-next-line @next/next/no-img-element -- local blob: preview, next/image optimization doesn't apply */}
-                <img src={image.previewUrl} alt="" className="h-full w-full object-cover" />
+                <PendingImagePreview src={image.previewUrl} />
                 <button
                   type="button"
                   onClick={() => removeImage(image.id)}

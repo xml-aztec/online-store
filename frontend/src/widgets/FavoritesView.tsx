@@ -25,7 +25,7 @@ export function FavoritesView() {
 
   if (!data || data.items.length === 0) {
     return (
-      <div className="flex flex-col items-center gap-4 py-16 text-center">
+      <div className="flex animate-content-fade-in flex-col items-center gap-4 py-16 text-center">
         <span className="relative flex h-24 w-24 items-center justify-center rounded-full bg-accent-sale/10">
           <Heart className="h-10 w-10 text-accent-sale" aria-hidden="true" />
           <svg
@@ -54,7 +54,7 @@ export function FavoritesView() {
   }
 
   return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
+    <div className="grid animate-content-fade-in grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
       {data.items.map((product) => (
         <ProductCard key={product.id} product={product} showFavorite />
       ))}

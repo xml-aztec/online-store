@@ -117,7 +117,7 @@ async def forgot_password(
     payload: ForgotPasswordRequest, db: Annotated[AsyncSession, Depends(get_db)]
 ) -> MessageResponse:
     await auth_service.forgot_password(db, email=payload.email)
-    return MessageResponse(message="Если такой email зарегистрирован, на него отправлено письмо.")
+    return MessageResponse(message="На данный email отправлено письмо с инструкциями по восстановлению пароля")
 
 
 @router.post("/reset-password", response_model=MessageResponse)

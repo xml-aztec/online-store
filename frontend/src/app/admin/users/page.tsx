@@ -70,6 +70,47 @@ function UserRow({ user, isSelf }: { user: AdminUser; isSelf: boolean }) {
   );
 }
 
+function UsersTableSkeleton() {
+  return (
+    <div className="overflow-x-auto rounded-lg border border-ink/10" aria-busy="true" aria-label="Загрузка пользователей">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="border-b border-ink/10 bg-surface text-left text-ink-muted">
+            <th className="px-3 py-2">Email</th>
+            <th className="px-3 py-2">Имя</th>
+            <th className="px-3 py-2">Роль</th>
+            <th className="px-3 py-2">Активен</th>
+            <th className="px-3 py-2">Email подтверждён</th>
+            <th className="px-3 py-2" />
+          </tr>
+        </thead>
+        <tbody>
+          {Array.from({ length: 6 }, (_, i) => (
+            <tr key={i} className="border-b border-ink/10 align-top last:border-0">
+              <td className="px-3 py-2">
+                <div className="h-4 w-36 animate-pulse rounded bg-surface" />
+              </td>
+              <td className="px-3 py-2">
+                <div className="h-4 w-24 animate-pulse rounded bg-surface" />
+              </td>
+              <td className="px-3 py-2">
+                <div className="h-7 w-28 animate-pulse rounded-lg bg-surface" />
+              </td>
+              <td className="px-3 py-2">
+                <div className="h-5 w-9 animate-pulse rounded-full bg-surface" />
+              </td>
+              <td className="px-3 py-2">
+                <div className="h-4 w-20 animate-pulse rounded bg-surface" />
+              </td>
+              <td className="px-3 py-2" />
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 export default function AdminUsersPage() {
   const role = useAuthStore((state) => state.role);
   const myEmail = useAuthStore((state) => state.email);
@@ -104,9 +145,9 @@ export default function AdminUsersPage() {
         placeholder="Поиск по email…"
         className="mb-4 w-full max-w-sm rounded-lg border border-ink/15 px-3 py-2 text-sm bg-bg"
       />
-      {isLoading && <p className="text-ink-muted">Загрузка…</p>}
+      {isLoading && <UsersTableSkeleton />}
       {data && (
-        <div className="overflow-x-auto rounded-lg border border-ink/10">
+        <div className="animate-content-fade-in overflow-x-auto rounded-lg border border-ink/10">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-ink/10 bg-surface text-left text-ink-muted">

@@ -219,6 +219,33 @@ function BannerCard({
   );
 }
 
+function BannersSkeleton() {
+  return (
+    <div className="flex flex-col gap-3" aria-busy="true" aria-label="Загрузка баннеров">
+      {Array.from({ length: 3 }, (_, i) => (
+        <div key={i} className="flex flex-col gap-3 rounded-lg border border-ink/10 p-3 sm:flex-row sm:items-start">
+          <div className="flex shrink-0 items-start gap-2">
+            <span className="mt-2 text-ink-muted/20" aria-hidden="true">
+              ⠿
+            </span>
+            <div className="h-24 w-40 shrink-0 animate-pulse rounded-lg bg-surface" />
+          </div>
+          <div className="grid flex-1 grid-cols-1 gap-2 sm:grid-cols-2">
+            {Array.from({ length: 6 }, (_, j) => (
+              <div key={j} className="h-8 animate-pulse rounded-lg bg-surface" />
+            ))}
+          </div>
+          <div className="flex shrink-0 flex-col items-end gap-2">
+            <div className="h-5 w-9 animate-pulse rounded-full bg-surface" />
+            <div className="h-6 w-24 animate-pulse rounded-lg bg-surface" />
+            <div className="h-6 w-16 animate-pulse rounded-lg bg-surface" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function AddBannerButton() {
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -312,10 +339,10 @@ export default function AdminBannersPage() {
         этой стороны.
       </p>
 
-      {isLoading && <p className="text-ink-muted">Загрузка…</p>}
+      {isLoading && <BannersSkeleton />}
 
       {banners && (
-        <div className="flex flex-col gap-3">
+        <div className="flex animate-content-fade-in flex-col gap-3">
           {banners.map((banner) => (
             <BannerCard
               key={banner.id}

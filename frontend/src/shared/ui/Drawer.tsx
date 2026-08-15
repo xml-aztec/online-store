@@ -5,6 +5,9 @@ import { type ReactNode, useEffect } from "react";
 import { createPortal } from "react-dom";
 
 import { useAdminPortalRoot } from "@/shared/lib/adminPortalContext";
+import { useMountTransition } from "@/shared/lib/useMountTransition";
+
+const TRANSITION_MS = 300;
 
 interface DrawerProps {
   open: boolean;
@@ -19,6 +22,7 @@ interface DrawerProps {
 
 export function Drawer({ open, onClose, width = 460, title, headerExtra, children }: DrawerProps) {
   const portalRoot = useAdminPortalRoot();
+  const { shouldRender, isVisible } = useMountTransition(open, TRANSITION_MS);
 
   useEffect(() => {
     if (!open) return;
@@ -39,22 +43,27 @@ export function Drawer({ open, onClose, width = 460, title, headerExtra, childre
     };
   }, [open, onClose]);
 
-  if (!open || !portalRoot) return null;
+  if (!shouldRender || !portalRoot) return null;
 
   return createPortal(
     <div className="fixed inset-0 z-40">
       {/* Dimming backdrop is deliberately always-dark (not `bg-ink`, which
           flips light in dark mode and would light up the page behind the
-          drawer instead of dimming it). */}
+          drawer instead of dimming it). Fades in/out in step with the panel
+          below -- same duration, so neither jumps ahead of the other. */}
       <div
         aria-hidden="true"
-        className="absolute inset-0 bg-[#14161a]/45"
         onClick={onClose}
+        className={`absolute inset-0 bg-[#14161a]/45 transition-opacity duration-300 ${
+          isVisible ? "opacity-100 ease-out" : "opacity-0 ease-in"
+        }`}
       />
       <div
         role="dialog"
         aria-modal="true"
-        className="absolute inset-y-0 right-0 flex flex-col border-l border-border bg-bg shadow-[-16px_0_48px_rgba(20,22,26,0.12)]"
+        className={`absolute inset-y-0 right-0 flex flex-col border-l border-border bg-bg shadow-[-16px_0_48px_rgba(20,22,26,0.12)] transition-transform duration-300 ${
+          isVisible ? "translate-x-0 ease-out" : "translate-x-full ease-in"
+        }`}
         style={{ width }}
       >
         <div className="flex items-center gap-2.5 border-b border-border px-5 py-3.5">

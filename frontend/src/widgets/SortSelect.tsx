@@ -1,8 +1,9 @@
 "use client";
 
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 
 import type { ProductSort } from "@/entities/product/api";
+import { useCatalogTransition } from "@/shared/lib/catalogTransition";
 
 const SORT_LABELS: Record<ProductSort, string> = {
   newest: "Сначала новые",
@@ -12,15 +13,15 @@ const SORT_LABELS: Record<ProductSort, string> = {
 };
 
 export function SortSelect({ value }: { value: ProductSort }) {
-  const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const { navigate } = useCatalogTransition();
 
   function handleChange(event: React.ChangeEvent<HTMLSelectElement>) {
     const params = new URLSearchParams(searchParams.toString());
     params.set("sort", event.target.value);
     params.delete("page");
-    router.push(`${pathname}?${params.toString()}`);
+    navigate(`${pathname}?${params.toString()}`);
   }
 
   return (

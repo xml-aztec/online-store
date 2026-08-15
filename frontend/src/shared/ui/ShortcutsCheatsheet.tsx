@@ -4,6 +4,9 @@ import { useEffect } from "react";
 import { createPortal } from "react-dom";
 
 import { useAdminPortalRoot } from "@/shared/lib/adminPortalContext";
+import { useMountTransition } from "@/shared/lib/useMountTransition";
+
+const TRANSITION_MS = 300;
 
 interface ShortcutsCheatsheetProps {
   open: boolean;
@@ -25,6 +28,7 @@ const TABLE_SHORTCUTS: [string, string][] = [
 
 export function ShortcutsCheatsheet({ open, onClose }: ShortcutsCheatsheetProps) {
   const portalRoot = useAdminPortalRoot();
+  const { shouldRender, isVisible } = useMountTransition(open, TRANSITION_MS);
 
   useEffect(() => {
     if (!open) return;
@@ -35,18 +39,26 @@ export function ShortcutsCheatsheet({ open, onClose }: ShortcutsCheatsheetProps)
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [open, onClose]);
 
-  if (!open || !portalRoot) return null;
+  if (!shouldRender || !portalRoot) return null;
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex justify-center px-4 pt-[14vh]">
       {/* Deliberately always-dark, not `bg-ink` -- see Drawer.tsx's backdrop
           comment for why. */}
-      <div aria-hidden="true" className="absolute inset-0 bg-[#14161a]/45" onClick={onClose} />
+      <div
+        aria-hidden="true"
+        onClick={onClose}
+        className={`absolute inset-0 bg-[#14161a]/45 transition-opacity duration-300 ${
+          isVisible ? "opacity-100 ease-out" : "opacity-0 ease-in"
+        }`}
+      />
       <div
         role="dialog"
         aria-modal="true"
         aria-label="Горячие клавиши"
-        className="relative flex h-fit w-full max-w-[480px] flex-col gap-3.5 rounded-xl bg-bg p-5 shadow-[0_24px_64px_rgba(20,22,26,0.22)]"
+        className={`relative flex h-fit w-full max-w-[480px] flex-col gap-3.5 rounded-xl bg-bg p-5 shadow-[0_24px_64px_rgba(20,22,26,0.22)] transition-[opacity,transform] duration-300 ${
+          isVisible ? "scale-100 opacity-100 ease-out" : "scale-95 opacity-0 ease-in"
+        }`}
       >
         <div className="flex items-center justify-between">
           <span className="font-display text-[15px] font-extrabold text-ink">Клавиши</span>

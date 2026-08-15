@@ -3,6 +3,7 @@
 import { CircleAlert, Trash2 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
+import { useState } from "react";
 
 import { useAuthStore } from "@/entities/auth/store";
 import type { CartItem } from "@/entities/cart/api";
@@ -15,6 +16,7 @@ export function CartItemRow({ item }: { item: CartItem }) {
   const updateItem = useUpdateCartItemMutation();
   const toggleFavorite = useToggleFavoriteMutation();
   const status = useAuthStore((state) => state.status);
+  const [imageLoaded, setImageLoaded] = useState(false);
 
   const colorEntry = Object.entries(item.options).find(([key]) => isColorFacet(key));
   const optionsLabel = Object.values(item.options).map(String).join(", ");
@@ -33,7 +35,10 @@ export function CartItemRow({ item }: { item: CartItem }) {
             fill
             unoptimized
             sizes="96px"
-            className="object-cover"
+            onLoad={() => setImageLoaded(true)}
+            className={`object-cover transition-opacity duration-200 ease-out ${
+              imageLoaded ? "opacity-100" : "opacity-0"
+            }`}
           />
         ) : (
           <div className="flex h-full items-center justify-center text-xs text-ink-muted">
@@ -106,7 +111,10 @@ export function CartItemRow({ item }: { item: CartItem }) {
               >
                 −
               </button>
-              <span className="w-8 text-center font-mono text-sm font-semibold tabular-nums text-ink">
+              <span
+                key={item.qty}
+                className="animate-price-tick w-8 text-center font-mono text-sm font-semibold tabular-nums text-ink"
+              >
                 {item.qty}
               </span>
               <button
@@ -119,7 +127,10 @@ export function CartItemRow({ item }: { item: CartItem }) {
                 +
               </button>
             </div>
-            <span className="w-[90px] shrink-0 whitespace-nowrap text-right font-mono text-base font-bold text-ink sm:w-[110px] sm:text-[17px]">
+            <span
+              key={item.line_total}
+              className="animate-price-tick w-[90px] shrink-0 whitespace-nowrap text-right font-mono text-base font-bold text-ink sm:w-[110px] sm:text-[17px]"
+            >
               {formatPrice(item.line_total)}
             </span>
           </>

@@ -18,6 +18,7 @@ import {
 import type { AdminProductListItem } from "@/entities/product/adminApi";
 import { useToastStore } from "@/entities/toast/store";
 import { ApiError } from "@/shared/api/client";
+import { useMountTransition } from "@/shared/lib/useMountTransition";
 import { Toggle } from "@/shared/ui/Toggle";
 import { ProductDrawer } from "@/widgets/ProductDrawer";
 
@@ -27,6 +28,32 @@ function errorMessage(error: unknown, fallback: string): string {
 
 const QUERY_KEY = "admin-products";
 const ROW_COLUMNS = "32px 56px 1fr 130px 130px 96px 90px 32px";
+
+function ProductsTableSkeleton() {
+  return (
+    <div className="overflow-hidden rounded-xl border border-border bg-bg" aria-busy="true" aria-label="Загрузка товаров">
+      {Array.from({ length: 8 }, (_, i) => (
+        <div
+          key={i}
+          className="grid items-center gap-2 border-b border-surface px-[18px] py-2.5 last:border-0"
+          style={{ gridTemplateColumns: ROW_COLUMNS }}
+        >
+          <div className="h-4 w-4 animate-pulse rounded bg-surface" />
+          <div className="h-10 w-10 animate-pulse rounded-lg bg-surface" />
+          <div className="flex min-w-0 flex-col gap-1.5">
+            <div className="h-3.5 w-3/4 animate-pulse rounded bg-surface" />
+            <div className="h-2.5 w-1/3 animate-pulse rounded bg-surface" />
+          </div>
+          <div className="h-3.5 w-4/5 animate-pulse rounded bg-surface" />
+          <div className="ml-auto h-3.5 w-16 animate-pulse rounded bg-surface" />
+          <div className="ml-auto h-3.5 w-10 animate-pulse rounded bg-surface" />
+          <div className="mx-auto h-5 w-9 animate-pulse rounded-full bg-surface" />
+          <div />
+        </div>
+      ))}
+    </div>
+  );
+}
 
 function csvEscape(value: string): string {
   return /[",\n]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value;
@@ -79,7 +106,7 @@ function EditableCell({ value, onSave, colorClass }: EditableCellProps) {
             setEditing(false);
           }
         }}
-        className="h-8 w-full rounded-lg border border-brand bg-bg px-2.5 text-right font-mono text-[13px] font-semibold text-ink outline-none ring-2 ring-brand/20"
+        className="animate-cell-edit-in h-8 w-full rounded-lg border border-brand bg-bg px-2.5 text-right font-mono text-[13px] font-semibold text-ink outline-none ring-2 ring-brand/20"
       />
     );
   }
@@ -199,6 +226,8 @@ function RowMenu({ product, onOpen }: { product: AdminProductListItem; onOpen: (
   );
 }
 
+const BULK_BAR_TRANSITION_MS = 300;
+
 function BulkBar({
   selectedIds,
   items,
@@ -211,6 +240,16 @@ function BulkBar({
   const queryClient = useQueryClient();
   const pushToast = useToastStore((state) => state.push);
   const [pending, setPending] = useState(false);
+  const active = selectedIds.size > 0;
+  const { shouldRender, isVisible } = useMountTransition(active, BULK_BAR_TRANSITION_MS);
+
+  // Keeps showing the selection that was actually acted on while the bar
+  // fades out, instead of snapping to "Выбрано 0" for the trailing ~300ms
+  // of the exit animation (selectedIds is already empty by then).
+  const [displaySelection, setDisplaySelection] = useState({ selectedIds, items });
+  if (active && displaySelection.selectedIds !== selectedIds) {
+    setDisplaySelection({ selectedIds, items });
+  }
 
   async function setActive(isActive: boolean) {
     setPending(true);
@@ -226,14 +265,22 @@ function BulkBar({
     }
   }
 
+  if (!shouldRender) return null;
+
   return (
     <div className="sticky bottom-4 z-10 flex justify-center">
       {/* Floating bar is deliberately always-dark like the [#2C3038] buttons
           inside it (not `bg-ink`, which flips light in dark mode and would
-          leave the white text unreadable). */}
-      <div className="flex flex-wrap items-center gap-3 rounded-xl bg-[#14161a] px-4 py-2.5 text-white shadow-[0_12px_32px_rgba(20,22,26,0.3)]">
+          leave the white text unreadable). Slides up on select, back down on
+          clear/act -- transform+opacity only. */}
+      <div
+        className={`flex flex-wrap items-center gap-3 rounded-xl bg-[#14161a] px-4 py-2.5 text-white shadow-[0_12px_32px_rgba(20,22,26,0.3)] transition-[opacity,transform] duration-300 ${
+          isVisible ? "translate-y-0 opacity-100 ease-out" : "translate-y-3 opacity-0 ease-in"
+        }`}
+      >
         <span className="text-[13px] font-medium">
-          Выбрано <span className="font-mono font-bold">{selectedIds.size}</span>
+          Выбрано{" "}
+          <span className="font-mono font-bold">{displaySelection.selectedIds.size}</span>
         </span>
         <span className="h-5 w-px bg-white/20" />
         <button
@@ -254,7 +301,11 @@ function BulkBar({
         </button>
         <button
           type="button"
-          onClick={() => downloadProductsCsv(items.filter((p) => selectedIds.has(p.id)))}
+          onClick={() =>
+            downloadProductsCsv(
+              displaySelection.items.filter((p) => displaySelection.selectedIds.has(p.id))
+            )
+          }
           className="flex h-[34px] items-center gap-1.5 rounded-lg bg-[#2C3038] px-3.5 font-display text-[13px] font-semibold text-white hover:bg-[#3A3F48]"
         >
           <Download className="h-3.5 w-3.5" aria-hidden="true" />
@@ -428,10 +479,10 @@ function ProductsTable() {
         ))}
       </div>
 
-      {isLoading && <p className="text-ink-muted">Загрузка…</p>}
+      {isLoading && <ProductsTableSkeleton />}
 
       {data && (
-        <div className="overflow-hidden rounded-xl border border-border bg-bg">
+        <div className="animate-content-fade-in overflow-hidden rounded-xl border border-border bg-bg">
           <div
             className="grid items-center gap-2 border-b border-border px-[18px] py-2.5 text-[11px] font-semibold uppercase tracking-wide text-ink-muted"
             style={{ gridTemplateColumns: ROW_COLUMNS }}
@@ -500,7 +551,7 @@ function ProductsTable() {
         Клик по цене или остатку открывает поле прямо в ячейке — Enter сохраняет, Esc отменяет.
       </p>
 
-      {selectedIds.size > 0 && data && (
+      {data && (
         <BulkBar selectedIds={selectedIds} items={data.items} onClear={() => setSelectedIds(new Set())} />
       )}
 

@@ -61,7 +61,7 @@ function usePreviousCartPulse(count: number, hasLoaded: boolean) {
 function SearchPreview({ results, loading }: { results: ProductListItem[]; loading: boolean }) {
   if (!loading && results.length === 0) {
     return (
-      <div className="p-4 text-sm text-ink-muted">Ничего не найдено</div>
+      <div className="animate-content-fade-in p-4 text-sm text-ink-muted">Ничего не найдено</div>
     );
   }
 
@@ -76,7 +76,7 @@ function SearchPreview({ results, loading }: { results: ProductListItem[]; loadi
         ))}
       {!loading &&
         results.map((product) => (
-          <li key={product.id}>
+          <li key={product.id} className="animate-content-fade-in">
             <Link
               href={`/product/${product.slug}`}
               className="flex items-center gap-3 px-4 py-2 hover:bg-surface"
@@ -301,9 +301,11 @@ export function Header() {
             />
             {itemCount > 0 && (
               <span
-                className={`absolute -top-1.5 right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-ink px-1 font-mono text-[10px] font-bold text-white ${cartPulsing ? "animate-cart-pulse" : ""}`}
+                className={`absolute -top-1.5 right-1 flex h-4 min-w-4 items-center justify-center overflow-hidden rounded-full bg-ink px-1 font-mono text-[10px] font-bold text-white ${cartPulsing ? "animate-cart-pulse" : ""}`}
               >
-                {itemCount}
+                <span key={itemCount} className="animate-price-tick">
+                  {itemCount}
+                </span>
               </span>
             )}
             <span className={`text-[11px] ${cartActive ? "font-semibold text-ink" : "text-ink-muted"}`}>

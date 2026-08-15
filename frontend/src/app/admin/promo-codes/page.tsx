@@ -109,6 +109,29 @@ function PromoCodeRow({ promo, onOpen }: { promo: AdminPromoCode; onOpen: () => 
   );
 }
 
+function PromoCodesTableSkeleton() {
+  return (
+    <div className="max-w-[800px] overflow-hidden rounded-xl border border-border bg-bg" aria-busy="true" aria-label="Загрузка промокодов">
+      {Array.from({ length: 6 }, (_, i) => (
+        <div
+          key={i}
+          className="grid items-center gap-2 border-b border-surface px-4 py-2.5 last:border-0"
+          style={{ gridTemplateColumns: "150px 130px 1fr 110px 90px" }}
+        >
+          <div className="h-3.5 w-20 animate-pulse rounded bg-surface" />
+          <div className="h-3.5 w-14 animate-pulse rounded bg-surface" />
+          <div className="flex flex-col gap-1.5 pr-4">
+            <div className="h-2.5 w-16 animate-pulse rounded bg-surface" />
+            <div className="h-[5px] w-full animate-pulse rounded-full bg-surface" />
+          </div>
+          <div className="h-3 w-14 animate-pulse rounded bg-surface" />
+          <div className="h-5 w-16 animate-pulse rounded-lg bg-surface" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 interface PromoFormValues {
   code: string;
   discountType: "percent" | "fixed";
@@ -441,9 +464,9 @@ export default function AdminPromoCodesPage() {
         </button>
       </div>
 
-      {isLoading && <p className="text-ink-muted">Загрузка…</p>}
+      {isLoading && <PromoCodesTableSkeleton />}
       {data && (
-        <div className="max-w-[800px] overflow-hidden rounded-xl border border-border bg-bg">
+        <div className="max-w-[800px] animate-content-fade-in overflow-hidden rounded-xl border border-border bg-bg">
           <div
             className="grid gap-2 border-b border-border px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-ink-muted"
             style={{ gridTemplateColumns: "150px 130px 1fr 110px 90px" }}

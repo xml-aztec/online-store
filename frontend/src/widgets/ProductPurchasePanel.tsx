@@ -233,7 +233,7 @@ export function ProductPurchasePanel({
             type="button"
             disabled={!available || addItem.isPending}
             onClick={handleAddToCart}
-            className="flex-1 rounded-lg bg-brand px-4 py-3 font-medium text-white transition hover:bg-brand/90 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+            className="flex-1 rounded-lg bg-brand px-4 py-3 font-medium text-white transition duration-150 ease-out hover:bg-brand/90 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
           >
             {addItem.isPending ? "Добавляем…" : "Добавить в корзину"}
           </button>

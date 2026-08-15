@@ -102,6 +102,23 @@ function PromoMessageRow({
   );
 }
 
+function PromoMessagesSkeleton() {
+  return (
+    <div className="flex flex-col gap-3" aria-busy="true" aria-label="Загрузка бегущей строки">
+      {Array.from({ length: 4 }, (_, i) => (
+        <div key={i} className="flex items-center gap-3 rounded-lg border border-ink/10 p-3">
+          <span className="text-ink-muted/20" aria-hidden="true">
+            ⠿
+          </span>
+          <div className="h-8 min-w-0 flex-1 animate-pulse rounded-lg bg-surface" />
+          <div className="h-5 w-9 shrink-0 animate-pulse rounded-full bg-surface" />
+          <div className="h-6 w-16 shrink-0 animate-pulse rounded-lg bg-surface" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function AddPromoMessageForm() {
   const queryClient = useQueryClient();
   const [text, setText] = useState("");
@@ -196,10 +213,10 @@ export default function AdminPromoMessagesPage() {
         получении).
       </p>
 
-      {isLoading && <p className="text-ink-muted">Загрузка…</p>}
+      {isLoading && <PromoMessagesSkeleton />}
 
       {messages && (
-        <div className="flex flex-col gap-3">
+        <div className="flex animate-content-fade-in flex-col gap-3">
           {messages.map((message) => (
             <PromoMessageRow
               key={message.id}

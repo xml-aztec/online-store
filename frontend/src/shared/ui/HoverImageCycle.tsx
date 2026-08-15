@@ -22,6 +22,7 @@ interface HoverImageCycleProps {
 export function HoverImageCycle({ images, alt, sizes, imageClassName = "" }: HoverImageCycleProps) {
   const [activeIndex, setActiveIndex] = useState(0);
   const [engaged, setEngaged] = useState(false);
+  const [loaded, setLoaded] = useState(false);
   const hasMultiple = images.length > 1;
 
   function handleMouseMove(event: MouseEvent<HTMLDivElement>) {
@@ -75,7 +76,10 @@ export function HoverImageCycle({ images, alt, sizes, imageClassName = "" }: Hov
           fill
           unoptimized
           sizes={sizes}
-          className={imageClassName}
+          onLoad={() => setLoaded(true)}
+          className={`transition-opacity duration-200 ease-out ${imageClassName} ${
+            loaded ? "opacity-100" : "opacity-0"
+          }`}
         />
       )}
     </div>

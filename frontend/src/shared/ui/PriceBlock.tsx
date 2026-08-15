@@ -23,11 +23,17 @@ export function PriceBlock({ price, compareAtPrice, size = "sm" }: PriceBlockPro
 
   return (
     <div className="flex flex-wrap items-baseline gap-x-2">
-      <span className={`font-mono font-bold text-ink ${PRICE_SIZE[size]}`}>
+      <span
+        key={String(price)}
+        className={`animate-price-tick font-mono font-bold text-ink ${PRICE_SIZE[size]}`}
+      >
         {formatPrice(price)}
       </span>
       {hasCompare && (
-        <span className={`font-mono text-ink-muted line-through ${COMPARE_SIZE[size]}`}>
+        <span
+          key={String(compareAtPrice)}
+          className={`animate-price-tick font-mono text-ink-muted line-through ${COMPARE_SIZE[size]}`}
+        >
           {formatPrice(compareAtPrice as string | number)}
         </span>
       )}

@@ -19,6 +19,9 @@ import { listAdminOrders } from "@/entities/orders/adminApi";
 import { listAdminProducts } from "@/entities/product/adminApi";
 import { useAdminPortalRoot } from "@/shared/lib/adminPortalContext";
 import { formatPrice } from "@/shared/lib/formatPrice";
+import { useMountTransition } from "@/shared/lib/useMountTransition";
+
+const TRANSITION_MS = 300;
 
 interface CommandPaletteProps {
   open: boolean;
@@ -64,6 +67,7 @@ const RESULT_LIMIT = 5;
 export function CommandPalette({ open, onClose }: CommandPaletteProps) {
   const router = useRouter();
   const portalRoot = useAdminPortalRoot();
+  const { shouldRender, isVisible } = useMountTransition(open, TRANSITION_MS);
   const inputRef = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState("");
   const [debounced, setDebounced] = useState("");
@@ -134,18 +138,26 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
     onClose();
   }
 
-  if (!open || !portalRoot) return null;
+  if (!shouldRender || !portalRoot) return null;
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex justify-center px-4 pt-[12vh]">
       {/* Deliberately always-dark, not `bg-ink` -- see Drawer.tsx's backdrop
           comment for why. */}
-      <div aria-hidden="true" className="absolute inset-0 bg-[#14161a]/45" onClick={onClose} />
+      <div
+        aria-hidden="true"
+        onClick={onClose}
+        className={`absolute inset-0 bg-[#14161a]/45 transition-opacity duration-300 ${
+          isVisible ? "opacity-100 ease-out" : "opacity-0 ease-in"
+        }`}
+      />
       <div
         role="dialog"
         aria-modal="true"
         aria-label="Поиск и команды"
-        className="relative flex h-fit max-h-[70vh] w-full max-w-[520px] flex-col overflow-hidden rounded-xl bg-bg shadow-[0_24px_64px_rgba(20,22,26,0.22)]"
+        className={`relative flex h-fit max-h-[70vh] w-full max-w-[520px] flex-col overflow-hidden rounded-xl bg-bg shadow-[0_24px_64px_rgba(20,22,26,0.22)] transition-[opacity,transform] duration-300 ${
+          isVisible ? "scale-100 opacity-100 ease-out" : "scale-95 opacity-0 ease-in"
+        }`}
       >
         <div className="flex items-center gap-2.5 border-b border-border px-4 py-3.5">
           <Search className="h-4 w-4 shrink-0 text-ink-muted" aria-hidden="true" strokeWidth={2.2} />

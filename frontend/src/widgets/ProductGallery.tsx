@@ -6,6 +6,23 @@ import { useEffect, useState } from "react";
 
 import type { ProductImage } from "@/entities/product/api";
 
+function GalleryThumbImage({ src, alt }: { src: string; alt: string }) {
+  const [loaded, setLoaded] = useState(false);
+  return (
+    <Image
+      src={src}
+      alt={alt}
+      fill
+      unoptimized
+      sizes="96px"
+      onLoad={() => setLoaded(true)}
+      className={`object-cover transition-opacity duration-200 ease-out ${
+        loaded ? "opacity-100" : "opacity-0"
+      }`}
+    />
+  );
+}
+
 interface ProductGalleryProps {
   images: ProductImage[];
   alt: string;
@@ -25,6 +42,13 @@ export function ProductGallery({ images, alt, fill = false, discountBadge }: Pro
   const [activeIndex, setActiveIndex] = useState(0);
   const active = images[activeIndex];
   const hasMultiple = images.length > 1;
+
+  // Fades the main image in on load instead of popping in over the bg-surface
+  // placeholder. Tracks which URL last finished loading (not a plain
+  // boolean) so switching the active photo -- arrows/thumbnails -- derives
+  // back to "not loaded" for the new src on its own, no effect/reset needed.
+  const [loadedUrl, setLoadedUrl] = useState<string | null>(null);
+  const mainLoaded = loadedUrl === active?.url;
 
   function goTo(index: number) {
     setActiveIndex(((index % images.length) + images.length) % images.length);
@@ -74,7 +98,10 @@ export function ProductGallery({ images, alt, fill = false, discountBadge }: Pro
         unoptimized
         preload
         sizes={fill ? "(min-width: 640px) 55vw, 100vw" : "(min-width: 1024px) 50vw, 100vw"}
-        className="object-cover"
+        onLoad={() => setLoadedUrl(active.url)}
+        className={`object-cover transition-opacity duration-200 ease-out ${
+          mainLoaded ? "opacity-100" : "opacity-0"
+        }`}
       />
 
       {discountBadge && (
@@ -140,14 +167,7 @@ export function ProductGallery({ images, alt, fill = false, discountBadge }: Pro
                 index === activeIndex ? "ring-2 ring-brand" : "ring-ink/15 hover:ring-ink/30"
               }`}
             >
-              <Image
-                src={image.thumbnail_url}
-                alt={image.alt ?? alt}
-                fill
-                unoptimized
-                sizes="96px"
-                className="object-cover"
-              />
+              <GalleryThumbImage src={image.thumbnail_url} alt={image.alt ?? alt} />
             </button>
           ))}
         </div>
