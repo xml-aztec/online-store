@@ -60,6 +60,40 @@ _STATUS_LABELS = {
 _PAYMENT_METHOD_LABELS = {"cash_on_delivery": "наличными при получении", "online": "онлайн"}
 _DELIVERY_METHOD_LABELS = {"pickup": "самовывоз", "courier": "курьер"}
 
+# Reply-keyboard button labels sent after handle_start (ТЗ 5.6 update). Telegram
+# delivers a tap on these back to the webhook as a plain text message with this
+# exact text -- no callback_query involved -- so they must stay in sync with
+# _main_menu_keyboard() below.
+_ORDERS_MENU_TEXT = "📦 Заказы"
+_STATS_MENU_TEXT = "📊 Статистика"
+
+_ORDERS_LIST_PREFIX = "orders_list"
+_ORDER_VIEW_PREFIX = "order_view"
+_STATS_PREFIX = "stats"
+_ORDERS_PAGE_SIZE = 8
+
+# (key, label, status_filter) -- `None` for "all" means no status filter at
+# all, matching list_orders_admin's own `if status_filter:` truthiness check.
+_ORDER_FILTER_PRESETS: list[tuple[str, str, list[str] | None]] = [
+    ("all", "Все", None),
+    ("new", "Новые", ["pending"]),
+    ("awaiting_payment", "Ожидают оплаты", ["awaiting_payment"]),
+    ("processing", "В сборке", ["processing"]),
+    ("cancelled", "Отменённые", ["cancelled"]),
+    ("refunded", "Возвраты", ["refunded"]),
+]
+_ORDER_FILTER_STATUSES: dict[str, list[str] | None] = {
+    key: statuses for key, _label, statuses in _ORDER_FILTER_PRESETS
+}
+_ORDER_FILTER_LABELS: dict[str, str] = {
+    key: label for key, label, _statuses in _ORDER_FILTER_PRESETS
+}
+
+_STATS_PERIOD_LABELS: dict[str, str] = {"today": "Сегодня", "7d": "7 дней", "30d": "30 дней"}
+
+_NOT_LINKED_MESSAGE = "Этот аккаунт не привязан."
+_INSUFFICIENT_ROLE_MESSAGE = "Недостаточно прав."
+
 
 def _format_money(amount: Decimal) -> str:
     # Mirrors frontend/src/shared/lib/formatPrice.ts: "1 250 сом", cents shown
@@ -118,6 +152,40 @@ def _order_keyboard(order: Order) -> dict[str, Any] | None:
     )
 
 
+def _main_menu_keyboard() -> dict[str, Any]:
+    return bot_api.reply_keyboard([[_ORDERS_MENU_TEXT, _STATS_MENU_TEXT]])
+
+
+def _order_filters_keyboard() -> dict[str, Any]:
+    return bot_api.inline_keyboard(
+        [
+            [(label, f"{_ORDERS_LIST_PREFIX}:{key}:0")]
+            for key, label, _statuses in _ORDER_FILTER_PRESETS
+        ]
+    )
+
+
+def _stats_period_keyboard() -> dict[str, Any]:
+    return bot_api.inline_keyboard(
+        [[(label, f"{_STATS_PREFIX}:{key}") for key, label in _STATS_PERIOD_LABELS.items()]]
+    )
+
+
+async def _authorize_chat(session: AsyncSession, chat_id: str) -> tuple[User | None, str | None]:
+    """Single choke point for every entry point added by the ТЗ 5.6 update --
+    the reply-keyboard text handlers and the orders_list/order_view/stats
+    callbacks all funnel through this before touching any order/revenue data.
+    Distinguishes "not linked" from "linked but role too low" so callers can
+    show the right one of the two polite messages instead of a generic one.
+    """
+    linked = await session.scalar(select(User).where(User.telegram_chat_id == chat_id))
+    if linked is None:
+        return None, _NOT_LINKED_MESSAGE
+    if linked.role not in ("manager", "admin"):
+        return None, _INSUFFICIENT_ROLE_MESSAGE
+    return linked, None
+
+
 def _format_order_message(order: Order) -> str:
     lines = [
         f"<b>Заказ {html.escape(order.number)}</b>",
@@ -138,6 +206,69 @@ def _format_order_message(order: Order) -> str:
     )
     if order.comment:
         lines.append(f"Комментарий: {html.escape(order.comment)}")
+    return "\n".join(lines)
+
+
+async def _render_orders_list(
+    session: AsyncSession, *, filter_key: str, page: int
+) -> tuple[str, dict[str, Any]]:
+    orders, total = await orders_service.list_orders_admin(
+        session,
+        status_filter=_ORDER_FILTER_STATUSES[filter_key],
+        date_from=None,
+        date_to=None,
+        search=None,
+        page=page + 1,  # list_orders_admin pages from 1; our callback_data pages from 0
+        page_size=_ORDERS_PAGE_SIZE,
+    )
+
+    label = _ORDER_FILTER_LABELS[filter_key]
+    header = f"<b>Заказы: {html.escape(label)}</b> (всего: {total})"
+    text = header if orders else f"{header}\n\nНичего не найдено."
+
+    rows: list[list[tuple[str, str]]] = [
+        [
+            (
+                f"№{order.number} · {_format_money(order.total)} · "
+                f"{_STATUS_LABELS.get(order.status, order.status)}",
+                f"{_ORDER_VIEW_PREFIX}:{order.id.hex}",
+            )
+        ]
+        for order in orders
+    ]
+    nav: list[tuple[str, str]] = []
+    if page > 0:
+        nav.append(("⬅️ Назад", f"{_ORDERS_LIST_PREFIX}:{filter_key}:{page - 1}"))
+    if (page + 1) * _ORDERS_PAGE_SIZE < total:
+        nav.append(("Следующие ➡️", f"{_ORDERS_LIST_PREFIX}:{filter_key}:{page + 1}"))
+    if nav:
+        rows.append(nav)
+
+    return text, bot_api.inline_keyboard(rows)
+
+
+def _stats_period_bounds(period: str, *, now: datetime) -> tuple[datetime, datetime]:
+    if period == "today":
+        return _bishkek_day_start(now), now
+    if period == "7d":
+        return now - timedelta(days=7), now
+    return now - timedelta(days=30), now  # "30d", the only remaining valid key
+
+
+def _format_stats_digest(title: str, stats: orders_service.DailyDigestStats) -> str:
+    lines = [
+        f"<b>{title}</b>",
+        "",
+        f"Заказов: {stats.orders_count}",
+        f"Выручка: {_format_money(stats.revenue)}",
+    ]
+    if stats.top_products:
+        lines.append("")
+        lines.append("Топ-3 товара:")
+        for index, product in enumerate(stats.top_products, start=1):
+            lines.append(
+                f"{index}. {html.escape(product.product_name)} — {product.quantity_sold} шт."
+            )
     return "\n".join(lines)
 
 
@@ -180,6 +311,7 @@ async def handle_start(session: AsyncSession, *, token: str, chat_id: str) -> No
         chat_id,
         f"Готово, {html.escape(user.full_name or user.email)}! "
         "Уведомления о заказах и остатках будут приходить сюда.",
+        reply_markup=_main_menu_keyboard(),
     )
 
 
@@ -251,24 +383,40 @@ async def send_daily_digest(session: AsyncSession) -> None:
     now = datetime.now(UTC)
     since = _bishkek_day_start(now)
     stats = await orders_service.get_daily_digest_stats(session, since=since, until=now)
+    text = _format_stats_digest(f"Итоги дня — {since.strftime('%d.%m.%Y')}", stats)
 
-    lines = [
-        f"<b>Итоги дня — {since.strftime('%d.%m.%Y')}</b>",
-        "",
-        f"Заказов: {stats.orders_count}",
-        f"Выручка: {_format_money(stats.revenue)}",
-    ]
-    if stats.top_products:
-        lines.append("")
-        lines.append("Топ-3 товара:")
-        for index, product in enumerate(stats.top_products, start=1):
-            lines.append(
-                f"{index}. {html.escape(product.product_name)} — {product.quantity_sold} шт."
-            )
-
-    text = "\n".join(lines)
     for chat_id in recipients:
         await _safe_send(chat_id, text)
+
+
+async def handle_text_message(session: AsyncSession, *, chat_id: str, text: str) -> None:
+    """Dispatches a reply-keyboard button press (ТЗ 5.6 update) -- Telegram
+    delivers a tap on those as a plain text message, not a callback_query.
+    Unrecognized text (regular chat messages, anything else) is silently
+    ignored, same as every non-/start message was before this feature existed.
+    """
+    if text == _ORDERS_MENU_TEXT:
+        await _handle_orders_menu_text(session, chat_id=chat_id)
+    elif text == _STATS_MENU_TEXT:
+        await _handle_stats_menu_text(session, chat_id=chat_id)
+
+
+async def _handle_orders_menu_text(session: AsyncSession, *, chat_id: str) -> None:
+    user, unauthorized_reason = await _authorize_chat(session, chat_id)
+    if user is None:
+        assert unauthorized_reason is not None
+        await _safe_send(chat_id, unauthorized_reason)
+        return
+    await _safe_send(chat_id, "Выберите фильтр:", reply_markup=_order_filters_keyboard())
+
+
+async def _handle_stats_menu_text(session: AsyncSession, *, chat_id: str) -> None:
+    user, unauthorized_reason = await _authorize_chat(session, chat_id)
+    if user is None:
+        assert unauthorized_reason is not None
+        await _safe_send(chat_id, unauthorized_reason)
+        return
+    await _safe_send(chat_id, "Выберите период:", reply_markup=_stats_period_keyboard())
 
 
 def _parse_callback_data(data: str) -> tuple[uuid.UUID, str] | None:
@@ -294,17 +442,39 @@ async def handle_callback(
         logger.info("telegram_update_duplicate_ignored", update_id=update_id)
         return
 
+    # Single choke point for every callback_query this bot handles -- the
+    # original order-status buttons (`os:...`) and the orders_list/order_view/
+    # stats callbacks added by the ТЗ 5.6 update all funnel through the same
+    # check before any of them is dispatched below.
     chat_id = str(callback_query.from_.id)
-    user = await session.scalar(
-        select(User).where(User.telegram_chat_id == chat_id, User.role.in_(("manager", "admin")))
-    )
+    user, unauthorized_reason = await _authorize_chat(session, chat_id)
     if user is None:
         await bot_api.answer_callback_query(
-            callback_query.id, text="Аккаунт не привязан или недостаточно прав.", show_alert=True
+            callback_query.id, text=unauthorized_reason, show_alert=True
         )
         return
 
-    parsed = _parse_callback_data(callback_query.data or "")
+    data = callback_query.data or ""
+    prefix = data.split(":", 1)[0]
+
+    if prefix == _CALLBACK_PREFIX:
+        await _handle_status_change_callback(
+            session, user=user, callback_query=callback_query, data=data
+        )
+    elif prefix == _ORDERS_LIST_PREFIX:
+        await _handle_orders_list_callback(session, callback_query=callback_query, data=data)
+    elif prefix == _ORDER_VIEW_PREFIX:
+        await _handle_order_view_callback(session, callback_query=callback_query, data=data)
+    elif prefix == _STATS_PREFIX:
+        await _handle_stats_callback(session, callback_query=callback_query, data=data)
+    else:
+        await bot_api.answer_callback_query(callback_query.id, text="Неизвестное действие.")
+
+
+async def _handle_status_change_callback(
+    session: AsyncSession, *, user: User, callback_query: TelegramCallbackQuery, data: str
+) -> None:
+    parsed = _parse_callback_data(data)
     if parsed is None:
         await bot_api.answer_callback_query(callback_query.id, text="Неизвестное действие.")
         return
@@ -335,3 +505,89 @@ async def handle_callback(
     # edits every recipient's copy of this order's message (including this
     # presser's) -- just close the button's loading spinner here.
     await bot_api.answer_callback_query(callback_query.id, text="Готово")
+
+
+async def _handle_orders_list_callback(
+    session: AsyncSession, *, callback_query: TelegramCallbackQuery, data: str
+) -> None:
+    parts = data.split(":")
+    filter_key = parts[1] if len(parts) == 3 else ""
+    if filter_key not in _ORDER_FILTER_STATUSES:
+        await bot_api.answer_callback_query(callback_query.id, text="Неизвестный фильтр.")
+        return
+    try:
+        page = max(int(parts[2]), 0)
+    except ValueError:
+        await bot_api.answer_callback_query(callback_query.id, text="Неизвестная страница.")
+        return
+
+    message = callback_query.message
+    if message is None:
+        await bot_api.answer_callback_query(callback_query.id)
+        return
+
+    text, keyboard = await _render_orders_list(session, filter_key=filter_key, page=page)
+    try:
+        await bot_api.edit_message_text(
+            str(message.chat.id), message.message_id, text, reply_markup=keyboard
+        )
+    except bot_api.TelegramApiError:
+        logger.warning("telegram_edit_message_failed", chat_id=str(message.chat.id))
+    await bot_api.answer_callback_query(callback_query.id)
+
+
+async def _handle_order_view_callback(
+    session: AsyncSession, *, callback_query: TelegramCallbackQuery, data: str
+) -> None:
+    _, _sep, order_id_hex = data.partition(":")
+    try:
+        order_id = uuid.UUID(hex=order_id_hex)
+    except ValueError:
+        await bot_api.answer_callback_query(callback_query.id, text="Неизвестный заказ.")
+        return
+
+    order = await session.scalar(
+        select(Order).options(selectinload(Order.items)).where(Order.id == order_id)
+    )
+    if order is None:
+        await bot_api.answer_callback_query(callback_query.id, text="Заказ не найден.")
+        return
+
+    message = callback_query.message
+    if message is None:
+        await bot_api.answer_callback_query(callback_query.id)
+        return
+
+    # Same card renderer notify_new_order/notify_status_change use for the
+    # pushed version -- ТЗ 5.6 update explicitly forbids a second, slightly
+    # different variant here.
+    try:
+        await bot_api.edit_message_text(
+            str(message.chat.id),
+            message.message_id,
+            _format_order_message(order),
+            reply_markup=_order_keyboard(order),
+        )
+    except bot_api.TelegramApiError:
+        logger.warning("telegram_edit_message_failed", chat_id=str(message.chat.id))
+    await bot_api.answer_callback_query(callback_query.id)
+
+
+async def _handle_stats_callback(
+    session: AsyncSession, *, callback_query: TelegramCallbackQuery, data: str
+) -> None:
+    _, _sep, period = data.partition(":")
+    if period not in _STATS_PERIOD_LABELS:
+        await bot_api.answer_callback_query(callback_query.id, text="Неизвестный период.")
+        return
+
+    message = callback_query.message
+    if message is None:
+        await bot_api.answer_callback_query(callback_query.id)
+        return
+
+    since, until = _stats_period_bounds(period, now=datetime.now(UTC))
+    stats = await orders_service.get_daily_digest_stats(session, since=since, until=until)
+    text = _format_stats_digest(f"Статистика — {_STATS_PERIOD_LABELS[period]}", stats)
+    await _safe_send(str(message.chat.id), text)
+    await bot_api.answer_callback_query(callback_query.id)

@@ -12,6 +12,7 @@ from app.config import settings
 from app.core.queue import get_arq_pool
 from app.core.redis import get_redis
 from app.core.security import create_access_token
+from app.orders import service as orders_service
 from app.orders.models import Order, OrderItem, OrderStatusHistory
 from app.telegram import bot_api
 from app.telegram import service as telegram_service
@@ -108,6 +109,25 @@ def _callback(
                 "chat": {"id": chat_id if chat_id is not None else from_id},
             },
             "data": f"os:{order_id.hex}:{to_status}",
+        }
+    )
+
+
+def _generic_callback(
+    *, from_id: int, data: str, chat_id: int | None = None
+) -> TelegramCallbackQuery:
+    # Like _callback above, but for the orders_list/order_view/stats callback
+    # shapes added by the ТЗ 5.6 update, which don't fit _callback's
+    # "os:{order_id}:{to_status}"-only signature.
+    return TelegramCallbackQuery.model_validate(
+        {
+            "id": f"cbq-{uuid.uuid4().hex[:8]}",
+            "from": {"id": from_id},
+            "message": {
+                "message_id": 1,
+                "chat": {"id": chat_id if chat_id is not None else from_id},
+            },
+            "data": data,
         }
     )
 
@@ -441,6 +461,255 @@ async def test_send_daily_digest_reaches_only_managers_and_admins(
     assert recipients == {"777009"}
 
 
+# --- reply-keyboard menu: "📦 Заказы" / "📊 Статистика" text handlers ---
+
+
+@pytest.mark.asyncio
+async def test_orders_menu_text_from_unlinked_chat_id_gets_no_data(
+    db_session: AsyncSession, fake_bot_api: _FakeBotApi
+) -> None:
+    await telegram_service.handle_text_message(db_session, chat_id="990001", text="📦 Заказы")
+
+    assert len(fake_bot_api.sent_messages) == 1
+    assert fake_bot_api.sent_messages[0]["text"] == "Этот аккаунт не привязан."
+    assert fake_bot_api.sent_messages[0]["reply_markup"] is None
+
+
+@pytest.mark.asyncio
+async def test_orders_menu_text_from_customer_role_gets_no_data(
+    db_session: AsyncSession, fake_bot_api: _FakeBotApi
+) -> None:
+    await _make_user(db_session, role="customer", telegram_chat_id="990002")
+
+    await telegram_service.handle_text_message(db_session, chat_id="990002", text="📦 Заказы")
+
+    assert len(fake_bot_api.sent_messages) == 1
+    assert fake_bot_api.sent_messages[0]["text"] == "Недостаточно прав."
+
+
+@pytest.mark.asyncio
+async def test_stats_menu_text_from_unlinked_chat_id_gets_no_data(
+    db_session: AsyncSession, fake_bot_api: _FakeBotApi
+) -> None:
+    await telegram_service.handle_text_message(db_session, chat_id="990003", text="📊 Статистика")
+
+    assert len(fake_bot_api.sent_messages) == 1
+    assert fake_bot_api.sent_messages[0]["text"] == "Этот аккаунт не привязан."
+
+
+@pytest.mark.asyncio
+async def test_orders_menu_text_from_manager_shows_filter_keyboard(
+    db_session: AsyncSession, fake_bot_api: _FakeBotApi
+) -> None:
+    await _make_user(db_session, role="manager", telegram_chat_id="990004")
+
+    await telegram_service.handle_text_message(db_session, chat_id="990004", text="📦 Заказы")
+
+    assert len(fake_bot_api.sent_messages) == 1
+    keyboard = fake_bot_api.sent_messages[0]["reply_markup"]
+    assert keyboard is not None
+    callback_datas = {btn["callback_data"] for row in keyboard["inline_keyboard"] for btn in row}
+    assert callback_datas == {
+        "orders_list:all:0",
+        "orders_list:new:0",
+        "orders_list:awaiting_payment:0",
+        "orders_list:processing:0",
+        "orders_list:cancelled:0",
+        "orders_list:refunded:0",
+    }
+
+
+@pytest.mark.asyncio
+async def test_stats_menu_text_from_admin_shows_period_keyboard(
+    db_session: AsyncSession, fake_bot_api: _FakeBotApi
+) -> None:
+    await _make_user(db_session, role="admin", telegram_chat_id="990005")
+
+    await telegram_service.handle_text_message(db_session, chat_id="990005", text="📊 Статистика")
+
+    keyboard = fake_bot_api.sent_messages[0]["reply_markup"]
+    callback_datas = {btn["callback_data"] for row in keyboard["inline_keyboard"] for btn in row}
+    assert callback_datas == {"stats:today", "stats:7d", "stats:30d"}
+
+
+# --- orders_list / order_view callbacks ---
+
+
+def test_order_filter_presets_map_to_expected_status_subsets() -> None:
+    assert telegram_service._ORDER_FILTER_STATUSES["all"] is None
+    assert telegram_service._ORDER_FILTER_STATUSES["new"] == ["pending"]
+    assert telegram_service._ORDER_FILTER_STATUSES["awaiting_payment"] == ["awaiting_payment"]
+    assert telegram_service._ORDER_FILTER_STATUSES["processing"] == ["processing"]
+    assert telegram_service._ORDER_FILTER_STATUSES["cancelled"] == ["cancelled"]
+    assert telegram_service._ORDER_FILTER_STATUSES["refunded"] == ["refunded"]
+
+
+@pytest.mark.asyncio
+async def test_orders_list_callback_from_unlinked_chat_id_gets_no_data(
+    db_session: AsyncSession, fake_bot_api: _FakeBotApi
+) -> None:
+    await telegram_service.handle_callback(
+        db_session,
+        update_id=_update_id(),
+        callback_query=_generic_callback(from_id=990006, data="orders_list:all:0"),
+    )
+
+    assert fake_bot_api.edited_messages == []
+    assert fake_bot_api.sent_messages == []
+    assert fake_bot_api.answered_callbacks[-1]["show_alert"] is True
+
+
+@pytest.mark.asyncio
+async def test_orders_list_callback_only_returns_matching_status_preset(
+    db_session: AsyncSession, fake_bot_api: _FakeBotApi
+) -> None:
+    await _make_user(db_session, role="manager", telegram_chat_id="990007")
+    cancelled_order = await _make_order(db_session, status="cancelled")
+    refunded_order = await _make_order(db_session, status="refunded")
+    processing_order = await _make_order(db_session, status="processing")
+
+    await telegram_service.handle_callback(
+        db_session,
+        update_id=_update_id(),
+        callback_query=_generic_callback(from_id=990007, data="orders_list:cancelled:0"),
+    )
+
+    assert len(fake_bot_api.edited_messages) == 1
+    keyboard = fake_bot_api.edited_messages[0]["reply_markup"]
+    callback_datas = {btn["callback_data"] for row in keyboard["inline_keyboard"] for btn in row}
+    # "Отменённые" and "Возвраты" are separate presets now, not bundled --
+    # confirms neither the sibling status nor an unrelated one leaks in.
+    assert f"order_view:{cancelled_order.id.hex}" in callback_datas
+    assert f"order_view:{refunded_order.id.hex}" not in callback_datas
+    assert f"order_view:{processing_order.id.hex}" not in callback_datas
+
+
+@pytest.mark.asyncio
+async def test_orders_list_pagination_hides_next_on_last_page_and_back_on_first_page(
+    db_session: AsyncSession, fake_bot_api: _FakeBotApi, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    await _make_user(db_session, role="manager", telegram_chat_id="990008")
+    order = await _make_order(db_session, status="processing")
+
+    async def _fake_list_orders_admin(*args: Any, **kwargs: Any) -> tuple[list[Order], int]:
+        # 9 total orders at page_size 8 -- exactly one order spills onto page 1
+        # (service-side, 1-indexed: page 1 is our callback's page 0).
+        if kwargs["page"] == 1:
+            return [order] * 8, 9
+        return [order], 9
+
+    monkeypatch.setattr(orders_service, "list_orders_admin", _fake_list_orders_admin)
+
+    # First page (callback page=0): no "Назад", has "Следующие ➡️".
+    await telegram_service.handle_callback(
+        db_session,
+        update_id=_update_id(),
+        callback_query=_generic_callback(from_id=990008, data="orders_list:all:0"),
+    )
+    first_page_buttons = {
+        btn["text"]
+        for row in fake_bot_api.edited_messages[-1]["reply_markup"]["inline_keyboard"]
+        for btn in row
+    }
+    assert "Следующие ➡️" in first_page_buttons
+    assert "⬅️ Назад" not in first_page_buttons
+
+    # Last page (callback page=1, the remaining 1 of 9 orders): "Назад" but no
+    # "Следующие ➡️".
+    await telegram_service.handle_callback(
+        db_session,
+        update_id=_update_id(),
+        callback_query=_generic_callback(from_id=990008, data="orders_list:all:1"),
+    )
+    last_page_buttons = {
+        btn["text"]
+        for row in fake_bot_api.edited_messages[-1]["reply_markup"]["inline_keyboard"]
+        for btn in row
+    }
+    assert "⬅️ Назад" in last_page_buttons
+    assert "Следующие ➡️" not in last_page_buttons
+
+
+@pytest.mark.asyncio
+async def test_order_view_callback_from_unlinked_chat_id_gets_no_data(
+    db_session: AsyncSession, fake_bot_api: _FakeBotApi
+) -> None:
+    order = await _make_order(db_session, status="paid")
+
+    await telegram_service.handle_callback(
+        db_session,
+        update_id=_update_id(),
+        callback_query=_generic_callback(from_id=990009, data=f"order_view:{order.id.hex}"),
+    )
+
+    assert fake_bot_api.edited_messages == []
+    assert fake_bot_api.answered_callbacks[-1]["show_alert"] is True
+
+
+@pytest.mark.asyncio
+async def test_order_view_callback_renders_same_card_as_push_notification(
+    db_session: AsyncSession, fake_bot_api: _FakeBotApi
+) -> None:
+    await _make_user(db_session, role="manager", telegram_chat_id="990010")
+    order = await _make_order(db_session, status="paid")
+
+    await telegram_service.handle_callback(
+        db_session,
+        update_id=_update_id(),
+        callback_query=_generic_callback(from_id=990010, data=f"order_view:{order.id.hex}"),
+    )
+
+    assert len(fake_bot_api.edited_messages) == 1
+    edited = fake_bot_api.edited_messages[0]
+    # Same renderer notify_new_order/notify_status_change use for the pushed
+    # card -- direct comparison, not just "text is non-empty".
+    assert edited["text"] == telegram_service._format_order_message(order)
+    assert edited["reply_markup"] == telegram_service._order_keyboard(order)
+
+
+# --- stats callback ---
+
+
+@pytest.mark.asyncio
+async def test_stats_callback_from_unlinked_chat_id_gets_no_data(
+    db_session: AsyncSession, fake_bot_api: _FakeBotApi
+) -> None:
+    await telegram_service.handle_callback(
+        db_session,
+        update_id=_update_id(),
+        callback_query=_generic_callback(from_id=990011, data="stats:7d"),
+    )
+
+    assert fake_bot_api.sent_messages == []
+    assert fake_bot_api.answered_callbacks[-1]["show_alert"] is True
+
+
+@pytest.mark.asyncio
+async def test_stats_callback_matches_admin_stats_summary_for_same_period(
+    client: httpx.AsyncClient, db_session: AsyncSession, fake_bot_api: _FakeBotApi
+) -> None:
+    manager = await _make_user(db_session, role="manager", telegram_chat_id="990012")
+    await _make_order(db_session, status="processing")
+
+    rest_response = await client.get(
+        "/v1/admin/stats/summary",
+        headers={"Authorization": f"Bearer {create_access_token(manager.id, manager.role)}"},
+    )
+    assert rest_response.status_code == 200
+    expected = rest_response.json()["last_7_days"]
+
+    await telegram_service.handle_callback(
+        db_session,
+        update_id=_update_id(),
+        callback_query=_generic_callback(from_id=990012, data="stats:7d"),
+    )
+
+    text = fake_bot_api.sent_messages[-1]["text"]
+    assert f"Заказов: {expected['orders_count']}" in text
+    expected_revenue_text = telegram_service._format_money(Decimal(str(expected["revenue"])))
+    assert f"Выручка: {expected_revenue_text}" in text
+
+
 # --- checkout/transition_status wiring (arq enqueue side-effects) ---
 
 
@@ -485,8 +754,6 @@ async def test_checkout_enqueues_new_order_and_low_stock_jobs(
 async def test_status_transition_always_enqueues_telegram_status_change(
     db_session: AsyncSession,
 ) -> None:
-    from app.orders import service as orders_service
-
     order = await _make_order(db_session, status="pending")
     await orders_service.transition_status(
         db_session, order, to_status="awaiting_payment", changed_by=None

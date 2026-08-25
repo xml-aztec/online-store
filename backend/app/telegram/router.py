@@ -36,15 +36,17 @@ async def telegram_webhook(
         )
     elif update.message is not None and update.message.text is not None:
         text = update.message.text.strip()
+        chat_id = str(update.message.chat.id)
         if text.startswith("/start"):
             parts = text.split(maxsplit=1)
             token = parts[1] if len(parts) > 1 else None
             if token:
-                await telegram_service.handle_start(
-                    db, token=token, chat_id=str(update.message.chat.id)
-                )
-    # Anything else (plain chat messages, other commands) is silently ignored --
-    # Telegram only cares that we respond 200 promptly.
+                await telegram_service.handle_start(db, token=token, chat_id=chat_id)
+        else:
+            # Reply-keyboard button taps ("📦 Заказы" / "📊 Статистика") arrive
+            # here as plain text; handle_text_message ignores anything else,
+            # same as this branch did before the ТЗ 5.6 update.
+            await telegram_service.handle_text_message(db, chat_id=chat_id, text=text)
 
     return JSONResponse({"status": "ok"})
 

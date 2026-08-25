@@ -43,6 +43,17 @@ def inline_keyboard(rows: list[list[tuple[str, str]]]) -> dict[str, Any]:
     }
 
 
+def reply_keyboard(rows: list[list[str]]) -> dict[str, Any]:
+    """Builds a persistent Telegram ReplyKeyboardMarkup (resize_keyboard) from
+    rows of button labels -- unlike inline_keyboard above, this stays attached
+    to the chat across messages until the client explicitly clears it.
+    """
+    return {
+        "keyboard": [[{"text": label} for label in row] for row in rows],
+        "resize_keyboard": True,
+    }
+
+
 async def send_message(
     chat_id: str, text: str, *, reply_markup: dict[str, Any] | None = None
 ) -> int:
