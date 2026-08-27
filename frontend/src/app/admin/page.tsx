@@ -144,7 +144,7 @@ export default function AdminDashboardPage() {
               <Link
                 key={order.id}
                 href={`/admin/orders?order=${order.id}`}
-                className="grid grid-cols-[80px_1fr_100px_140px_60px] items-center gap-2 border-b border-surface px-4 py-2.5 text-[13px] last:border-0 hover:bg-surface"
+                className="grid grid-cols-[auto_1fr_100px_auto_60px] items-center gap-2 border-b border-surface px-4 py-2.5 text-[13px] last:border-0 hover:bg-surface"
               >
                 <span className="flex items-center gap-1.5">
                   {isRecent && (
@@ -153,7 +153,9 @@ export default function AdminDashboardPage() {
                       aria-hidden="true"
                     />
                   )}
-                  <span className="font-mono font-semibold text-ink">{order.number}</span>
+                  <span className="whitespace-nowrap font-mono font-semibold text-ink">
+                    {order.number}
+                  </span>
                 </span>
                 <span className="truncate text-ink">{order.full_name}</span>
                 <span className="text-right font-mono font-semibold text-ink">

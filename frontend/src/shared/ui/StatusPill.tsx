@@ -11,7 +11,7 @@ export function StatusPill({ status, size = "sm" }: StatusPillProps) {
 
   return (
     <span
-      className={`rounded-full border font-medium ${sizeClasses} ${orderStatusPillClass(status)}`}
+      className={`whitespace-nowrap rounded-full border font-medium ${sizeClasses} ${orderStatusPillClass(status)}`}
     >
       {ORDER_STATUS_LABELS[status] ?? status}
     </span>
