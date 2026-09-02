@@ -2,38 +2,63 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 
 import { login, register } from "@/entities/auth/api";
-import { establishSession } from "@/entities/auth/store";
+import { establishSession, useAuthStore } from "@/entities/auth/store";
 import { ApiError } from "@/shared/api/client";
+import { safeRedirectPath } from "@/shared/lib/safeRedirectPath";
 
 function RegisterForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const status = useAuthStore((state) => state.status);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [loginFailedAfterRegister, setLoginFailedAfterRegister] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Someone already signed in has no business seeing the registration form
+  // -- submitting it would silently switch their session to a brand-new
+  // account with no warning. Send them home instead (mirrors the
+  // authenticated-guard in account/layout.tsx and admin/layout.tsx).
+  useEffect(() => {
+    if (status === "authenticated") router.replace("/");
+  }, [status, router]);
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
     setError(null);
+    setLoginFailedAfterRegister(false);
     setIsSubmitting(true);
     try {
       await register(email, password, fullName);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Не удалось зарегистрироваться");
+      setIsSubmitting(false);
+      return;
+    }
+    try {
       // ТЗ 5.5: registration doesn't require email confirmation to shop --
       // log the new account in immediately rather than making them re-enter.
       const tokenResponse = await login(email, password);
       await establishSession(tokenResponse);
-      router.push(searchParams.get("redirect") ?? "/account");
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Не удалось зарегистрироваться");
-    } finally {
+      router.push(safeRedirectPath(searchParams.get("redirect"), "/"));
+    } catch {
+      // The account was already created above -- a generic "registration
+      // failed" message here would be wrong and would send a retry into
+      // EMAIL_ALREADY_REGISTERED. Point at manual login instead.
+      setLoginFailedAfterRegister(true);
       setIsSubmitting(false);
     }
   }
+
+  if (status !== "anonymous") return null;
+
+  const redirect = searchParams.get("redirect");
+  const loginHref = redirect ? `/login?redirect=${encodeURIComponent(redirect)}` : "/login";
 
   return (
     <form onSubmit={handleSubmit} className="w-full max-w-sm space-y-4">
@@ -79,6 +104,15 @@ function RegisterForm() {
         <p className="mt-1 text-xs text-ink-muted">Минимум 8 символов</p>
       </div>
       {error && <p className="text-sm text-accent-sale-700">{error}</p>}
+      {loginFailedAfterRegister && (
+        <p className="text-sm text-accent-sale-700">
+          Аккаунт создан, но не удалось войти автоматически.{" "}
+          <Link href={loginHref} className="underline">
+            Войдите вручную
+          </Link>
+          .
+        </p>
+      )}
       <button
         type="submit"
         disabled={isSubmitting}

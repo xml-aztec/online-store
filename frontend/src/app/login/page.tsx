@@ -2,19 +2,36 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 
 import { login } from "@/entities/auth/api";
 import { establishSession, useAuthStore } from "@/entities/auth/store";
 import { ApiError } from "@/shared/api/client";
+import { safeRedirectPath } from "@/shared/lib/safeRedirectPath";
+
+function defaultDestinationForRole(role: string | null): string {
+  return role === "manager" || role === "admin" ? "/admin" : "/account";
+}
 
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const status = useAuthStore((state) => state.status);
+  const role = useAuthStore((state) => state.role);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Someone already signed in has no business seeing the login form --
+  // send them to wherever they'd land after logging in (mirrors the
+  // authenticated-guard in account/layout.tsx and admin/layout.tsx).
+  useEffect(() => {
+    if (status === "authenticated") {
+      router.replace(safeRedirectPath(searchParams.get("redirect"), defaultDestinationForRole(role)));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status, role, router]);
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -23,15 +40,16 @@ function LoginForm() {
     try {
       const tokenResponse = await login(email, password);
       await establishSession(tokenResponse);
-      const role = useAuthStore.getState().role;
-      const defaultDestination = role === "manager" || role === "admin" ? "/admin" : "/account";
-      router.push(searchParams.get("redirect") ?? defaultDestination);
+      const destination = defaultDestinationForRole(useAuthStore.getState().role);
+      router.push(safeRedirectPath(searchParams.get("redirect"), destination));
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Не удалось войти");
     } finally {
       setIsSubmitting(false);
     }
   }
+
+  if (status !== "anonymous") return null;
 
   return (
     <form onSubmit={handleSubmit} className="w-full max-w-sm space-y-4">
