@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Download, Image as ImageIcon, MoreHorizontal, Search } from "lucide-react";
 
@@ -18,6 +18,7 @@ import {
 import type { AdminProductListItem } from "@/entities/product/adminApi";
 import { useToastStore } from "@/entities/toast/store";
 import { ApiError } from "@/shared/api/client";
+import { useDebouncedValue } from "@/shared/lib/useDebouncedValue";
 import { useMountTransition } from "@/shared/lib/useMountTransition";
 import { AdminPagination } from "@/shared/ui/AdminPagination";
 import { Toggle } from "@/shared/ui/Toggle";
@@ -349,20 +350,39 @@ function ProductsTable() {
   const searchParams = useSearchParams();
   const role = useAuthStore((state) => state.role);
   const [search, setSearch] = useState("");
+  const debouncedSearch = useDebouncedValue(search, 300);
   const categoryId = searchParams.get("category") ?? "";
   const openProductId = searchParams.get("product");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
-  const [page, setPage] = useState(1);
-  // Jumping back to page 1 whenever the filters actually change (not on
-  // every render) -- compares against the last-committed filter snapshot
-  // in state rather than a ref, since setState during render is only safe
-  // against other state (see useMountTransition.ts for the same pattern).
-  const [lastFilters, setLastFilters] = useState({ search, categoryId });
-  if (lastFilters.search !== search || lastFilters.categoryId !== categoryId) {
-    setLastFilters({ search, categoryId });
-    setPage(1);
+  // page lives in the URL (survives refresh/back-forward, matches Orders --
+  // see admin/orders/page.tsx) and is reset to 1 by updateParam below
+  // whenever category or debounced search change.
+  const page = Math.max(1, Number(searchParams.get("page") ?? "1") || 1);
+
+  function updateParam(updates: Record<string, string>) {
+    const params = new URLSearchParams(searchParams.toString());
+    for (const [key, value] of Object.entries(updates)) {
+      if (value) params.set(key, value);
+      else params.delete(key);
+    }
+    if (!("page" in updates)) params.delete("page");
+    router.push(`/admin/products?${params.toString()}`);
   }
+
+  // Search is debounced before it drives the query (and the page-1 reset)
+  // so typing doesn't refetch the paginated list on every keystroke. Kept
+  // out of the URL on purpose -- only committed values would belong there,
+  // and pushing on every debounce tick would still spam browser history.
+  const isFirstSearchRun = useRef(true);
+  useEffect(() => {
+    if (isFirstSearchRun.current) {
+      isFirstSearchRun.current = false;
+      return;
+    }
+    updateParam({});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedSearch]);
 
   const { data: categoriesData } = useQuery({
     queryKey: ["admin-categories"],
@@ -376,10 +396,10 @@ function ProductsTable() {
   );
 
   const { data, isLoading } = useQuery({
-    queryKey: [QUERY_KEY, search, categoryId, page],
+    queryKey: [QUERY_KEY, debouncedSearch, categoryId, page],
     queryFn: () =>
       listAdminProducts({
-        search: search || undefined,
+        search: debouncedSearch || undefined,
         categoryId: categoryId || undefined,
         page,
         pageSize: PAGE_SIZE,
@@ -388,10 +408,7 @@ function ProductsTable() {
   });
 
   function setCategoryFilter(id: string) {
-    const params = new URLSearchParams(searchParams.toString());
-    if (id) params.set("category", id);
-    else params.delete("category");
-    router.push(`/admin/products?${params.toString()}`);
+    updateParam({ category: id });
   }
 
   function openProduct(id: string) {
@@ -565,7 +582,12 @@ function ProductsTable() {
       </p>
 
       {data && (
-        <AdminPagination page={page} pageSize={data.page_size} total={data.total} onPageChange={setPage} />
+        <AdminPagination
+          page={page}
+          pageSize={data.page_size}
+          total={data.total}
+          onPageChange={(next) => updateParam({ page: String(next) })}
+        />
       )}
 
       {data && (

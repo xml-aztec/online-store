@@ -52,6 +52,12 @@ class Product(TimestampedBase):
             postgresql_using="gin",
             postgresql_ops={"name": "gin_trgm_ops"},
         ),
+        # Support the admin list's OFFSET/LIMIT pagination (sorted by
+        # created_at, optionally filtered by category/active) staying fast
+        # as the catalog grows -- see catalog_service.list_products_admin.
+        Index("ix_products_created_at", "created_at"),
+        Index("ix_products_category_id", "category_id"),
+        Index("ix_products_is_active", "is_active"),
     )
 
     category_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("categories.id"), nullable=False)

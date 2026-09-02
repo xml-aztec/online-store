@@ -15,6 +15,26 @@ export async function listAdminCategories(
   );
 }
 
+// The admin categories page renders one drag-reorderable tree rather than a
+// paged list (splitting a tree by page/page_size would separate parents
+// from their children onto different pages -- see admin/categories/page.tsx).
+// That means it needs *every* category, not just the first page, so this
+// walks the backend's page/page_size pagination internally and returns the
+// full set -- otherwise a catalog with more than one page's worth of
+// categories (page_size caps at 100 server-side) would silently lose the
+// rest.
+export async function listAllAdminCategories(): Promise<AdminCategory[]> {
+  const pageSize = 100;
+  const first = await listAdminCategories(1, pageSize);
+  const items = [...first.items];
+  const totalPages = Math.ceil(first.total / pageSize);
+  for (let page = 2; page <= totalPages; page++) {
+    const next = await listAdminCategories(page, pageSize);
+    items.push(...next.items);
+  }
+  return items;
+}
+
 export async function createAdminCategory(
   payload: AdminCategoryCreate
 ): Promise<AdminCategory> {

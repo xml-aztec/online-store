@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import CheckConstraint, DateTime, ForeignKey, text
+from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Index, text
 from sqlalchemy.dialects.postgresql import CITEXT
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -12,6 +12,10 @@ class User(TimestampedBase):
     __tablename__ = "users"
     __table_args__ = (
         CheckConstraint("role IN ('customer', 'manager', 'admin')", name="ck_users_role"),
+        # Support the admin list's OFFSET/LIMIT pagination (sorted by
+        # created_at) staying fast as the user base grows -- see
+        # auth_service.list_users_admin.
+        Index("ix_users_created_at", "created_at"),
     )
 
     email: Mapped[str] = mapped_column(CITEXT, unique=True, nullable=False)

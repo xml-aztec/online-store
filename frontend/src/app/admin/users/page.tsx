@@ -1,11 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { useAuthStore } from "@/entities/auth/store";
 import { listAdminUsers, updateAdminUser, type AdminUser } from "@/entities/user/adminApi";
 import { ApiError } from "@/shared/api/client";
+import { useDebouncedValue } from "@/shared/lib/useDebouncedValue";
 import { AdminPagination } from "@/shared/ui/AdminPagination";
 import { Toggle } from "@/shared/ui/Toggle";
 
@@ -113,20 +115,43 @@ function UsersTableSkeleton() {
   );
 }
 
-export default function AdminUsersPage() {
+function UsersTable() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const role = useAuthStore((state) => state.role);
   const myEmail = useAuthStore((state) => state.email);
   const [search, setSearch] = useState("");
-  const [page, setPage] = useState(1);
-  const [lastSearch, setLastSearch] = useState(search);
-  if (lastSearch !== search) {
-    setLastSearch(search);
-    setPage(1);
+  const debouncedSearch = useDebouncedValue(search, 300);
+
+  // page lives in the URL (survives refresh/back-forward, matches
+  // admin/orders/page.tsx) and is reset to 1 whenever search settles.
+  const page = Math.max(1, Number(searchParams.get("page") ?? "1") || 1);
+
+  function updateParam(updates: Record<string, string>) {
+    const params = new URLSearchParams(searchParams.toString());
+    for (const [key, value] of Object.entries(updates)) {
+      if (value) params.set(key, value);
+      else params.delete(key);
+    }
+    if (!("page" in updates)) params.delete("page");
+    router.push(`/admin/users?${params.toString()}`);
   }
 
+  // Search is debounced before it drives the query (and the page-1 reset)
+  // so typing doesn't refetch the paginated list on every keystroke.
+  const isFirstSearchRun = useRef(true);
+  useEffect(() => {
+    if (isFirstSearchRun.current) {
+      isFirstSearchRun.current = false;
+      return;
+    }
+    updateParam({});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedSearch]);
+
   const { data, isLoading } = useQuery({
-    queryKey: [...QUERY_KEY, search, page],
-    queryFn: () => listAdminUsers(search || undefined, page, PAGE_SIZE),
+    queryKey: [...QUERY_KEY, debouncedSearch, page],
+    queryFn: () => listAdminUsers(debouncedSearch || undefined, page, PAGE_SIZE),
     enabled: role === "admin",
   });
 
@@ -146,7 +171,10 @@ export default function AdminUsersPage() {
   return (
     <div>
       <h1 className="mb-6 text-xl font-semibold text-ink">
-        Пользователи
+        Пользователи{" "}
+        {data && (
+          <span className="font-mono text-base font-semibold text-ink-muted">{data.total}</span>
+        )}
       </h1>
       <input
         value={search}
@@ -182,9 +210,22 @@ export default function AdminUsersPage() {
 
       {data && (
         <div className="mt-4">
-          <AdminPagination page={page} pageSize={data.page_size} total={data.total} onPageChange={setPage} />
+          <AdminPagination
+            page={page}
+            pageSize={data.page_size}
+            total={data.total}
+            onPageChange={(next) => updateParam({ page: String(next) })}
+          />
         </div>
       )}
     </div>
+  );
+}
+
+export default function AdminUsersPage() {
+  return (
+    <Suspense fallback={<p className="text-ink-muted">Загрузка…</p>}>
+      <UsersTable />
+    </Suspense>
   );
 }

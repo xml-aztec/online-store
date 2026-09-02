@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ImagePlus, Plus, X } from "lucide-react";
+import { ImagePlus, Plus, Search, X } from "lucide-react";
 import Image from "next/image";
 import { useRef, useState } from "react";
 
@@ -9,7 +9,7 @@ import { useAuthStore } from "@/entities/auth/store";
 import {
   createAdminCategory,
   deleteAdminCategory,
-  listAdminCategories,
+  listAllAdminCategories,
   replaceAdminCategoryImage,
   updateAdminCategory,
   type AdminCategory,
@@ -59,6 +59,7 @@ function CategoryRow({
   onDragOver,
   onDrop,
   isDragging,
+  dragDisabled,
   onAddSubcategory,
 }: {
   category: FlatCategory;
@@ -66,6 +67,7 @@ function CategoryRow({
   onDragOver: (event: React.DragEvent) => void;
   onDrop: () => void;
   isDragging: boolean;
+  dragDisabled: boolean;
   onAddSubcategory: (parentId: string) => void;
 }) {
   const queryClient = useQueryClient();
@@ -120,7 +122,7 @@ function CategoryRow({
   return (
     <>
       <div
-        draggable={!editing}
+        draggable={!editing && !dragDisabled}
         onDragStart={onDragStart}
         onDragOver={onDragOver}
         onDrop={onDrop}
@@ -131,7 +133,8 @@ function CategoryRow({
       >
         <span
           aria-hidden="true"
-          className="cursor-grab text-[13px] tracking-[-1px] text-ink-muted/50"
+          title={dragDisabled ? "Перетаскивание недоступно во время поиска" : undefined}
+          className={`text-[13px] tracking-[-1px] ${dragDisabled ? "text-ink-muted/15" : "cursor-grab text-ink-muted/50"}`}
         >
           ⠿
         </span>
@@ -384,14 +387,16 @@ export default function AdminCategoriesPage() {
   const [dragId, setDragId] = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerParentId, setDrawerParentId] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
   // No page control here on purpose: this renders as one drag-reorderable
   // tree (flattenTree below), and paging a flat page/page_size slice would
-  // cut parents away from their children mid-tree. 100 (the backend's max
-  // page_size) is already far more than a curated category tree needs --
-  // unlike products/orders/users this list doesn't grow with store traffic.
-  const { data, isLoading } = useQuery({
+  // cut parents away from their children mid-tree. listAllAdminCategories
+  // walks the backend's page/page_size pagination internally so the tree is
+  // always complete regardless of how many categories exist; the search box
+  // below is what keeps a large tree navigable instead of page controls.
+  const { data: categories = [], isLoading, isSuccess } = useQuery({
     queryKey: QUERY_KEY,
-    queryFn: () => listAdminCategories(1, 100),
+    queryFn: listAllAdminCategories,
     enabled: role === "admin",
   });
 
@@ -420,8 +425,12 @@ export default function AdminCategoriesPage() {
     );
   }
 
-  const categories = data?.items ?? [];
   const flat = flattenTree(categories);
+  const searchQuery = search.trim().toLowerCase();
+  const isFiltering = searchQuery.length > 0;
+  const visible = isFiltering
+    ? flat.filter((category) => category.name.toLowerCase().includes(searchQuery))
+    : flat;
 
   function openCreateDrawer(parentId: string | null) {
     setDrawerParentId(parentId);
@@ -455,15 +464,38 @@ export default function AdminCategoriesPage() {
 
   return (
     <div className="flex flex-col gap-3.5">
-      <div className="flex items-center justify-between">
-        <h1 className="font-display text-[20px] font-extrabold text-ink">Категории</h1>
-        <button
-          type="button"
-          onClick={() => openCreateDrawer(null)}
-          className="rounded-lg bg-brand px-4 py-2 font-display text-[13px] font-bold text-white hover:bg-brand/90"
-        >
-          + Добавить категорию
-        </button>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="font-display text-[20px] font-extrabold text-ink">
+          Категории{" "}
+          {isSuccess && (
+            <span className="font-mono text-base font-semibold text-ink-muted">
+              {categories.length}
+            </span>
+          )}
+        </h1>
+        <div className="flex items-center gap-3">
+          <div className="relative w-[220px]">
+            <Search
+              className="pointer-events-none absolute left-3 top-1/2 h-[13px] w-[13px] -translate-y-1/2 text-ink-muted"
+              aria-hidden="true"
+              strokeWidth={2.2}
+            />
+            <input
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              type="text"
+              placeholder="Поиск по названию…"
+              className="h-9 w-full rounded-lg border border-border bg-bg pl-8 pr-3 text-xs text-ink outline-none focus:border-brand"
+            />
+          </div>
+          <button
+            type="button"
+            onClick={() => openCreateDrawer(null)}
+            className="shrink-0 rounded-lg bg-brand px-4 py-2 font-display text-[13px] font-bold text-white hover:bg-brand/90"
+          >
+            + Добавить категорию
+          </button>
+        </div>
       </div>
 
       {isLoading && (
@@ -472,14 +504,20 @@ export default function AdminCategoriesPage() {
         </div>
       )}
 
-      {data && (
+      {isSuccess && (
         <div className="grid animate-content-fade-in items-start gap-3.5" style={{ gridTemplateColumns: "640px 1fr" }}>
           <div className="overflow-hidden rounded-xl border border-border bg-bg">
-            {flat.map((category) => (
+            {isFiltering && (
+              <p className="border-b border-surface px-4 py-2 text-xs text-ink-muted">
+                Перетаскивание временно недоступно, пока активен поиск — очистите поле, чтобы менять порядок.
+              </p>
+            )}
+            {visible.map((category) => (
               <CategoryRow
                 key={category.id}
                 category={category}
                 isDragging={dragId === category.id}
+                dragDisabled={isFiltering}
                 onDragStart={() => setDragId(category.id)}
                 onDragOver={(event) => event.preventDefault()}
                 onDrop={() => handleDrop(category.id)}
@@ -488,6 +526,9 @@ export default function AdminCategoriesPage() {
             ))}
             {categories.length === 0 && (
               <p className="p-4 text-center text-ink-muted">Категорий пока нет</p>
+            )}
+            {categories.length > 0 && isFiltering && visible.length === 0 && (
+              <p className="p-4 text-center text-ink-muted">Ничего не найдено по «{search}»</p>
             )}
           </div>
 

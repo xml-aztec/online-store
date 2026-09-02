@@ -3,7 +3,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Any
 
-from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Numeric, text
+from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Index, Numeric, text
 from sqlalchemy.dialects.postgresql import CITEXT, JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -48,6 +48,11 @@ class Order(TimestampedBase):
         CheckConstraint(
             "payment_method IN ('cash_on_delivery', 'online')", name="ck_orders_payment_method"
         ),
+        # Support the admin list's OFFSET/LIMIT pagination (sorted by
+        # created_at, optionally filtered by status) staying fast as order
+        # volume grows -- see orders_service.list_orders_admin.
+        Index("ix_orders_created_at", "created_at"),
+        Index("ix_orders_status", "status"),
     )
 
     number: Mapped[str] = mapped_column(unique=True, nullable=False)
